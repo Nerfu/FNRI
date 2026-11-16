@@ -1,0 +1,30 @@
+{
+  "id": "fast-nri-v14",
+  "title": "Fast NRI 7.0",
+  "description": "Отдельная игровая система Fast NRI 7.0 для Foundry VTT 14",
+  "version": "0.1.1",
+  "compatibility": {
+    "minimum": 14,
+    "verified": 14
+  },
+  "esmodules": ["main.mjs"],
+  "styles": ["styles/fast-nri.css"],
+  "languages": [
+    {"lang": "ru", "name": "Русский", "path": "lang/ru.json"},
+    {"lang": "en", "name": "English", "path": "lang/en.json"}
+  ],
+  "documentTypes": {
+    "Actor": {
+      "character": {},
+      "npc": {}
+    },
+    "Item": {
+      "weapon": {},
+      "armor": {},
+      "gear": {},
+      "ability": {},
+      "item": {}
+    }
+  },
+  "socket": false
+}
