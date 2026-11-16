@@ -7,11 +7,23 @@
     "minimum": 14,
     "verified": 14
   },
-  "esmodules": ["main.mjs"],
-  "styles": ["styles/fast-nri.css"],
+  "esmodules": [
+    "main.mjs"
+  ],
+  "styles": [
+    "styles/fast-nri.css"
+  ],
   "languages": [
-    {"lang": "ru", "name": "Русский", "path": "lang/ru.json"},
-    {"lang": "en", "name": "English", "path": "lang/en.json"}
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/ru.json"
+    },
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
   ],
   "documentTypes": {
     "Actor": {
@@ -26,5 +38,8 @@
       "item": {}
     }
   },
-  "socket": false
+  "socket": false,
+  "url": "https://github.com/Nerfu/FNRI",
+  "manifest": "https://raw.githubusercontent.com/Nerfu/FNRI/main/system.json",
+  "download": "https://github.com/Nerfu/FNRI/releases/download/v0.1.1/fast-nri-v14.zip"
 }

@@ -1,0 +1,87 @@
+name: Package and publish Foundry system
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system.json'
+      - 'main.mjs'
+      - 'module/**'
+      - 'templates/**'
+      - 'styles/**'
+      - 'lang/**'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Validate manifest and package system-only files
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import zipfile
+
+          root = pathlib.Path(".")
+          manifest = json.loads((root / "system.json").read_text(encoding="utf-8"))
+          assert manifest["id"] == "fast-nri-v14", "Wrong system ID"
+          assert manifest.get("manifest"), "Missing manifest URL"
+          assert manifest.get("download"), "Missing download URL"
+          assert manifest["download"].endswith(
+              f"/v{manifest['version']}/fast-nri-v14.zip"
+          ), "Download URL does not match version"
+
+          files = [pathlib.Path("system.json")]
+          files += [pathlib.Path(p) for p in manifest.get("esmodules", [])]
+          files += [pathlib.Path(p) for p in manifest.get("styles", [])]
+          files += [pathlib.Path(entry["path"]) for entry in manifest.get("languages", [])]
+          for folder in ("module", "templates"):
+              files += sorted(path for path in (root / folder).rglob("*") if path.is_file())
+
+          unique = sorted(set(files))
+          for p in unique:
+              assert p.is_file(), f"Missing package file: {p}"
+              assert ".." not in p.parts and not p.is_absolute(), f"Unsafe path: {p}"
+          pathlib.Path("dist").mkdir(exist_ok=True)
+          with zipfile.ZipFile("dist/fast-nri-v14.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+              for p in unique:
+                  archive.write(p, "fast-nri-v14/" + p.as_posix())
+          with zipfile.ZipFile("dist/fast-nri-v14.zip") as archive:
+              assert archive.testzip() is None, "Invalid package ZIP"
+          print(f"Built {len(unique)} runtime files for {manifest['version']}")
+          PY
+      - name: Publish versioned release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python3 -c 'import json;print(json.load(open("system.json"))["version"])')"
+          tag="v${version}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; refusing to overwrite existing published files."
+            exit 0
+          fi
+          cat > release-notes.md <<'EOF'
+          Fast NRI 7.0 — Foundry VTT 14, этап 1 (тестовая сборка).
+
+          - Типы Actor: character, npc.
+          - Типы Item: weapon, armor, gear, ability; старый item сохранён.
+          - Редактируемые базовые листы, русская и английская локализации.
+          - Боевая автоматизация и импорт контента пока не реализованы.
+          - Не проверено на реальном сервере Foundry; рекомендуется тестовый мир.
+
+          Для установки: вставьте ссылку на system.json из главной ветки в поле Manifest URL.
+          EOF
+          gh release create "$tag" dist/fast-nri-v14.zip \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Fast NRI 7.0 — $tag (Foundry 14)" \
+            --notes-file release-notes.md --prerelease
