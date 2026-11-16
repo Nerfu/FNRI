@@ -67,7 +67,7 @@ for(const cls of [FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet]){
 assert.equal(FastNRICharacterSheet.DEFAULT_OPTIONS.form.submitOnChange,false,'single Actor save path');
 assert.equal(FastNRIItemSheet.DEFAULT_OPTIONS.form.submitOnChange,true,'Item forms still use core submission');
 const actions=FastNRICharacterSheet.DEFAULT_OPTIONS.actions;
-for(const a of ['tab','openItem','createItem','deleteItem','addSkill','addSpecialization','removeSkill','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'])assert.equal(typeof actions[a],'function',a);
+for(const a of ['fnriSwitchTab','openItem','createItem','deleteItem','addSkill','addSpecialization','removeSkill','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'])assert.equal(typeof actions[a],'function',a);
 
 function actorFactory(){
  const items=[];let itemCounter=2;
@@ -202,12 +202,13 @@ assert.equal(actor.system.hp.current,0);
 hp.value='';hp.fireChange();await sheet._flushWrites();
 assert.equal(actor.system.hp.current,null);
 
-// Invalid field blocks tab switch so the user's input isn't erased.
+// Tab navigation is independent of form validation and never re-renders:
+// even invalid/unsaved input remains in the same DOM for manual correction.
 value.value='no';value.fireChange();await sheet._flushWrites();
-await actions.tab.call(sheet,null,{dataset:{tab:'skills'}});
-assert.equal(sheet._selectedTab,'overview');
-value.value='7';value.fireChange();await actions.tab.call(sheet,null,{dataset:{tab:'skills'}});
+await actions.fnriSwitchTab.call(sheet,null,{dataset:{fnriTarget:'skills'}});
 assert.equal(sheet._selectedTab,'skills');
+assert.equal(sheet.renders,0,'navigation must never re-render the form');
+value.value='7';value.fireChange();await sheet._flushWrites();
 assert.equal(actor.system.skills.beta.value,7);
 
 // Arbitrarily many entries; specialized rows use the same addressable collection.
@@ -275,7 +276,7 @@ const clearExtra=makeControl({dataset:{rowCollection:'equipmentSlots',rowId:slot
 await attachControls(sheet,[clearExtra]);clearExtra.fireChange();await sheet._flushWrites();
 assert.equal(actor.system.equipmentSlots[slotId].itemId,'');
 
-// A failed save must not discard the user's current input by switching tabs.
+// Failed saves must not obstruct navigation or discard unsaved input.
 let simulateSaveFailure = true;
 const originalConsoleError=console.error;
 let expectedSaveErrorLogged=0;
@@ -296,17 +297,17 @@ succeedingInput.fireChange();
 await sheet._flushWrites();
 assert.equal(actor.system.hp.current,27);
 assert.ok(sheet._failedFields.has('system.wealth'));
-const tabBeforeFailure=sheet._selectedTab;
-await actions.tab.call(sheet,null,{dataset:{tab:'inventory'}});
-assert.equal(sheet._selectedTab,tabBeforeFailure,'failed save must block a rerender');
+await actions.fnriSwitchTab.call(sheet,null,{dataset:{fnriTarget:'inventory'}});
+assert.equal(sheet._selectedTab,'inventory','failed save must NOT block tab navigation');
+assert.equal(sheet.renders,0,'failed save must not cause a tab re-render');
 assert.ok(errors>0,'save failure must be visible to user');
 assert.ok(expectedSaveErrorLogged>0,'failed update must be logged for diagnosis');
 simulateSaveFailure=false;
 failingInput.value='corrected value';failingInput.fireChange();await sheet._flushWrites();
 assert.equal(actor.system.wealth,'corrected value');
 assert.equal(sheet._failedFields.size,0);
-await actions.tab.call(sheet,null,{dataset:{tab:'inventory'}});
-assert.equal(sheet._selectedTab,'inventory','successful correction must unlock switching tabs');
+await actions.fnriSwitchTab.call(sheet,null,{dataset:{fnriTarget:'abilities'}});
+assert.equal(sheet._selectedTab,'abilities','tab navigation remains available after correction');
 actor.update=originalActorUpdate;
 console.error=originalConsoleError;
 errors=0;
@@ -331,7 +332,8 @@ for(const path of ['templates/character.hbs','templates/npc.hbs']){
  assert.ok(html.indexOf('name="system.hp.current"')<html.indexOf('fnri-tabs'));
  assert.ok(html.indexOf('name="system.defenses.awareness"')<html.indexOf('fnri-tabs'));
  assert.equal(html.match(/name="system.hp.current"/g).length,1);
- assert.equal(html.match(/data-action="tab"/g).length,5);
+ assert.equal(html.match(/data-action="fnriSwitchTab"/g).length,5);
+ assert.equal(html.match(/data-fnri-panel=/g).length,5);
  assert.equal(html.match(/fnri-tab-content"/g).length,5);
  assert.ok(html.includes('missingEquipment.rightHand'));
  assert.ok(html.includes('name="system.wealth"'));

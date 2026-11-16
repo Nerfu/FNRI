@@ -3,13 +3,13 @@
 {{#each resourceRows}}<span class="fnri-resource-chip"><strong>{{this.name}}</strong>: {{this.current}} / {{this.max}}</span>{{/each}}
 </div></div>
 <nav class="fnri-tabs" aria-label="{{localize 'FASTNRI.Sections.tabs'}}">
-<button type="button" data-action="tab" data-tab="overview" class="fnri-tab {{#if tabs.overview}}active{{/if}}" {{#if tabs.overview}}aria-current="page"{{/if}}>{{localize "FASTNRI.Tabs.overview"}}</button>
-<button type="button" data-action="tab" data-tab="skills" class="fnri-tab {{#if tabs.skills}}active{{/if}}" {{#if tabs.skills}}aria-current="page"{{/if}}>{{localize "FASTNRI.Tabs.skills"}}</button>
-<button type="button" data-action="tab" data-tab="abilities" class="fnri-tab {{#if tabs.abilities}}active{{/if}}" {{#if tabs.abilities}}aria-current="page"{{/if}}>{{localize "FASTNRI.Tabs.abilities"}}</button>
-<button type="button" data-action="tab" data-tab="inventory" class="fnri-tab {{#if tabs.inventory}}active{{/if}}" {{#if tabs.inventory}}aria-current="page"{{/if}}>{{localize "FASTNRI.Tabs.inventory"}}</button>
-<button type="button" data-action="tab" data-tab="description" class="fnri-tab {{#if tabs.description}}active{{/if}}" {{#if tabs.description}}aria-current="page"{{/if}}>{{localize "FASTNRI.Tabs.description"}}</button>
+<button type="button" data-action="fnriSwitchTab" data-fnri-target="overview" class="fnri-tab {{#if tabs.overview}}active{{/if}}" {{#if tabs.overview}}aria-current="page"{{/if}}>{{localize "FASTNRI.Tabs.overview"}}</button>
+<button type="button" data-action="fnriSwitchTab" data-fnri-target="skills" class="fnri-tab {{#if tabs.skills}}active{{/if}}" {{#if tabs.skills}}aria-current="page"{{/if}}>{{localize "FASTNRI.Tabs.skills"}}</button>
+<button type="button" data-action="fnriSwitchTab" data-fnri-target="abilities" class="fnri-tab {{#if tabs.abilities}}active{{/if}}" {{#if tabs.abilities}}aria-current="page"{{/if}}>{{localize "FASTNRI.Tabs.abilities"}}</button>
+<button type="button" data-action="fnriSwitchTab" data-fnri-target="inventory" class="fnri-tab {{#if tabs.inventory}}active{{/if}}" {{#if tabs.inventory}}aria-current="page"{{/if}}>{{localize "FASTNRI.Tabs.inventory"}}</button>
+<button type="button" data-action="fnriSwitchTab" data-fnri-target="description" class="fnri-tab {{#if tabs.description}}active{{/if}}" {{#if tabs.description}}aria-current="page"{{/if}}>{{localize "FASTNRI.Tabs.description"}}</button>
 </nav>
-<div class="fnri-tab-content" {{#unless tabs.overview}}hidden{{/unless}}><section class="fnri-panel"><div class="fnri-row-head"><h3>{{localize "FASTNRI.Sections.resources"}}</h3>
+<div class="fnri-tab-content" data-fnri-panel="overview" {{#unless tabs.overview}}hidden{{/unless}}><section class="fnri-panel"><div class="fnri-row-head"><h3>{{localize "FASTNRI.Sections.resources"}}</h3>
     {{#if editable}}<button type="button" data-action="addResource">{{localize "FASTNRI.Actions.addResource"}}</button>{{/if}}</div>
     <div class="fnri-stack">{{#each resourceRows}}
       <div class="fnri-entry fnri-resource-row">
@@ -19,7 +19,7 @@
         {{#if @root.editable}}<button type="button" data-action="removeResource" data-id="{{this.id}}" title="{{localize 'FASTNRI.Actions.removeResource'}}"><i class="fa-solid fa-trash"></i></button>{{/if}}
       </div>
     {{else}}<p class="fnri-muted">{{localize "FASTNRI.Hints.noResources"}}</p>{{/each}}</div></section><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.wealth"}}</h3><div class="fnri-grid-2"><label>{{localize "FASTNRI.Fields.wealth"}}<input type="text" name="system.wealth" value="{{system.wealth}}" {{#unless editable}}disabled{{/unless}}></label></div><p class="fnri-muted">{{localize "FASTNRI.Hints.wealthManual"}}</p></section></div>
-<div class="fnri-tab-content" {{#unless tabs.skills}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.skills"}}</h3><div class="fnri-row-head"><span class="fnri-muted">{{localize "FASTNRI.Hints.customSkills"}}</span>
+<div class="fnri-tab-content" data-fnri-panel="skills" {{#unless tabs.skills}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.skills"}}</h3><div class="fnri-row-head"><span class="fnri-muted">{{localize "FASTNRI.Hints.customSkills"}}</span>
 {{#if editable}}<div class="fnri-actions"><button type="button" data-action="addSkill">{{localize "FASTNRI.Actions.addSkill"}}</button><button type="button" data-action="addSpecialization">{{localize "FASTNRI.Actions.addSpecialization"}}</button></div>{{/if}}</div>
 <div class="fnri-stack">{{#each skillRows}}
 <div class="fnri-entry fnri-skill-row">
@@ -30,7 +30,7 @@
   {{#if this.hasLegacyValue}}<label class="fnri-legacy-field">{{localize "FASTNRI.Fields.legacySkillValue"}}<input type="text" class="fnri-number" inputmode="decimal" data-row-collection="skills" data-row-id="{{this.id}}" data-row-field="value" value="{{this.value}}" {{#unless @root.editable}}disabled{{/unless}}></label>{{/if}}
 </div>
 {{else}}<p class="fnri-muted">{{localize "FASTNRI.Hints.noSkills"}}</p>{{/each}}</div></section></div>
-<div class="fnri-tab-content" {{#unless tabs.abilities}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.abilities"}}</h3><div class="fnri-row-head"><p class="fnri-muted">{{localize "FASTNRI.Hints.dropItems"}}</p>
+<div class="fnri-tab-content" data-fnri-panel="abilities" {{#unless tabs.abilities}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.abilities"}}</h3><div class="fnri-row-head"><p class="fnri-muted">{{localize "FASTNRI.Hints.dropItems"}}</p>
 {{#if editable}}<button type="button" data-action="createItem" data-type="ability">{{localize "FASTNRI.Actions.createAbility"}}</button>{{/if}}</div><ul class="fnri-item-list">
 {{#each abilityItems}}
   <li data-item-id="{{this.id}}" class="fnri-item-row">
@@ -44,7 +44,7 @@
 <li class="fnri-empty">{{localize "FASTNRI.Hints.noItems"}}</li>
 {{/each}}
 </ul></section></div>
-<div class="fnri-tab-content" {{#unless tabs.inventory}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.equipment"}}</h3><div class="fnri-grid-3">
+<div class="fnri-tab-content" data-fnri-panel="inventory" {{#unless tabs.inventory}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.equipment"}}</h3><div class="fnri-grid-3">
     <label>{{localize "FASTNRI.Fields.leftHand"}}<select name="system.equipment.leftHand" {{#unless editable}}disabled{{/unless}}><option value="">—</option>{{#if missingEquipment.leftHand}}<option value="{{system.equipment.leftHand}}" selected>{{localize "FASTNRI.Hints.missingItem"}} ({{system.equipment.leftHand}})</option>{{/if}}{{#each handChoices}}<option value="{{this.id}}" {{#if this.selectedLeft}}selected{{/if}}>{{this.name}}</option>{{/each}}</select></label>
     <label>{{localize "FASTNRI.Fields.rightHand"}}<select name="system.equipment.rightHand" {{#unless editable}}disabled{{/unless}}><option value="">—</option>{{#if missingEquipment.rightHand}}<option value="{{system.equipment.rightHand}}" selected>{{localize "FASTNRI.Hints.missingItem"}} ({{system.equipment.rightHand}})</option>{{/if}}{{#each handChoices}}<option value="{{this.id}}" {{#if this.selectedRight}}selected{{/if}}>{{this.name}}</option>{{/each}}</select></label>
     <label>{{localize "FASTNRI.Fields.armorSlot"}}<select name="system.equipment.armor" {{#unless editable}}disabled{{/unless}}><option value="">—</option>{{#if missingEquipment.armor}}<option value="{{system.equipment.armor}}" selected>{{localize "FASTNRI.Hints.missingItem"}} ({{system.equipment.armor}})</option>{{/if}}{{#each armorChoices}}<option value="{{this.id}}" {{#if this.selectedArmor}}selected{{/if}}>{{this.name}}</option>{{/each}}</select></label>
@@ -72,5 +72,5 @@
 <li class="fnri-empty">{{localize "FASTNRI.Hints.noItems"}}</li>
 {{/each}}
 </ul></section></div>
-<div class="fnri-tab-content" {{#unless tabs.description}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.description"}}</h3><textarea name="system.description" rows="7" {{#unless editable}}disabled{{/unless}}>{{system.description}}</textarea></section><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.notes"}}</h3><textarea name="system.notes" rows="6" {{#unless editable}}disabled{{/unless}}>{{system.notes}}</textarea></section></div>
+<div class="fnri-tab-content" data-fnri-panel="description" {{#unless tabs.description}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.description"}}</h3><textarea name="system.description" rows="7" {{#unless editable}}disabled{{/unless}}>{{system.description}}</textarea></section><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.notes"}}</h3><textarea name="system.notes" rows="6" {{#unless editable}}disabled{{/unless}}>{{system.notes}}</textarea></section></div>
 </section>

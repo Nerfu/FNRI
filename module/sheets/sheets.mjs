@@ -53,7 +53,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     // submit-on-change would otherwise compete with row updates.
     form: { submitOnChange: false, closeOnSubmit: false },
     actions: {
-      tab: ActorBase.changeTab,
+      fnriSwitchTab: ActorBase.changeTab,
       openItem: ActorBase.openItem,
       createItem: ActorBase.createItem,
       deleteItem: ActorBase.deleteItem,
@@ -98,15 +98,29 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     return this._failedFields.size === 0;
   }
 
-  static async changeTab(_event, button) {
-    const tab = button.dataset.tab;
+  /** Switch visible panels in place, without saving or re-rendering the
+   * document. Navigation must work even if an unrelated field failed to save
+   * or currently has invalid input. Keeping the same DOM preserves that input
+   * for correction, rather than silently losing it on a full re-render.
+   *
+   * Use system-specific data attributes and action name to avoid conflicting
+   * with ApplicationV2's own built-in tab navigation conventions.
+   */
+  static changeTab(_event, button) {
+    const tab = button.dataset.fnriTarget;
     if (!TAB_IDS.has(tab)) return;
-    if (!await this._flushWrites()) return;
-    // Preserve invalid input instead of losing it when switching tabs.
-    const invalid = this.element?.querySelector?.("input:invalid,textarea:invalid");
-    if (invalid) return invalid.reportValidity?.();
     this._selectedTab = tab;
-    await this.render({ force: true });
+    const root = this.element;
+    if (!root) return;
+    for (const nav of root.querySelectorAll(".fnri-tabs [data-fnri-target]")) {
+      const selected = nav.dataset.fnriTarget === tab;
+      nav.classList.toggle("active", selected);
+      if (selected) nav.setAttribute("aria-current", "page");
+      else nav.removeAttribute("aria-current");
+    }
+    for (const panel of root.querySelectorAll("[data-fnri-panel]")) {
+      panel.hidden = panel.dataset.fnriPanel !== tab;
+    }
   }
 
   static async openItem(_event, button) {

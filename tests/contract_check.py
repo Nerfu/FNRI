@@ -37,7 +37,10 @@ for hbs in (root/'templates').glob('*.hbs'):
     assert 'name="' in src and 'fnri-body' in src
 for name in ('character','npc'):
     src=(root/'templates'/f'{name}.hbs').read_text()
-    assert src.count('data-action="tab"')==5
+    assert src.count('data-action="fnriSwitchTab"')==5
+    assert src.count('data-fnri-target=')==5
+    assert src.count('data-fnri-panel=')==5
+    assert 'data-action="tab"' not in src
     assert src.count('fnri-tab-content')==5
     assert 'data-action="createItem"' in src
     assert 'name="system.equipment.leftHand"' in src
@@ -73,6 +76,7 @@ assert 'submitOnChange: false' in sheets
 assert 'globalThis._del' in sheets
 assert 'NUMERIC_ROW_FIELDS' in sheets
 assert 'addSpecialization' in sheets and 'addEquipmentSlot' in sheets
+assert 'this.render({ force: true })' not in sheets and 'fnriSwitchTab: ActorBase.changeTab' in sheets
 assert 'items.filter(i => ["weapon", "gear", "item"]' not in sheets
 files=[root/'system.json']
 files.extend(root/p for p in manifest['esmodules']+manifest['styles'])
