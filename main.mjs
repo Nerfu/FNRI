@@ -1,37 +1,88 @@
 /**
- * Fast NRI 7.0 — Foundry VTT 14 system entry point.
- * Stage 1: data models and minimal sheets. No rules are automated yet.
+ * Fast NRI 7.0 — Foundry VTT v14 system initialization.
+ * The subtype data models and sheets are registered during the init hook.
+ * No combat rules or character data are changed by this release.
  */
-import { CharacterModel, NPCModel, WeaponModel, ArmorModel, GearModel, AbilityModel, LegacyItemModel } from "./module/data/models.mjs";
-import { FastNRICharacterSheet, FastNRINPCSheet, FastNRIItemSheet } from "./module/sheets/sheets.mjs";
+import {
+  CharacterModel, NPCModel, WeaponModel, ArmorModel,
+  GearModel, AbilityModel, LegacyItemModel
+} from "./module/data/models.mjs";
+import {
+  FastNRICharacterSheet, FastNRINPCSheet, FastNRIItemSheet
+} from "./module/sheets/sheets.mjs";
+
+const SYSTEM_ID = "fast-nri-v14";
 
 Hooks.once("init", () => {
-  CONFIG.Actor.dataModels = { ...(CONFIG.Actor.dataModels ?? {}),
+  CONFIG.Actor.dataModels = {
+    ...(CONFIG.Actor.dataModels ?? {}),
     character: CharacterModel,
     npc: NPCModel
   };
-  CONFIG.Item.dataModels = { ...(CONFIG.Item.dataModels ?? {}),
+  CONFIG.Item.dataModels = {
+    ...(CONFIG.Item.dataModels ?? {}),
     weapon: WeaponModel,
     armor: ArmorModel,
     gear: GearModel,
     ability: AbilityModel,
-    // Internal compatibility for documents originating in starter 0.1.0.
+    // Preserve the 0.1.0 subtype; never migrate existing documents silently.
     item: LegacyItemModel
   };
 
   const { DocumentSheetConfig } = foundry.applications.apps;
   const { Actor, Item } = foundry.documents;
-  const namespace = game.system.id;
-  DocumentSheetConfig.registerSheet(Actor, namespace, FastNRICharacterSheet, {
-    types: ["character"], makeDefault: true, label: "FASTNRI.Sheets.character"
+
+  // Register a default for ALL supported Actor types. A generic registration
+  // does not depend on the engine enumerating a particular subtype yet.
+  // The NPC-specific registration then overrides the generic Actor default.
+  DocumentSheetConfig.registerSheet(Actor, SYSTEM_ID, FastNRICharacterSheet, {
+    makeDefault: true,
+    label: "FASTNRI.Sheets.character"
   });
-  DocumentSheetConfig.registerSheet(Actor, namespace, FastNRINPCSheet, {
-    types: ["npc"], makeDefault: true, label: "FASTNRI.Sheets.npc"
+  DocumentSheetConfig.registerSheet(Actor, SYSTEM_ID, FastNRINPCSheet, {
+    types: ["npc"],
+    makeDefault: true,
+    label: "FASTNRI.Sheets.npc"
   });
-  DocumentSheetConfig.registerSheet(Item, namespace, FastNRIItemSheet, {
-    types: ["weapon", "armor", "gear", "ability", "item"],
-    makeDefault: true, label: "FASTNRI.Sheets.item"
+  DocumentSheetConfig.registerSheet(Item, SYSTEM_ID, FastNRIItemSheet, {
+    makeDefault: true,
+    label: "FASTNRI.Sheets.item"
   });
 
-  console.info("Fast NRI 7.0 | Stage 1 initialized (Foundry v14)");
+  console.info("Fast NRI 7.0 | v0.1.3: data models and sheet registrations queued");
+});
+
+/**
+ * Read-only post-startup diagnostics. Sheet registrations are applied by
+ * Foundry after init; we inspect the public API only after ready.
+ */
+Hooks.once("ready", () => {
+  if (!game.user?.isGM) return;
+  try {
+    const api = foundry.applications.apps.DocumentSheetConfig;
+    const types = [
+      ["Actor", "character", "FastNRICharacterSheet"],
+      ["Actor", "npc", "FastNRINPCSheet"],
+      ["Item", "weapon", "FastNRIItemSheet"],
+      ["Item", "ability", "FastNRIItemSheet"]
+    ];
+    const report = types.map(([documentName, subtype, expected]) => {
+      const result = api.getSheetClassesForSubType(documentName, subtype);
+      const registered = Object.keys(result.sheetClasses ?? {});
+      return {
+        documentName, subtype, expected, registered,
+        defaultClass: result.defaultClass,
+        present: registered.some(id => id.includes(expected))
+      };
+    });
+    console.info("Fast NRI 7.0 | sheet registration report", report);
+    const missing = report.filter(x => !x.present);
+    if (missing.length) {
+      const details = missing.map(x => x.documentName + ":" + x.subtype).join(", ");
+      ui.notifications?.warn("Fast NRI 0.1.3: некоторые листы не зарегистрированы (" + details + "). Сообщите об этом разработчику.");
+    }
+  } catch (error) {
+    console.error("Fast NRI 7.0 | sheet diagnostics failed", error);
+    ui.notifications?.warn("Fast NRI 0.1.3: не удалось проверить регистрацию листов. Подробности в консоли Foundry.");
+  }
 });

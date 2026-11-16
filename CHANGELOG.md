@@ -1,5 +1,13 @@
 # Fast NRI Foundry System — Code Changelog
 
+## 0.1.3 — Sheet registration diagnostics (2026-11-16)
+
+- Register the generic Actor sheet and Item sheet without subtype restrictions; NPC receives a specific default sheet.
+- Use an explicit system package type in the manifest.
+- Report missing sheet registrations to the GM after Foundry initializes its sheet registry.
+- Add executable bootstrap smoke tests to the GitHub release workflow.
+- No gameplay rules or Actor/Item schema changes. Still requires validation in a real Foundry v14 world.
+
 ## 0.1.2 — Foundry v14 sheet hotfix (2026-11-16)
 
 - Initialize TypeDataModel registries safely before registering the document sheets.
