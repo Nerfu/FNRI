@@ -86,7 +86,7 @@ assert.ok(styles.includes("input.fnri-number"),"No scoped numeric input styling"
 // The Actor and Item sheets share the same ApplicationV2 scroll layout.
 assert.ok(styles.includes("FNRI 0.1.5: ApplicationV2 single scroll container"));
 assert.ok(styles.includes(".application.fast-nri-v14.fast-nri-sheet .window-content"));
-assert.match(styles, /overflow-y:\\s*auto\\s*!important/);
-assert.match(styles, /height:\\s*auto\\s*!important/);
+assert.match(styles, /overflow-y:\s*auto\s*!important/);
+assert.match(styles, /height:\s*auto\s*!important/);
 assert.ok(styles.includes("padding-bottom: 36px"));
 console.log("Bootstrap smoke test PASS: models, sheet registration, form roots and assets.");
