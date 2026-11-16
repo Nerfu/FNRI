@@ -1,5 +1,14 @@
 # Fast NRI Foundry System — Code Changelog
 
+## 0.1.5 — Scrolling for Actor and Item sheets (2026-11-16)
+
+- Fix clipped Character and NPC sheets: make the Foundry v14 `window-content` the only scroll container.
+- Apply the same layout to Item sheets, including long descriptions.
+- Keep the Handlebars body at natural height, with enough bottom padding to reach the Notes section.
+- Preserve all document data, game mechanics, and the established TypeDataModel schema.
+- Add static smoke checks for scroll rules. Visual behavior still needs testing in Foundry v14.
+
+
 ## 0.1.4 — Numeric input display hotfix (2026-11-16)
 
 - Render numeric Actor/Item fields as text inputs with `data-dtype="Number"`, supported by Foundry's form handling, to avoid blank controls on the v14 sheet.

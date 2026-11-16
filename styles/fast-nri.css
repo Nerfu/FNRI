@@ -48,3 +48,40 @@
   outline: 1px solid var(--color-border-highlight, #d3b680);
   outline-offset: 1px;
 }
+
+
+/* FNRI 0.1.5: ApplicationV2 single scroll container
+ * Same technical pattern validated in the previous Foundry v14 system.
+ * Foundry's window header stays fixed; the content is the sole scroller.
+ * Applies to Character, NPC and Item sheets (shared application classes).
+ */
+.application.fast-nri-v14.fast-nri-sheet .window-content,
+.fast-nri-v14.fast-nri-sheet .window-content {
+  display: block !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* The Handlebars body must have natural height. Avoid a nested/fixed-height
+ * scroller that can clip HP, defenses, notes, or long item descriptions.
+ */
+.application.fast-nri-v14.fast-nri-sheet .window-content > .fnri-body,
+.fast-nri-v14.fast-nri-sheet .window-content > .fnri-body,
+.fast-nri-v14.fast-nri-sheet .fnri-body {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: auto !important;
+  max-height: none !important;
+  min-height: max-content !important;
+  overflow: visible !important;
+  padding-bottom: 36px;
+}
+
+.application.fast-nri-v14.fast-nri-sheet {
+  min-height: 0;
+}
