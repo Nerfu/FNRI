@@ -110,3 +110,4 @@ export class LegacyItemModel extends T {
     return { notes: text(), description: text(), tags: text(),
       mechanics: new F.ObjectField({required: false, initial: () => ({})}) };
   }
+}

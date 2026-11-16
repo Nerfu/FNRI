@@ -1,6 +1,9 @@
 # Fast NRI Foundry System — Code Changelog
 
-## 0.1.3 — Sheet registration diagnostics (2026-11-16)
+## 0.1.3 — Bootstrap syntax and sheet hotfix (2026-11-16)
+
+- Fix the confirmed startup-blocking SyntaxError: missing closing brace in LegacyItemModel (module/data/models.mjs).
+- Add mandatory JavaScript syntax checks before packaging GitHub releases.
 
 - Register the generic Actor sheet and Item sheet without subtype restrictions; NPC receives a specific default sheet.
 - Use an explicit system package type in the manifest.
