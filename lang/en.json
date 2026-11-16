@@ -51,7 +51,21 @@
       "trigger": "Trigger",
       "frequency": "Frequency",
       "effect": "Effect",
-      "tags": "Properties"
+      "tags": "Properties",
+      "leftHand": "Left hand",
+      "rightHand": "Right hand",
+      "armorSlot": "Worn armor",
+      "current": "Current",
+      "max": "Maximum",
+      "value": "Value",
+      "wealth": "Wealth",
+      "checkKind": "Category",
+      "skill": "Skill",
+      "specialization": "Specialization",
+      "dice": "Dice / formula",
+      "slotName": "Slot name",
+      "slotItem": "Assigned item",
+      "legacySkillValue": "Legacy numeric value (preserved, not converted)"
     },
     "Sections": {
       "parameters": "Statistics",
@@ -60,17 +74,51 @@
       "items": "Items and Abilities",
       "notes": "Notes",
       "properties": "Card Fields",
-      "description": "Description"
+      "description": "Description",
+      "tabs": "Sheet tabs",
+      "resources": "Resources",
+      "skills": "Skills",
+      "abilities": "Abilities",
+      "equipment": "Equipment",
+      "inventory": "Inventory",
+      "wealth": "Wealth",
+      "extraEquipment": "Additional slots"
     },
     "Hints": {
       "dropItems": "Drag an item or ability from the Foundry directory or Compendium into this area.",
       "noItems": "No embedded cards yet",
       "damagePending": "Damage profiles will be added once the current Rulebook is verified.",
       "deprecated": "Deprecated — informational only; this card is not disabled.",
-      "legacy": "Older item subtype from starter 0.1.0. Data is preserved; no automatic conversion was performed."
+      "legacy": "Older item subtype from starter 0.1.0. Data is preserved; no automatic conversion was performed.",
+      "customSkills": "Add as many skills and specializations as needed; dice formulas are fully editable.",
+      "noSkills": "No skills yet",
+      "noResources": "No resources yet",
+      "equipmentManual": "Any embedded item can be assigned to any slot. Assignments grant no automatic bonuses.",
+      "confirmDelete": "Delete this embedded item from the actor? The source directory item will not be deleted.",
+      "wealthManual": "Edited manually; no currency conversion is performed.",
+      "missingItem": "Missing or unavailable item",
+      "clearMissingEquipment": "An equipped item is missing. Select “—” or another item to clear the reference.",
+      "invalidNumber": "Enter a valid number (decimal dot or comma).",
+      "saveFailed": "Changes were not saved. Retry or check your ownership permissions."
     },
     "Actions": {
-      "openItem": "Open card"
+      "openItem": "Open card",
+      "addSkill": "Add skill",
+      "removeSkill": "Remove skill",
+      "addResource": "Add resource",
+      "removeResource": "Remove resource",
+      "createAbility": "Create ability",
+      "deleteItem": "Delete item",
+      "addSpecialization": "Add specialization",
+      "addEquipmentSlot": "Add slot",
+      "removeEquipmentSlot": "Remove slot"
+    },
+    "Tabs": {
+      "overview": "Overview",
+      "skills": "Skills",
+      "abilities": "Abilities",
+      "inventory": "Inventory",
+      "description": "Description"
     }
   }
 }

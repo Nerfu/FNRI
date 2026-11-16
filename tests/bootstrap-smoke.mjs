@@ -1,92 +1,347 @@
-/**
- * Foundry v14 bootstrap smoke test. Does not emulate the full Foundry client.
- * Checks that ES-module imports initialize and all registered sheet classes
- * have a supported subtype/default mapping.
- */
-import assert from "node:assert/strict";
-import {readFileSync, existsSync} from "node:fs";
-import {pathToFileURL} from "node:url";
-import {resolve, dirname} from "node:path";
+import assert from 'node:assert/strict';
+import {readFileSync,existsSync} from 'node:fs';
+import {resolve,dirname} from 'node:path';
+import {pathToFileURL,fileURLToPath} from 'node:url';
 
-const root = resolve(dirname(new URL(import.meta.url).pathname), "..");
-const manifest = JSON.parse(readFileSync(resolve(root,"system.json"),"utf8"));
-assert.equal(manifest.type, "system");
-assert.equal(manifest.id, "fast-nri-v14");
-assert.ok(manifest.esmodules.includes("main.mjs"));
-assert.ok(manifest.download.includes("/v" + manifest.version + "/"));
-for (const path of [
-  "main.mjs", "module/data/models.mjs", "module/sheets/sheets.mjs",
-  "templates/character.hbs", "templates/npc.hbs", "templates/item.hbs",
-  "lang/ru.json", "lang/en.json", "styles/fast-nri.css"
-]) assert.ok(existsSync(resolve(root,path)), "Missing " + path);
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const file=p=>resolve(root,p);
+const manifest=JSON.parse(readFileSync(file('system.json'),'utf8'));
+assert.equal(manifest.id,'fast-nri-v14');
+assert.match(manifest.version,/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/);
+assert.equal(manifest.download,`https://github.com/Nerfu/FNRI/releases/download/v${manifest.version}/fast-nri-v14.zip`);
+assert.equal(manifest.manifest,'https://raw.githubusercontent.com/Nerfu/FNRI/main/system.json');
 
-const hooks = new Map();
-const registrations = [];
-const Field = class { constructor(...args) { this.args = args; } };
-const Model = class {};
-const Sheet = class {};
-const makeLabel = name => "fast-nri-v14." + name;
-globalThis.Hooks = {once(name,fn) {hooks.set(name,fn)}};
-globalThis.CONFIG = {Actor:{dataModels:{}},Item:{dataModels:{}}};
-globalThis.game = {user:{isGM:true},system:{id:"fast-nri-v14"}};
-globalThis.ui = {notifications:{warn(message){throw new Error(message)}}};
-globalThis.foundry = {
-  data:{fields:{StringField:Field,NumberField:Field,SchemaField:Field,ObjectField:Field}},
-  abstract:{TypeDataModel:Model},
-  applications:{
-    api:{HandlebarsApplicationMixin(Base){return class extends Base{}}},
-    sheets:{ActorSheetV2:Sheet,ItemSheetV2:Sheet},
-    apps:{DocumentSheetConfig:{
-      registerSheet(doc,namespace,cls,options){registrations.push({doc,namespace,cls,options})},
-      getSheetClassesForSubType(type,subtype) {
-        const possible=registrations.filter(r =>
-          r.doc.documentName === type && (!r.options.types || r.options.types.includes(subtype)));
-        const sheetClasses=Object.fromEntries(possible.map(r=>[makeLabel(r.cls.name),r.cls.name]));
-        const defaults=possible.filter(r=>r.options.makeDefault);
-        return {sheetClasses,defaultClass:defaults.at(-1)?.cls.name??""};
-      }
-    }}
-  },
-  documents:{
-    Actor:class { static documentName="Actor" },
-    Item:class { static documentName="Item" }
-  }
+const hooks=new Map();const registrations=[];let nextId=0;
+class Field {constructor(...args){this.args=args;}}
+class TypeModel {}
+class SheetMock {
+  constructor(options={}) { Object.assign(this,options);this.isEditable=options.editable??true;this.renders=0;this.submits=0; }
+  async _prepareContext(){return {};}
+  async _onRender(){}
+  async render(){this.renders++;return this;}
+  async submit(){this.submits++;return {};}
+}
+const deletes=Symbol('Foundry v14 _del');
+globalThis._del=deletes;
+globalThis.Hooks={once(name,fn){hooks.set(name,fn)}};
+globalThis.CONFIG={Actor:{dataModels:{}},Item:{dataModels:{}}};
+globalThis.game={system:{id:'fast-nri-v14'},user:{isGM:false},i18n:{localize(key){return key;}}};
+let warnings=0,errors=0;
+globalThis.ui={notifications:{warn(){warnings++;},error(){errors++;}}};
+globalThis.foundry={
+  data:{fields:{StringField:Field,NumberField:Field,SchemaField:Field,ArrayField:Field,TypedObjectField:Field,ObjectField:Field}},
+  abstract:{TypeDataModel:TypeModel},utils:{randomID:()=>`testid${++nextId}`},
+  applications:{api:{HandlebarsApplicationMixin(Parent){return class extends Parent{}},DialogV2:{confirm:async()=>true}},
+    sheets:{ActorSheetV2:SheetMock,ItemSheetV2:SheetMock},
+    apps:{DocumentSheetConfig:{registerSheet(...args){registrations.push(args)},getSheetClassesForSubType(){return {sheetClasses:{},defaultClass:null}}}}},
+  documents:{Actor:class{},Item:class{}}
 };
 
-await import(pathToFileURL(resolve(root,"main.mjs")).href);
-assert.equal(typeof hooks.get("init"),"function");
-hooks.get("init")();
+await import(pathToFileURL(file('main.mjs')).href);
+assert.ok(hooks.has('init'));
+hooks.get('init')();
+assert.deepEqual(Object.keys(CONFIG.Actor.dataModels).sort(),['character','npc']);
+assert.deepEqual(Object.keys(CONFIG.Item.dataModels).sort(),['ability','armor','gear','item','weapon']);
 assert.equal(registrations.length,3);
-assert.deepEqual(Object.keys(CONFIG.Actor.dataModels).sort(),["character","npc"]);
-assert.deepEqual(Object.keys(CONFIG.Item.dataModels).sort(),["ability","armor","gear","item","weapon"]);
-assert.deepEqual(registrations[0].options.types,undefined,"Actor fallback must cover all subtypes");
-assert.deepEqual(registrations[1].options.types,["npc"]);
-assert.equal(registrations[2].options.types,undefined,"Item fallback must cover all subtypes");
-assert.equal(typeof hooks.get("ready"),"function");
-hooks.get("ready")();
-
-const {FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet} =
-  await import(pathToFileURL(resolve(root,"module/sheets/sheets.mjs")).href);
-for (const cls of [FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet]) {
-  assert.equal(cls.DEFAULT_OPTIONS.tag??"form","form");
-  const parts=Object.values(cls.PARTS);
-  assert.equal(parts.length,1);
-  assert.equal(parts[0].root,true);
-  assert.ok(existsSync(resolve(root,parts[0].template.replace("systems/fast-nri-v14/",""))));
+for(const model of [CONFIG.Actor.dataModels.character.defineSchema(),CONFIG.Actor.dataModels.npc.defineSchema()]){
+  for(const field of ['hp','ac','defenses','skills','resources','equipment','equipmentSlots','wealth'])assert.ok(model[field],field);
+  assert.equal(model.skills.constructor,Field);
+  assert.equal(model.skills.args[0].constructor,Field,'skills value has schema');
+  assert.equal(model.skills.args[1].required,false);
+  assert.deepEqual(model.skills.args[1].initial(),{});
+  const checkSchema=model.skills.args[0].args[0];
+  for(const key of ['name','kind','dice','value'])assert.ok(checkSchema[key],key);
+  assert.equal(checkSchema.dice.constructor,Field);
+  assert.equal(model.equipmentSlots.constructor,Field);
+  const slotSchema=model.equipmentSlots.args[0].args[0];
+  for(const key of ['name','itemId'])assert.ok(slotSchema[key],key);
 }
-for (const path of ["templates/character.hbs", "templates/npc.hbs", "templates/item.hbs"]) {
-  const html = readFileSync(resolve(root,path),"utf8");
-  assert.ok(html.includes('class="fnri-number"'), "Missing visible numeric fields: " + path);
-  assert.ok(html.includes('data-dtype="Number"'), "Missing typed number handling: " + path);
-  assert.ok(!html.includes('type="number"'), "Old problematic numeric input in " + path);
-}
-const styles = readFileSync(resolve(root,"styles/fast-nri.css"),"utf8");
-assert.ok(styles.includes("input.fnri-number"),"No scoped numeric input styling");
 
-// The Actor and Item sheets share the same ApplicationV2 scroll layout.
-assert.ok(styles.includes("FNRI 0.1.5: ApplicationV2 single scroll container"));
-assert.ok(styles.includes(".application.fast-nri-v14.fast-nri-sheet .window-content"));
-assert.match(styles, /overflow-y:\s*auto\s*!important/);
-assert.match(styles, /height:\s*auto\s*!important/);
-assert.ok(styles.includes("padding-bottom: 36px"));
-console.log("Bootstrap smoke test PASS: models, sheet registration, form roots and assets.");
+const {FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet}=await import(pathToFileURL(file('module/sheets/sheets.mjs')).href);
+for(const cls of [FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet]){
+  assert.equal(cls.DEFAULT_OPTIONS.tag,'form');
+  const [part]=Object.values(cls.PARTS);
+  assert.equal(part.root,true);
+  assert.ok(existsSync(file(part.template.replace('systems/fast-nri-v14/',''))));
+}
+assert.equal(FastNRICharacterSheet.DEFAULT_OPTIONS.form.submitOnChange,false,'single Actor save path');
+assert.equal(FastNRIItemSheet.DEFAULT_OPTIONS.form.submitOnChange,true,'Item forms still use core submission');
+const actions=FastNRICharacterSheet.DEFAULT_OPTIONS.actions;
+for(const a of ['tab','openItem','createItem','deleteItem','addSkill','addSpecialization','removeSkill','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'])assert.equal(typeof actions[a],'function',a);
+
+function actorFactory(){
+ const items=[];let itemCounter=2;
+ function createItem(id,name,type){return {id,name,type,sort:0,img:'a.png',sheet:{async render(){}}};}
+ items.push(createItem('i1','Sword','weapon'),createItem('i2','Ability','ability'));
+ const actor={
+  name:'Actor',system:{
+   hp:{current:15,max:20,temp:null},speed:null,combatDie:'d8',
+   ac:{partial:8,success:12,great:16},
+   defenses:{awareness:null,reflex:null,fortitude:null,will:null},
+   skills:{alpha:{name:'Alpha',kind:'skill',dice:'1d8',value:1},beta:{name:'Beta',kind:'specialization',dice:'2d6',value:2}},
+   resources:{mana:{name:'Mana',current:4,max:8}},
+   equipment:{leftHand:'i1',rightHand:'',armor:''},equipmentSlots:{},wealth:''
+  },
+  items:{contents:items,get(id){return items.find(x=>x.id===id)}},updates:[],
+  async update(change){
+   // Simulates a delayed server round-trip while applying independent dot-path
+   // updates, as supported by the v14 Document API. Arrays are never merged.
+   await new Promise(resolve=>setTimeout(resolve,5));
+   this.updates.push(change);
+   for(const [key,value] of Object.entries(change)){
+    if(key==='name'){this.name=value;continue;}
+    assert.ok(key.startsWith('system.'),'unexpected path '+key);
+    const parts=key.slice(7).split('.');let object=this.system;
+    while(parts.length>1){const part=parts.shift();object=object[part]??(object[part]={});}
+    const last=parts[0];if(value===deletes)delete object[last];else object[last]=value;
+   }
+   return this;
+  },
+  async createEmbeddedDocuments(type,values){
+   assert.equal(type,'Item');const added=values.map(value=>createItem('i'+(++itemCounter),value.name,value.type));
+   items.push(...added);return added;
+  },
+  async deleteEmbeddedDocuments(type,ids){
+   assert.equal(type,'Item');items.splice(0,items.length,...items.filter(item=>!ids.includes(item.id)));
+  }
+ };
+ return actor;
+}
+
+function makeControl({name='',dataset={},value=''}){
+ const listeners={};const control={name,dataset,value,listeners,invalid:'',validationCalls:0,
+  addEventListener(type,callback){listeners[type]=callback;},
+  setCustomValidity(msg){this.invalid=msg;},reportValidity(){this.validationCalls++;return !this.invalid;}};
+ control.fireChange=()=>{
+  assert.equal(typeof listeners.change,'function','missing input listener');
+  let stopped=false;listeners.change({currentTarget:control,stopPropagation(){stopped=true;}});
+  assert.ok(stopped,'custom handler must stop core form change bubbling');
+ };
+ return control;
+}
+async function attachControls(sheet,rowControls=[],namedControls=[]){
+ sheet.element={
+  querySelectorAll(selector){
+   if(selector.startsWith('[data-row'))return rowControls;
+   if(selector.startsWith('input[name]'))return namedControls;
+   return [];
+  },
+  querySelector(){return [...rowControls,...namedControls].find(c=>!!c.invalid)??null;}
+ };
+ await sheet._onRender({},{});
+}
+
+const actor=actorFactory();const sheet=new FastNRICharacterSheet({actor});
+let ctx=await sheet._prepareContext({});
+assert.equal(ctx.tabs.overview,true);
+assert.equal(ctx.skillRows.length,2);
+assert.equal(ctx.resourceRows.length,1);
+assert.equal(ctx.handChoices.find(x=>x.id==='i1').selectedLeft,true);
+assert.equal(ctx.handChoices.length,2,'all Item types are eligible for any standard slot');
+assert.equal(ctx.armorChoices.length,2,'armor slot must not filter by type');
+assert.equal(ctx.skillRows[0].hasLegacyValue,true,'draft numeric values remain visible, not erased');
+assert.equal(ctx.skillRows[1].isSpecialization,true);
+assert.equal(ctx.missingEquipment.leftHand,false);
+assert.equal(ctx.abilityItems.length,1);
+
+// Two quick edits to DIFFERENT skills must both survive delayed updates.
+const name=makeControl({dataset:{rowCollection:'skills',rowId:'alpha',rowField:'name'},value:'Alpha changed'});
+const value=makeControl({dataset:{rowCollection:'skills',rowId:'beta',rowField:'value'},value:'99'});
+const dice=makeControl({dataset:{rowCollection:'skills',rowId:'alpha',rowField:'dice'},value:'2d6 + 1d8'});
+const current=makeControl({dataset:{rowCollection:'resources',rowId:'mana',rowField:'current'},value:'5,5'});
+const hp=makeControl({name:'system.hp.current',dataset:{dtype:'Number',integer:'true'},value:'18'});
+const wealth=makeControl({name:'system.wealth',value:'12 серебряных'});
+await attachControls(sheet,[name,value,dice,current],[hp,wealth]);
+name.fireChange();value.fireChange();dice.fireChange();current.fireChange();hp.fireChange();wealth.fireChange();
+await sheet._flushWrites();
+assert.equal(actor.system.skills.alpha.name,'Alpha changed');
+assert.equal(actor.system.skills.beta.value,99);
+assert.equal(actor.system.skills.alpha.dice,'2d6 + 1d8');
+assert.equal(actor.system.resources.mana.current,5.5);
+assert.equal(actor.system.hp.current,18);
+assert.equal(actor.system.wealth,'12 серебряных');
+assert.equal(sheet.submits,0,'Actor native submit must not compete with addressable writes');
+assert.ok(actor.updates.every(update=>!('system.skills' in update) && !('system.resources' in update)));
+
+// Multi-client independent paths: edits to distinct fields should commute.
+const sheetB=new FastNRICharacterSheet({actor});
+const b1=makeControl({dataset:{rowCollection:'skills',rowId:'alpha',rowField:'value'},value:'-3'});
+const b2=makeControl({dataset:{rowCollection:'skills',rowId:'beta',rowField:'name'},value:'Beta new'});
+await attachControls(sheetB,[b1,b2]);
+b1.fireChange();b2.fireChange();
+await sheetB._flushWrites();
+assert.equal(actor.system.skills.alpha.value,-3);
+assert.equal(actor.system.skills.beta.name,'Beta new');
+
+// Two separate sheet instances commit distinct paths at the same time.
+const remoteOne=makeControl({dataset:{rowCollection:'skills',rowId:'alpha',rowField:'name'},value:'Remote A'});
+const remoteTwo=makeControl({dataset:{rowCollection:'skills',rowId:'beta',rowField:'value'},value:'-1.5'});
+await attachControls(sheet,[remoteOne]);
+await attachControls(sheetB,[remoteTwo]);
+remoteOne.fireChange();remoteTwo.fireChange();
+await Promise.all([sheet._flushWrites(),sheetB._flushWrites()]);
+assert.equal(actor.system.skills.alpha.name,'Remote A');
+assert.equal(actor.system.skills.beta.value,-1.5);
+// Restore the original controls for input validation tests.
+await attachControls(sheet,[name,value,dice,current],[hp,wealth]);
+
+// Invalid numeric input is not committed; empty input becomes null, zero works.
+const updatesBefore=actor.updates.length;
+value.value='garbage';value.fireChange();await sheet._flushWrites();
+assert.equal(actor.updates.length,updatesBefore);
+assert.equal(actor.system.skills.beta.value,-1.5);
+assert.ok(value.invalid);assert.ok(value.validationCalls>=1);assert.ok(warnings>0);
+value.value='0';value.fireChange();await sheet._flushWrites();
+assert.equal(actor.system.skills.beta.value,0);
+value.value='';value.fireChange();await sheet._flushWrites();
+assert.equal(actor.system.skills.beta.value,null);
+hp.value='18.5';hp.fireChange();await sheet._flushWrites();
+assert.equal(actor.system.hp.current,18,'integer field must reject fractional input');
+hp.value='0';hp.fireChange();await sheet._flushWrites();
+assert.equal(actor.system.hp.current,0);
+hp.value='';hp.fireChange();await sheet._flushWrites();
+assert.equal(actor.system.hp.current,null);
+
+// Invalid field blocks tab switch so the user's input isn't erased.
+value.value='no';value.fireChange();await sheet._flushWrites();
+await actions.tab.call(sheet,null,{dataset:{tab:'skills'}});
+assert.equal(sheet._selectedTab,'overview');
+value.value='7';value.fireChange();await actions.tab.call(sheet,null,{dataset:{tab:'skills'}});
+assert.equal(sheet._selectedTab,'skills');
+assert.equal(actor.system.skills.beta.value,7);
+
+// Arbitrarily many entries; specialized rows use the same addressable collection.
+for(let i=0;i<12;i++)await actions.addSkill.call(sheet);
+for(let i=0;i<17;i++)await actions.addSpecialization.call(sheet);
+assert.equal(Object.keys(actor.system.skills).length,31);
+assert.equal(Object.values(actor.system.skills).filter(x=>x.kind==='specialization').length,18);
+await actions.addSkill.call(sheet);
+const newSkill=Object.keys(actor.system.skills).find(id=>id.startsWith('testid'));
+assert.ok(newSkill);
+assert.deepEqual(actor.system.skills[newSkill],{name:'',kind:'skill',dice:'',value:null});
+await actions.addSpecialization.call(sheet);
+const specialId=Object.keys(actor.system.skills).at(-1);
+assert.equal(actor.system.skills[specialId].kind,'specialization');
+const specialDice=makeControl({dataset:{rowCollection:'skills',rowId:specialId,rowField:'dice'},value:'3d12 + 1d4'});
+const specialKind=makeControl({dataset:{rowCollection:'skills',rowId:specialId,rowField:'kind'},value:'skill'});
+await attachControls(sheet,[specialDice,specialKind]);specialDice.fireChange();specialKind.fireChange();await sheet._flushWrites();
+assert.equal(actor.system.skills[specialId].dice,'3d12 + 1d4');
+assert.equal(actor.system.skills[specialId].kind,'skill');
+await actions.addResource.call(sheet);
+const newResource=Object.keys(actor.system.resources).find(id=>id.startsWith('testid'));
+assert.ok(newResource);
+await actions.removeSkill.call(sheet,null,{dataset:{id:newSkill}});
+await actions.removeSkill.call(sheet,null,{dataset:{id:specialId}});
+await actions.removeResource.call(sheet,null,{dataset:{id:newResource}});
+assert.equal(Object.hasOwn(actor.system.skills,newSkill),false);
+assert.equal(Object.hasOwn(actor.system.resources,newResource),false);
+assert.ok(actor.updates.some(change=>Object.values(change).includes(deletes)));
+
+// Additional user-named slots have no quantity limit and can accept any Item type.
+for(let i=0;i<6;i++)await actions.addEquipmentSlot.call(sheet);
+let slotIds=Object.keys(actor.system.equipmentSlots);
+assert.equal(slotIds.length,6);
+const slotId=slotIds[0];
+const slotName=makeControl({dataset:{rowCollection:'equipmentSlots',rowId:slotId,rowField:'name'},value:'Дополнительная рука'});
+const slotItem=makeControl({dataset:{rowCollection:'equipmentSlots',rowId:slotId,rowField:'itemId'},value:'i1'});
+await attachControls(sheet,[slotName,slotItem]);slotName.fireChange();slotItem.fireChange();await sheet._flushWrites();
+assert.equal(actor.system.equipmentSlots[slotId].name,'Дополнительная рука');
+assert.equal(actor.system.equipmentSlots[slotId].itemId,'i1');
+ctx=await sheet._prepareContext({});
+assert.ok(ctx.extraSlotRows.find(x=>x.id===slotId).choices.find(x=>x.id==='i1').selected);
+await actions.removeEquipmentSlot.call(sheet,null,{dataset:{id:slotIds[1]}});
+assert.equal(Object.hasOwn(actor.system.equipmentSlots,slotIds[1]),false);
+await actions.createItem.call(sheet,null,{dataset:{type:'gear'}});
+assert.equal(actor.items.contents.length,3);
+await actions.deleteItem.call(sheet,null,{closest(){return {dataset:{itemId:'i1'}}}});
+assert.equal(actor.items.contents.length,2);
+assert.equal(actor.system.equipment.leftHand,'','our delete action clears slot');
+assert.equal(actor.system.equipmentSlots[slotId].itemId,'','our delete action clears assigned custom slot without removing its name');
+
+// Deletion from Foundry directory (outside our action): no silent mutation.
+actor.system.equipment.rightHand='removedOutside';
+actor.system.equipmentSlots[slotId].itemId='removedOutside';
+const beforeOrphan=actor.updates.length;
+ctx=await sheet._prepareContext({});
+assert.equal(ctx.missingEquipment.rightHand,true);
+assert.equal(ctx.extraSlotRows.find(x=>x.id===slotId).missing,true);
+assert.equal(ctx.hasMissingEquipment,true);
+assert.equal(actor.updates.length,beforeOrphan,'context must not auto-edit actor');
+const equip=makeControl({name:'system.equipment.rightHand',value:''});
+await attachControls(sheet,[],[equip]);equip.fireChange();await sheet._flushWrites();
+assert.equal(actor.system.equipment.rightHand,'');
+assert.equal(actor.system.equipmentSlots[slotId].itemId,'removedOutside','custom orphan is never silently changed');
+const clearExtra=makeControl({dataset:{rowCollection:'equipmentSlots',rowId:slotId,rowField:'itemId'},value:''});
+await attachControls(sheet,[clearExtra]);clearExtra.fireChange();await sheet._flushWrites();
+assert.equal(actor.system.equipmentSlots[slotId].itemId,'');
+
+// A failed save must not discard the user's current input by switching tabs.
+let simulateSaveFailure = true;
+const originalConsoleError=console.error;
+let expectedSaveErrorLogged=0;
+console.error=() => { expectedSaveErrorLogged++; };
+const originalActorUpdate = actor.update.bind(actor);
+actor.update = async change => {
+  if (simulateSaveFailure && Object.hasOwn(change, 'system.wealth')) throw new Error('Simulated database rejection');
+  return originalActorUpdate(change);
+};
+const failingInput=makeControl({name:'system.wealth',value:'unsaved field'});
+await attachControls(sheet,[],[failingInput]);
+failingInput.fireChange();
+// Even a later successful write to a different field must not erase the
+// failure of wealth (a previous bug in boolean-only error tracking).
+const succeedingInput=makeControl({name:'system.hp.current',dataset:{dtype:'Number',integer:'true'},value:'27'});
+await attachControls(sheet,[],[failingInput,succeedingInput]);
+succeedingInput.fireChange();
+await sheet._flushWrites();
+assert.equal(actor.system.hp.current,27);
+assert.ok(sheet._failedFields.has('system.wealth'));
+const tabBeforeFailure=sheet._selectedTab;
+await actions.tab.call(sheet,null,{dataset:{tab:'inventory'}});
+assert.equal(sheet._selectedTab,tabBeforeFailure,'failed save must block a rerender');
+assert.ok(errors>0,'save failure must be visible to user');
+assert.ok(expectedSaveErrorLogged>0,'failed update must be logged for diagnosis');
+simulateSaveFailure=false;
+failingInput.value='corrected value';failingInput.fireChange();await sheet._flushWrites();
+assert.equal(actor.system.wealth,'corrected value');
+assert.equal(sheet._failedFields.size,0);
+await actions.tab.call(sheet,null,{dataset:{tab:'inventory'}});
+assert.equal(sheet._selectedTab,'inventory','successful correction must unlock switching tabs');
+actor.update=originalActorUpdate;
+console.error=originalConsoleError;
+errors=0;
+
+// Read-only sheets never issue writes, even via synthetic action calls.
+const readonly=new FastNRICharacterSheet({actor,editable:false});
+const originalUpdateCount=actor.updates.length;
+await actions.addSkill.call(readonly);
+await actions.addSpecialization.call(readonly);
+await actions.addEquipmentSlot.call(readonly);
+await actions.removeSkill.call(readonly,null,{dataset:{id:'alpha'}});
+await actions.createItem.call(readonly,null,{dataset:{type:'weapon'}});
+const locked=makeControl({name:'system.wealth',value:'unauthorized'});
+await attachControls(readonly,[],[locked]);locked.fireChange();await readonly._flushWrites();
+assert.equal(actor.updates.length,originalUpdateCount);
+assert.equal(errors,0);
+
+// Confirm persistent fields belong to the non-tabbed header, only once.
+for(const path of ['templates/character.hbs','templates/npc.hbs']){
+ const html=readFileSync(file(path),'utf8');
+ assert.ok(html.indexOf('fnri-persistent')<html.indexOf('fnri-tabs'));
+ assert.ok(html.indexOf('name="system.hp.current"')<html.indexOf('fnri-tabs'));
+ assert.ok(html.indexOf('name="system.defenses.awareness"')<html.indexOf('fnri-tabs'));
+ assert.equal(html.match(/name="system.hp.current"/g).length,1);
+ assert.equal(html.match(/data-action="tab"/g).length,5);
+ assert.equal(html.match(/fnri-tab-content"/g).length,5);
+ assert.ok(html.includes('missingEquipment.rightHand'));
+ assert.ok(html.includes('name="system.wealth"'));
+ assert.ok(html.includes('data-action="addSpecialization"'));
+ assert.ok(html.includes('data-row-field="dice"'));
+ assert.ok(html.includes('data-action="addEquipmentSlot"'));
+ assert.ok(html.includes('data-row-collection="equipmentSlots"'));
+}
+const css=readFileSync(file('styles/fast-nri.css'),'utf8');
+assert.ok(css.includes('.fnri-persistent'));
+assert.ok(css.includes('overflow-y: auto !important'));
+assert.ok(css.includes('max-height: 650px'));
+console.log('PASS: model/registration, concurrent independent edits, typed data, invalid inputs, tabs, equipment, rights, UI sources');

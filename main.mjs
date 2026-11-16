@@ -31,7 +31,6 @@ Hooks.once("init", () => {
 
   const { DocumentSheetConfig } = foundry.applications.apps;
   const { Actor, Item } = foundry.documents;
-
   // Register a default for ALL supported Actor types. A generic registration
   // does not depend on the engine enumerating a particular subtype yet.
   // The NPC-specific registration then overrides the generic Actor default.
@@ -49,7 +48,7 @@ Hooks.once("init", () => {
     label: "FASTNRI.Sheets.item"
   });
 
-  console.info("Fast NRI 7.0 | v0.1.3: data models and sheet registrations queued");
+  console.info("Fast NRI 7.0 | data models and sheets registered");
 });
 
 /**
@@ -79,10 +78,10 @@ Hooks.once("ready", () => {
     const missing = report.filter(x => !x.present);
     if (missing.length) {
       const details = missing.map(x => x.documentName + ":" + x.subtype).join(", ");
-      ui.notifications?.warn("Fast NRI 0.1.3: некоторые листы не зарегистрированы (" + details + "). Сообщите об этом разработчику.");
+      ui.notifications?.warn("Fast NRI: некоторые листы не зарегистрированы (" + details + "). Сообщите об этом разработчику.");
     }
   } catch (error) {
     console.error("Fast NRI 7.0 | sheet diagnostics failed", error);
-    ui.notifications?.warn("Fast NRI 0.1.3: не удалось проверить регистрацию листов. Подробности в консоли Foundry.");
+    ui.notifications?.warn("Fast NRI: не удалось проверить регистрацию листов. Подробности в консоли Foundry.");
   }
 });

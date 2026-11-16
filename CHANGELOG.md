@@ -1,42 +1,54 @@
 # Fast NRI Foundry System — Code Changelog
 
+## 0.1.6 — свободные навыки/Специализации и слоты (2026-11-17)
+
+- Replace fixed numeric-only skill editor with unlimited skill/specialization rows sharing one addressable dictionary; free text dice expressions, no limits/presets forced.
+- Preserve stage-2 legacy numeric row value separately; no automatic migration or reinterpretation.
+- Allow any embedded Item in left/right hand or armor and add/delete arbitrarily many named equipment slots.
+- Clear extra-slot Item references on explicit deletion, preserve missing external references with warning; no automatic gameplay effects.
+- Prevent a failed Actor field update from silently losing unsaved changes on tab switch; add regression coverage.
+- Expand source, local unit tests, RU/EN labels and template generator. No rules, roll logic or existing published data were changed.
+
+
+### Исправления по аудиту (2026-11-16)
+
+- Replace unpublished skill/resource arrays with keyed `TypedObjectField` for targeted partial updates.
+- Replace competing Actor submit paths with a serialized field-level change handler and input validation.
+- Move HP, combat die/attack modifier, speed, AC, defenses and resource summary to persistent Actor header.
+- Preserve and visibly mark missing equipment references instead of silently clearing external deletions.
+- Add optional manual wealth text field; no economy rules or automation.
+- Make smoke tests version-agnostic; require explicit manual GitHub release workflow approval.
+- No publication, no content import or migration, no game-rule changes.
+
+
+### Базовые листы этапа 2
+
+- Character and NPC sheet tabs: Overview, Skills, Abilities, Inventory, Description.
+- Optional lists of skills and manually controlled resources in Actor TypeDataModel.
+- Equipped-item references to embedded Item IDs for left hand, right hand and armor.
+- Actor sheet actions for creating/opening/deleting embedded Items and editing manual lists.
+- Scoped layout/CSS for tab visibility, fields, responsive layout and Foundry v14 scrolling.
+- No rolls, automatic game-rule calculation, content imports or migration.
+
 ## 0.1.5 — Scrolling for Actor and Item sheets (2026-11-16)
 
-- Fix clipped Character and NPC sheets: make the Foundry v14 `window-content` the only scroll container.
-- Apply the same layout to Item sheets, including long descriptions.
-- Keep the Handlebars body at natural height, with enough bottom padding to reach the Notes section.
-- Preserve all document data, game mechanics, and the established TypeDataModel schema.
-- Add static smoke checks for scroll rules. Visual behavior still needs testing in Foundry v14.
-
+- Fix clipping by making Foundry window-content the scroll container.
+- Leave the sheet content at natural height.
 
 ## 0.1.4 — Numeric input display hotfix (2026-11-16)
 
-- Render numeric Actor/Item fields as text inputs with `data-dtype="Number"`, supported by Foundry's form handling, to avoid blank controls on the v14 sheet.
-- Add visible number-field styling scoped to FNRI sheets.
-- Keep the existing numeric `TypeDataModel` schemas, including nullable fields, unchanged.
-- Add template smoke checks; runtime display still requires a test in a live Foundry world.
+- Render numeric fields as typed text inputs and add visible field styling.
 
 ## 0.1.3 — Bootstrap syntax and sheet hotfix (2026-11-16)
 
-- Fix the confirmed startup-blocking SyntaxError: missing closing brace in LegacyItemModel (module/data/models.mjs).
-- Add mandatory JavaScript syntax checks before packaging GitHub releases.
-
-- Register the generic Actor sheet and Item sheet without subtype restrictions; NPC receives a specific default sheet.
-- Use an explicit system package type in the manifest.
-- Report missing sheet registrations to the GM after Foundry initializes its sheet registry.
-- Add executable bootstrap smoke tests to the GitHub release workflow.
-- No gameplay rules or Actor/Item schema changes. Still requires validation in a real Foundry v14 world.
+- Fix startup-blocking SyntaxError in LegacyItemModel.
+- Register generic Actor and Item sheets with an NPC-specific override.
+- Add JS syntax checks before publishing.
 
 ## 0.1.2 — Foundry v14 sheet hotfix (2026-11-16)
 
-- Initialize TypeDataModel registries safely before registering the document sheets.
-- Give ActorSheetV2 and ItemSheetV2 a form application root and a root Handlebars template part.
-- No gameplay or persistent schema changes. Verification inside running Foundry v14 is still pending.
+- Initialize data model registries safely, use root form templates.
 
 ## 0.1.1 — Stage 1 scaffold (2026-11-16)
 
-- Registered Actor `character` and `npc` TypeDataModel subtypes.
-- Registered four primary Item types: `weapon`, `armor`, `gear`, `ability`.
-- Retained legacy Item `item` for compatibility with 0.1.0 starter documents.
-- Added minimal editable Actor/Item v14 Handlebars sheets and built-in Item drag/drop area.
-- Added RU/EN UI text. Game calculations, imports and migrations are not yet implemented.
+- Register Actor and Item TypeDataModels and basic sheets, RU/EN.
