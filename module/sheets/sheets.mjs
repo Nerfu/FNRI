@@ -6,6 +6,7 @@ const STYLES = ["fast-nri-v14", "fast-nri-sheet"];
 
 class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   static DEFAULT_OPTIONS = {
+    tag: "form",
     classes: [...STYLES, "fast-nri-actor"],
     position: { width: 700, height: 720 },
     form: { submitOnChange: true, closeOnSubmit: false },
@@ -30,24 +31,25 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
 
 export class FastNRICharacterSheet extends ActorBase {
   static PARTS = {
-    body: { template: "systems/fast-nri-v14/templates/character.hbs" }
+    main: { root: true, template: "systems/fast-nri-v14/templates/character.hbs" }
   };
 }
 
 export class FastNRINPCSheet extends ActorBase {
   static PARTS = {
-    body: { template: "systems/fast-nri-v14/templates/npc.hbs" }
+    main: { root: true, template: "systems/fast-nri-v14/templates/npc.hbs" }
   };
 }
 
 export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static DEFAULT_OPTIONS = {
+    tag: "form",
     classes: [...STYLES, "fast-nri-item"],
     position: { width: 570, height: 620 },
     form: { submitOnChange: true, closeOnSubmit: false }
   };
   static PARTS = {
-    body: { template: "systems/fast-nri-v14/templates/item.hbs" }
+    main: { root: true, template: "systems/fast-nri-v14/templates/item.hbs" }
   };
 
   async _prepareContext(options) {

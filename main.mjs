@@ -6,18 +6,18 @@ import { CharacterModel, NPCModel, WeaponModel, ArmorModel, GearModel, AbilityMo
 import { FastNRICharacterSheet, FastNRINPCSheet, FastNRIItemSheet } from "./module/sheets/sheets.mjs";
 
 Hooks.once("init", () => {
-  Object.assign(CONFIG.Actor.dataModels, {
+  CONFIG.Actor.dataModels = { ...(CONFIG.Actor.dataModels ?? {}),
     character: CharacterModel,
     npc: NPCModel
-  });
-  Object.assign(CONFIG.Item.dataModels, {
+  };
+  CONFIG.Item.dataModels = { ...(CONFIG.Item.dataModels ?? {}),
     weapon: WeaponModel,
     armor: ArmorModel,
     gear: GearModel,
     ability: AbilityModel,
     // Internal compatibility for documents originating in starter 0.1.0.
     item: LegacyItemModel
-  });
+  };
 
   const { DocumentSheetConfig } = foundry.applications.apps;
   const { Actor, Item } = foundry.documents;

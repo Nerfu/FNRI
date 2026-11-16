@@ -1,5 +1,11 @@
 # Fast NRI Foundry System — Code Changelog
 
+## 0.1.2 — Foundry v14 sheet hotfix (2026-11-16)
+
+- Initialize TypeDataModel registries safely before registering the document sheets.
+- Give ActorSheetV2 and ItemSheetV2 a form application root and a root Handlebars template part.
+- No gameplay or persistent schema changes. Verification inside running Foundry v14 is still pending.
+
 ## 0.1.1 — Stage 1 scaffold (2026-11-16)
 
 - Registered Actor `character` and `npc` TypeDataModel subtypes.
