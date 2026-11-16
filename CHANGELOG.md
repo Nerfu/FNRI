@@ -1,5 +1,12 @@
 # Fast NRI Foundry System — Code Changelog
 
+## 0.1.4 — Numeric input display hotfix (2026-11-16)
+
+- Render numeric Actor/Item fields as text inputs with `data-dtype="Number"`, supported by Foundry's form handling, to avoid blank controls on the v14 sheet.
+- Add visible number-field styling scoped to FNRI sheets.
+- Keep the existing numeric `TypeDataModel` schemas, including nullable fields, unchanged.
+- Add template smoke checks; runtime display still requires a test in a live Foundry world.
+
 ## 0.1.3 — Bootstrap syntax and sheet hotfix (2026-11-16)
 
 - Fix the confirmed startup-blocking SyntaxError: missing closing brace in LegacyItemModel (module/data/models.mjs).

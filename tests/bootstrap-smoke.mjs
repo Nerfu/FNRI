@@ -74,4 +74,13 @@ for (const cls of [FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet]) {
   assert.equal(parts[0].root,true);
   assert.ok(existsSync(resolve(root,parts[0].template.replace("systems/fast-nri-v14/",""))));
 }
+for (const path of ["templates/character.hbs", "templates/npc.hbs", "templates/item.hbs"]) {
+  const html = readFileSync(resolve(root,path),"utf8");
+  assert.ok(html.includes('class="fnri-number"'), "Missing visible numeric fields: " + path);
+  assert.ok(html.includes('data-dtype="Number"'), "Missing typed number handling: " + path);
+  assert.ok(!html.includes('type="number"'), "Old problematic numeric input in " + path);
+}
+const styles = readFileSync(resolve(root,"styles/fast-nri.css"),"utf8");
+assert.ok(styles.includes("input.fnri-number"),"No scoped numeric input styling");
+
 console.log("Bootstrap smoke test PASS: models, sheet registration, form roots and assets.");
