@@ -1,0 +1,76 @@
+{
+  "TYPES": {
+    "Actor": {
+      "character": "Character",
+      "npc": "NPC"
+    },
+    "Item": {
+      "weapon": "Weapon",
+      "armor": "Armor",
+      "gear": "Gear",
+      "ability": "Ability",
+      "item": "Legacy Item (0.1.0)"
+    }
+  },
+  "FASTNRI": {
+    "Sheets": {
+      "character": "Character Sheet",
+      "npc": "NPC Sheet",
+      "item": "Item Sheet"
+    },
+    "Fields": {
+      "name": "Name",
+      "type": "Type",
+      "level": "Level",
+      "race": "Ancestry",
+      "className": "Class",
+      "path": "Path",
+      "hpCurrent": "Current HP",
+      "hpMax": "Maximum HP",
+      "hpTemp": "Temporary HP",
+      "speed": "Speed",
+      "combatDie": "Combat Die",
+      "partial": "Partial Success",
+      "success": "Success",
+      "great": "Great Success",
+      "awareness": "Awareness",
+      "reflex": "Reflex",
+      "fortitude": "Fortitude",
+      "will": "Will",
+      "rank": "Rank",
+      "role": "Role",
+      "weight": "Weight",
+      "attackModifier": "Attack Modifier",
+      "hands": "Hands",
+      "reach": "Reach",
+      "range": "Range",
+      "category": "Category",
+      "quantity": "Quantity",
+      "charges": "Charges",
+      "cost": "Cost / Requirement",
+      "trigger": "Trigger",
+      "frequency": "Frequency",
+      "effect": "Effect",
+      "tags": "Properties"
+    },
+    "Sections": {
+      "parameters": "Statistics",
+      "ac": "Three AC Thresholds",
+      "defenses": "Defenses",
+      "items": "Items and Abilities",
+      "notes": "Notes",
+      "properties": "Card Fields",
+      "description": "Description"
+    },
+    "Hints": {
+      "dropItems": "Drag an item or ability from the Foundry directory or Compendium into this area.",
+      "noItems": "No embedded cards yet",
+      "damagePending": "Damage profiles will be added once the current Rulebook is verified.",
+      "deprecated": "Deprecated — informational only; this card is not disabled.",
+      "legacy": "Older item subtype from starter 0.1.0. Data is preserved; no automatic conversion was performed."
+    },
+    "Actions": {
+      "openItem": "Open card"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+<section class="fnri-body fnri-npc">
+<header class="fnri-heading"><img src="{{actor.img}}" alt="" class="fnri-portrait"/><div class="fnri-heading-fields">
+<label>{{localize "FASTNRI.Fields.name"}}<input name="name" value="{{actor.name}}" {{#unless editable}}disabled{{/unless}}/></label>
+<div class="fnri-grid-3"><label>{{localize "FASTNRI.Fields.rank"}}<input name="system.rank" value="{{system.rank}}"/></label><label>{{localize "FASTNRI.Fields.role"}}<input name="system.role" value="{{system.role}}"/></label><label>{{localize "FASTNRI.Fields.weight"}}<input type="number" name="system.weight" value="{{system.weight}}"/></label></div>
+</div></header>
+<section class="fnri-panel"><h3>{{localize "FASTNRI.Sections.parameters"}}</h3><div class="fnri-grid-3">
+<label>{{localize "FASTNRI.Fields.hpCurrent"}}<input type="number" step="any" name="system.hp.current" value="{{system.hp.current}}" {{#unless editable}}disabled{{/unless}}/></label>
+<label>{{localize "FASTNRI.Fields.hpMax"}}<input type="number" step="any" name="system.hp.max" value="{{system.hp.max}}" {{#unless editable}}disabled{{/unless}}/></label>
+<label>{{localize "FASTNRI.Fields.hpTemp"}}<input type="number" step="any" name="system.hp.temp" value="{{system.hp.temp}}" {{#unless editable}}disabled{{/unless}}/></label>
+<label>{{localize "FASTNRI.Fields.speed"}}<input type="number" step="any" name="system.speed" value="{{system.speed}}" {{#unless editable}}disabled{{/unless}}/></label>
+<label>{{localize "FASTNRI.Fields.attackModifier"}}<input type="number" step="any" name="system.attackModifier" value="{{system.attackModifier}}" {{#unless editable}}disabled{{/unless}}/></label>
+</div></section>
+<section class="fnri-panel"><h3>{{localize "FASTNRI.Sections.ac"}}</h3><div class="fnri-grid-3">
+<label>{{localize "FASTNRI.Fields.partial"}}<input type="number" step="any" name="system.ac.partial" value="{{system.ac.partial}}" {{#unless editable}}disabled{{/unless}}/></label>
+<label>{{localize "FASTNRI.Fields.success"}}<input type="number" step="any" name="system.ac.success" value="{{system.ac.success}}" {{#unless editable}}disabled{{/unless}}/></label>
+<label>{{localize "FASTNRI.Fields.great"}}<input type="number" step="any" name="system.ac.great" value="{{system.ac.great}}" {{#unless editable}}disabled{{/unless}}/></label>
+</div></section>
+<section class="fnri-panel"><h3>{{localize "FASTNRI.Sections.defenses"}}</h3><div class="fnri-grid-4">
+<label>{{localize "FASTNRI.Fields.awareness"}}<input type="number" step="any" name="system.defenses.awareness" value="{{system.defenses.awareness}}" {{#unless editable}}disabled{{/unless}}/></label>
+<label>{{localize "FASTNRI.Fields.reflex"}}<input type="number" step="any" name="system.defenses.reflex" value="{{system.defenses.reflex}}" {{#unless editable}}disabled{{/unless}}/></label>
+<label>{{localize "FASTNRI.Fields.fortitude"}}<input type="number" step="any" name="system.defenses.fortitude" value="{{system.defenses.fortitude}}" {{#unless editable}}disabled{{/unless}}/></label>
+<label>{{localize "FASTNRI.Fields.will"}}<input type="number" step="any" name="system.defenses.will" value="{{system.defenses.will}}" {{#unless editable}}disabled{{/unless}}/></label>
+</div></section>
+<section class="fnri-panel"><h3>{{localize "FASTNRI.Sections.items"}}</h3><p class="fnri-muted">{{localize "FASTNRI.Hints.dropItems"}}</p>
+<ul class="fnri-item-list">{{#each items}}<li data-item-id="{{this.id}}"><img src="{{this.img}}" alt=""/><span>{{this.name}}</span><small>{{this.type}}</small><button type="button" data-action="openItem" title="{{localize 'FASTNRI.Actions.openItem'}}"><i class="fas fa-arrow-up-right-from-square"></i></button></li>{{else}}<li class="fnri-empty">{{localize "FASTNRI.Hints.noItems"}}</li>{{/each}}</ul></section>
+<section class="fnri-panel"><h3>{{localize "FASTNRI.Sections.notes"}}</h3><textarea name="system.notes" rows="4" {{#unless editable}}disabled{{/unless}}>{{system.notes}}</textarea></section></section>

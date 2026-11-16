@@ -1,0 +1,25 @@
+.fast-nri-v14.fast-nri-sheet .fnri-body { padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.fast-nri-v14.fast-nri-sheet .fnri-heading { display: flex; gap: 15px; align-items: flex-start; }
+.fast-nri-v14.fast-nri-sheet .fnri-heading-fields { display: flex; flex: 1; flex-direction: column; gap: 8px; min-width: 0; }
+.fast-nri-v14.fast-nri-sheet .fnri-portrait { height: 92px; width: 92px; border-radius: 6px; object-fit: cover; flex: none; }
+.fast-nri-v14.fast-nri-sheet .fnri-panel { border: 1px solid var(--color-border-light-tertiary, #8886); border-radius: 8px; padding: 11px; }
+.fast-nri-v14.fast-nri-sheet .fnri-panel h3 { font-size: 1rem; font-weight: 600; margin: 0 0 9px; border: 0; }
+.fast-nri-v14.fast-nri-sheet label { display: flex; flex-direction: column; gap: 3px; font-size: .81rem; min-width: 0; }
+.fast-nri-v14.fast-nri-sheet input,
+.fast-nri-v14.fast-nri-sheet textarea { box-sizing: border-box; max-width: 100%; width: 100%; color: var(--color-text-primary); background: var(--color-cool-5-10, transparent); }
+.fast-nri-v14.fast-nri-sheet textarea { min-height: 68px; resize: vertical; }
+.fast-nri-v14.fast-nri-sheet .fnri-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.fast-nri-v14.fast-nri-sheet .fnri-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.fast-nri-v14.fast-nri-sheet .fnri-grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-list { margin: 5px 0 0; padding: 0; list-style: none; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-list li { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--color-border-light-tertiary, #8886); }
+.fast-nri-v14.fast-nri-sheet .fnri-item-list li:last-child { border-bottom: 0; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-list img { height: 28px; width: 28px; object-fit: cover; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-list span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-list small { opacity: .65; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-list button { flex: none; width: 32px; height: 28px; }
+.fast-nri-v14.fast-nri-sheet .fnri-muted, .fast-nri-v14.fast-nri-sheet .fnri-type { opacity: .7; font-size: .8rem; }
+.fast-nri-v14.fast-nri-sheet .fnri-deprecated { font-weight: 600; color: var(--color-text-warning, #b87d31); }
+@media (max-width: 520px) {
+  .fast-nri-v14.fast-nri-sheet .fnri-grid-3, .fast-nri-v14.fast-nri-sheet .fnri-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
