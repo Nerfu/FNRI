@@ -1,3 +1,4 @@
+import { skillFormula, itemFormula, postRoll, resolveMessageMode } from "../rolls/checks.mjs";
 /** Fast NRI v14: stage-2 document sheets. No game-rule automation. */
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2, ItemSheetV2 } = foundry.applications.sheets;
@@ -6,17 +7,38 @@ const STYLES = ["fast-nri-v14", "fast-nri-sheet"];
 const TAB_IDS = new Set(["overview", "skills", "abilities", "inventory", "description"]);
 const ITEM_TYPES = new Set(["weapon", "armor", "gear", "ability"]);
 const ROW_FIELDS = {
-  skills: new Set(["name", "kind", "dice", "value"]),
+  skills: new Set(["name", "kind", "dice", "modifier", "value"]),
   resources: new Set(["name", "current", "max"]),
   equipmentSlots: new Set(["name", "itemId"])
 };
 const NUMERIC_ROW_FIELDS = {
-  skills: new Set(["value"]),
+  skills: new Set(["modifier", "value"]),
   resources: new Set(["current", "max"]),
   equipmentSlots: new Set()
 };
 const EQUIPMENT_SLOTS = ["leftHand", "rightHand", "armor"];
 const VALID_ROW_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const DICE_CUSTOM = "__custom__"; // UI-only sentinel; never persisted to Actor data.
+const DICE_PRESETS = Object.freeze({
+  skill: ["1d4", "1d6", "1d8", "1d10", "1d12"],
+  specialization: ["2d6", "2d4"]
+});
+
+function diceOptions(kind, current, customEditing = false) {
+  const available = DICE_PRESETS[kind] ?? DICE_PRESETS.skill;
+  // Keep the custom editor open after an empty value is saved and the Actor
+  // sheet is re-rendered by Foundry's document update notifications.
+  const selected = customEditing ? DICE_CUSTOM :
+    (available.includes(current) ? current : (current ? DICE_CUSTOM : ""));
+  const result = [{ value: "", label: localized("Fields.noDice"), selected: selected === "" }];
+  for (const value of available) {
+    const label = kind === "skill" ? value.slice(1) :
+      localized(value === "2d6" ? "Fields.primarySpecialization" : "Fields.secondarySpecialization");
+    result.push({ value, label, selected: selected === value });
+  }
+  result.push({ value: DICE_CUSTOM, label: localized("Fields.customDice"), selected: selected === DICE_CUSTOM });
+  return result;
+}
 
 const sortedItems = items => [...items].sort((a, b) =>
   (a.sort - b.sort) || a.name.localeCompare(b.name));
@@ -54,6 +76,11 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     form: { submitOnChange: false, closeOnSubmit: false },
     actions: {
       fnriSwitchTab: ActorBase.changeTab,
+      rollSkill: ActorBase.rollSkill,
+      createEffect: ActorBase.createEffect,
+      editEffect: ActorBase.editEffect,
+      toggleEffect: ActorBase.toggleEffect,
+      deleteEffect: ActorBase.deleteEffect,
       openItem: ActorBase.openItem,
       createItem: ActorBase.createItem,
       deleteItem: ActorBase.deleteItem,
@@ -72,6 +99,9 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     this._selectedTab = "overview";
     this._writeQueue = Promise.resolve();
     this._failedFields = new Set();
+    this._messageMode = "";
+    // UI-only selection; never persisted as a game-rule constraint or sentinel.
+    this._customDiceEditors = new Set();
   }
 
   /** Serialize updates initiated from this sheet, and keep the queue usable
@@ -123,6 +153,83 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   }
 
+  _rollMode() {
+    const selected = this.element?.querySelector?.("[data-fnri-message-mode]")?.value || this._messageMode;
+    if (selected) this._messageMode = selected;
+    return resolveMessageMode(selected, game.settings.get("core", "messageMode"));
+  }
+
+  static async rollSkill(_event, button) {
+    const id = button.dataset.id;
+    if (!VALID_ROW_ID.test(id ?? "")) return;
+    await this._writeQueue;
+    if (this._failedFields.size) return ui.notifications?.warn(localized("Hints.unsavedRoll"));
+    const entry = this.actor.system.skills?.[id];
+    if (!entry) return;
+    try {
+      await postRoll({
+        formula: skillFormula(entry), label: entry.name || localized("Fields.skill"),
+        actor: this.actor, mode: this._rollMode()
+      });
+    } catch (error) {
+      console.error("Fast NRI | skill check failed", error);
+      ui.notifications?.warn(localized("Hints.rollFailed"));
+    }
+  }
+
+  static async createEffect(_event, button) {
+    if (!this.isEditable) return;
+    const root = this.element;
+    const target = root?.querySelector?.("[data-fnri-effect-key]")?.value;
+    const raw = root?.querySelector?.("[data-fnri-effect-amount]")?.value ?? "";
+    const allowed = new Set([
+      "system.speed", "system.ac.partial", "system.ac.success", "system.ac.great",
+      "system.defenses.awareness", "system.defenses.reflex",
+      "system.defenses.fortitude", "system.defenses.will", "system.attackModifier",
+      ...Object.keys(this.actor.system.skills ?? {}).filter(id => VALID_ROW_ID.test(id))
+        .map(id => `system.skills.${id}.modifier`)
+    ]);
+    const numeric = numberFromInput(raw);
+    if (!allowed.has(target) || !numeric.valid || numeric.value === null) {
+      return ui.notifications?.warn(localized("Hints.invalidEffect"));
+    }
+    await this._queueWrite(async () => {
+      const [effect] = await this.actor.createEmbeddedDocuments("ActiveEffect", [{
+        name: localized("Actions.createEffect"), type: "base", disabled: false,
+        // Foundry v14 ActiveEffect V2 stores changes in system.changes, not
+        // the removed v13 root changes array. Use the core initial phase so
+        // prepared Actor fields receive the modifier before checks roll.
+        system: { changes: [{
+          key: target, type: "add", value: String(numeric.value), phase: "initial"
+        }] }
+      }]);
+      if (effect) await effect.sheet?.render({ force: true });
+    });
+  }
+
+  _effectByButton(button) {
+    return this.actor.effects?.get(button.dataset.id);
+  }
+  static async editEffect(_event, button) {
+    const effect = this._effectByButton(button);
+    if (effect) await effect.sheet?.render({ force: true });
+  }
+  static async toggleEffect(_event, button) {
+    if (!this.isEditable) return;
+    const effect = this._effectByButton(button);
+    if (effect) await this._queueWrite(() => effect.update({ disabled: !effect.disabled }));
+  }
+  static async deleteEffect(_event, button) {
+    if (!this.isEditable) return;
+    const effect = this._effectByButton(button);
+    if (!effect) return;
+    if (!await DialogV2.confirm({
+      window: { title: localized("Actions.deleteEffect") },
+      content: `<p>${localized("Hints.confirmDelete")}</p>`, rejectClose: false
+    })) return;
+    await this._queueWrite(() => this.actor.deleteEmbeddedDocuments("ActiveEffect", [effect.id]));
+  }
+
   static async openItem(_event, button) {
     const id = button.closest("[data-item-id]")?.dataset.itemId;
     const item = this.actor.items.get(id);
@@ -170,10 +277,10 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   static async addSkill() {
-    await this._addRow("skills", { name: "", kind: "skill", dice: "", value: null });
+    await this._addRow("skills", { name: "", kind: "skill", dice: "", modifier: null, value: null });
   }
   static async addSpecialization() {
-    await this._addRow("skills", { name: "", kind: "specialization", dice: "", value: null });
+    await this._addRow("skills", { name: "", kind: "specialization", dice: "", modifier: null, value: null });
   }
   static async removeSkill(_event, button) {
     await this._removeRow("skills", button.dataset.id);
@@ -213,6 +320,43 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     ui.notifications?.warn(localized("Hints.invalidNumber"));
   }
 
+  /** Two convenient preset lists share one stored dice formula. A change of
+   * category only changes the UI; it must never overwrite existing dice.
+   * Custom formulas and old character data are preserved as written.
+   */
+  _syncDicePickers(id, kind) {
+    const root = this.element;
+    if (!root) return;
+    const input = [...root.querySelectorAll("[data-fnri-custom-dice]")]
+      .find(control => control.dataset.rowId === id);
+    if (!input) return;
+    const activeKind = kind === "specialization" ? "specialization" : "skill";
+    const current = input.value;
+    const selected = this._customDiceEditors.has(id) ? DICE_CUSTOM :
+      (DICE_PRESETS[activeKind].includes(current) ? current : (current ? DICE_CUSTOM : ""));
+    for (const picker of root.querySelectorAll("[data-fnri-dice-picker]")) {
+      if (picker.dataset.rowId !== id) continue;
+      picker.hidden = picker.dataset.fnriDicePicker !== activeKind;
+      if (!picker.hidden) picker.value = selected;
+    }
+    input.hidden = selected !== DICE_CUSTOM;
+  }
+
+  _saveRowControl(control) {
+    if (!this.isEditable) return;
+    const { rowCollection: collection, rowId: id, rowField: field } = control.dataset;
+    if (!ROW_FIELDS[collection]?.has(field) || !VALID_ROW_ID.test(id ?? "")) return;
+    const isNumber = NUMERIC_ROW_FIELDS[collection]?.has(field) ?? false;
+    const parsed = isNumber ? numberFromInput(control.value) : { valid: true, value: control.value };
+    if (!parsed.valid) return this._invalidNumber(control);
+    control.setCustomValidity?.("");
+    const fieldKey = "system." + collection + "." + id + "." + field;
+    void this._queueWrite(async () => {
+      if (!Object.hasOwn(this.actor.system[collection] ?? {}, id)) return;
+      return this.actor.update({ [fieldKey]: parsed.value });
+    }, fieldKey).catch(() => {});
+  }
+
   /** Register a single, addressable save path for each Actor control.
    * Row inputs intentionally have no `name` and cannot be submitted by
    * Handlebars FormData. This prevents the old competing full-array write.
@@ -220,22 +364,46 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _onRender(context, options) {
     await super._onRender(context, options);
     const root = this.element;
+    const modeControl = root.querySelector?.("[data-fnri-message-mode]");
+    if (modeControl) {
+      modeControl.value = this._messageMode;
+      modeControl.addEventListener("change", event => { this._messageMode = event.currentTarget.value; });
+    }
     for (const input of root.querySelectorAll("[data-row-collection][data-row-field][data-row-id]")) {
       input.addEventListener("change", event => {
         event.stopPropagation();
-        if (!this.isEditable) return;
         const control = event.currentTarget;
-        const { rowCollection: collection, rowId: id, rowField: field } = control.dataset;
-        if (!ROW_FIELDS[collection]?.has(field) || !VALID_ROW_ID.test(id ?? "")) return;
-        const isNumber = NUMERIC_ROW_FIELDS[collection]?.has(field) ?? false;
-        const parsed = isNumber ? numberFromInput(control.value) : { valid: true, value: control.value };
-        if (!parsed.valid) return this._invalidNumber(control);
-        control.setCustomValidity?.("");
-        const fieldKey = "system." + collection + "." + id + "." + field;
-        void this._queueWrite(async () => {
-          if (!Object.hasOwn(this.actor.system[collection] ?? {}, id)) return;
-          return this.actor.update({ [fieldKey]: parsed.value });
-        }, fieldKey).catch(() => {});
+        if (control.dataset.rowCollection === "skills" && control.dataset.rowField === "kind") {
+          this._syncDicePickers(control.dataset.rowId, control.value);
+        }
+        this._saveRowControl(control);
+      });
+    }
+    for (const picker of root.querySelectorAll("[data-fnri-dice-picker]")) {
+      picker.addEventListener("change", event => {
+        event.stopPropagation();
+        if (!this.isEditable || picker.hidden) return;
+        const id = picker.dataset.rowId;
+        const input = [...root.querySelectorAll("[data-fnri-custom-dice]")]
+          .find(control => control.dataset.rowId === id);
+        if (!input || !VALID_ROW_ID.test(id ?? "")) return;
+        if (picker.value === DICE_CUSTOM) {
+          // Choosing "Custom formula" starts with an EMPTY formula, not the
+          // preceding preset. Until a new formula is entered, Skill Check is
+          // 1d20 (+ modifier). Persist the clearing immediately.
+          this._customDiceEditors.add(id);
+          input.value = "";
+          input.hidden = false;
+          this._saveRowControl(input);
+          input.focus?.();
+          return; // Never persist the UI-only sentinel.
+        }
+        // Presets and "No die" leave custom editing mode. Use the same
+        // addressable write queue as all other Actor fields.
+        this._customDiceEditors.delete(id);
+        input.value = picker.value;
+        input.hidden = true;
+        this._saveRowControl(input);
       });
     }
     for (const input of root.querySelectorAll("input[name],select[name],textarea[name]")) {
@@ -258,6 +426,20 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const actor = this.actor;
+    // AE-adjusted values are used by rolls, NEVER as edit-form defaults.
+    // toObject(true) is the original persisted source, not prepared data.
+    const base = actor.toObject?.(true)?.system ?? actor._source?.system ?? actor.system;
+    const different = (path) => {
+      const parts = path.split(".");
+      const get = (object) => parts.reduce((current, key) => current?.[key], object);
+      return get(base) !== get(actor.system);
+    };
+    const effectiveDiffs = {
+      speed: different("speed"), attackModifier: different("attackModifier"),
+      hp: Object.fromEntries(["current", "max", "temp"].map(key => [key, different("hp." + key)])),
+      ac: Object.fromEntries(["partial", "success", "great"].map(key => [key, different("ac." + key)])),
+      defenses: Object.fromEntries(["awareness", "reflex", "fortitude", "will"].map(key => [key, different("defenses." + key)]))
+    };
     const items = sortedItems(actor.items.contents);
     const equipment = actor.system.equipment ?? {};
     // Every embedded Item is assignable. Type labels do not impose game-rule
@@ -277,7 +459,8 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     const tab = TAB_IDS.has(this._selectedTab) ? this._selectedTab : "overview";
     return {
       ...context,
-      actor, system: actor.system, editable: this.isEditable,
+      actor, system: base, effectiveSystem: actor.system, effectiveDiffs, editable: this.isEditable,
+      preparedResourceRows: rowsOf(actor.system.resources),
       activeTab: tab,
       tabs: {
         overview: tab === "overview", skills: tab === "skills",
@@ -290,13 +473,31 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       handChoices: allChoices, armorChoices: allChoices, missingEquipment,
       extraSlotRows,
       hasMissingEquipment: Object.values(missingEquipment).some(Boolean) || extraSlotRows.some(row => row.missing),
-      skillRows: rowsOf(actor.system.skills).map(row => ({
+      effectRows: [...(actor.effects?.contents ?? [])].map(effect => ({
+        id: effect.id, name: effect.name, disabled: effect.disabled
+      })),
+      effectTargets: [
+        { key: "system.speed", name: localized("Fields.speed") },
+        ...["partial", "success", "great"].map(field => ({ key: "system.ac." + field, name: localized("Fields." + field) })),
+        ...["awareness", "reflex", "fortitude", "will"].map(field => ({ key: "system.defenses." + field, name: localized("Fields." + field) })),
+        ...(actor.type === "npc" ? [{ key: "system.attackModifier", name: localized("Fields.attackModifier") }] : []),
+        ...rowsOf(base.skills).filter(row => VALID_ROW_ID.test(row.id)).map(row => ({
+          key: `system.skills.${row.id}.modifier`, name: (row.name || localized("Fields.skill")) + " · " + localized("Fields.checkModifier")
+        }))
+      ],
+      skillRows: rowsOf(base.skills).map(row => ({
+        effectiveModifier: actor.system.skills?.[row.id]?.modifier,
+        hasEffectiveModifier: (actor.system.skills?.[row.id]?.modifier ?? 0) !== (row.modifier ?? 0),
         ...row,
         isSpecialization: row.kind === "specialization",
         isSkill: row.kind !== "specialization",
+        skillDiceOptions: diceOptions("skill", String(row.dice ?? ""), this._customDiceEditors.has(row.id)),
+        specializationDiceOptions: diceOptions("specialization", String(row.dice ?? ""), this._customDiceEditors.has(row.id)),
+        hasCustomDice: this._customDiceEditors.has(row.id) ||
+          (!!row.dice && !DICE_PRESETS[row.kind === "specialization" ? "specialization" : "skill"].includes(row.dice)),
         hasLegacyValue: row.value !== null && row.value !== undefined
       })),
-      resourceRows: rowsOf(actor.system.resources)
+      resourceRows: rowsOf(base.resources)
     };
   }
 }
@@ -313,18 +514,89 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static DEFAULT_OPTIONS = {
     tag: "form", classes: [...STYLES, "fast-nri-item"],
     position: { width: 570, height: 620 },
-    form: { submitOnChange: true, closeOnSubmit: false }
+    form: { submitOnChange: true, closeOnSubmit: false },
+    actions: {
+      itemRoll: FastNRIItemSheet.rollItem,
+      createItemEffect: FastNRIItemSheet.createItemEffect,
+      editItemEffect: FastNRIItemSheet.editItemEffect,
+      toggleItemEffect: FastNRIItemSheet.toggleItemEffect,
+      deleteItemEffect: FastNRIItemSheet.deleteItemEffect
+    }
   };
+  constructor(options = {}) {
+    super(options);
+    this._messageMode = "";
+  }
+  async _onRender(context, options) {
+    await super._onRender(context, options);
+    const select = this.element?.querySelector?.("[data-fnri-message-mode]");
+    if (select) {
+      select.value = this._messageMode;
+      select.addEventListener("change", event => { this._messageMode = event.currentTarget.value; });
+    }
+  }
+  _itemEffect(button) { return this.item.effects?.get(button.dataset.id); }
+  static async createItemEffect() {
+    if (!this.isEditable) return;
+    try {
+      const [effect] = await this.item.createEmbeddedDocuments("ActiveEffect", [{
+        name: localized("Actions.createEffect"), type: "base", disabled: false,
+        transfer: false, system: { changes: [] }
+      }]);
+      if (effect) await effect.sheet?.render({ force: true });
+    } catch (error) {
+      console.error("Fast NRI | item effect create failed", error);
+      ui.notifications?.error(localized("Hints.saveFailed"));
+    }
+  }
+  static async editItemEffect(_event, button) {
+    const effect = this._itemEffect(button);
+    if (effect) await effect.sheet?.render({ force: true });
+  }
+  static async toggleItemEffect(_event, button) {
+    if (!this.isEditable) return;
+    const effect = this._itemEffect(button);
+    if (effect) await effect.update({ disabled: !effect.disabled });
+  }
+  static async deleteItemEffect(_event, button) {
+    if (!this.isEditable) return;
+    const effect = this._itemEffect(button);
+    if (!effect) return;
+    if (!await DialogV2.confirm({ window: { title: localized("Actions.deleteEffect") },
+      content: `<p>${localized("Hints.confirmDelete")}</p>`, rejectClose: false })) return;
+    await this.item.deleteEmbeddedDocuments("ActiveEffect", [effect.id]);
+  }
+  static async rollItem(_event, _button) {
+    // A roll from an Item sheet belongs to that card; no fixed game rules
+    // are applied or silently derived from class, weapon or user settings.
+    const item = this.item;
+    const formula = this.element?.querySelector?.('[name="system.rollFormula"]')?.value?.trim() ?? itemFormula(item);
+    if (!formula) return ui.notifications?.warn(localized("Hints.emptyRollFormula"));
+    try {
+      const mode = this.element?.querySelector?.("[data-fnri-message-mode]")?.value || this._messageMode || game.settings.get("core", "messageMode");
+      await postRoll({ formula, label: item.name,
+        actor: item.parent?.documentName === "Actor" ? item.parent : null, mode });
+    } catch (error) {
+      console.error("Fast NRI | item roll failed", error);
+      ui.notifications?.warn(localized("Hints.rollFailed"));
+    }
+  }
   static PARTS = { main: { root: true, template: "systems/fast-nri-v14/templates/item.hbs" } };
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     return {
       ...context,
-      item: this.item, system: this.item.system, editable: this.isEditable,
+      item: this.item,
+      system: this.item.toObject?.(true)?.system ?? this.item._source?.system ?? this.item.system,
+      effectiveSystem: this.item.system, editable: this.isEditable,
       isWeapon: this.item.type === "weapon", isArmor: this.item.type === "armor",
       isGear: this.item.type === "gear", isAbility: this.item.type === "ability",
       isLegacy: this.item.type === "item",
-      deprecated: this.item.getFlag("fast-nri-v14", "status") === "deprecated"
+      deprecated: this.item.getFlag("fast-nri-v14", "status") === "deprecated",
+      hasRollFormula: !!itemFormula(this.item),
+      itemEffects: [...(this.item.effects?.contents ?? [])].map(effect => ({
+        id: effect.id, name: effect.name, disabled: effect.disabled, transfer: effect.transfer
+      }))
     };
   }
 }

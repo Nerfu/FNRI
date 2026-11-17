@@ -48,6 +48,10 @@ for name in ('character','npc'):
     assert 'data-row-collection="skills"' in src
     assert 'data-row-collection="resources"' in src
     assert 'data-row-field="dice"' in src
+    assert 'data-fnri-dice-picker="skill"' in src
+    assert 'data-fnri-dice-picker="specialization"' in src
+    assert 'data-fnri-custom-dice' in src
+    assert 'this.skillDiceOptions' in src and 'this.specializationDiceOptions' in src
     assert 'data-row-field="kind"' in src
     assert 'data-action="addSpecialization"' in src
     assert 'data-row-collection="equipmentSlots"' in src
@@ -77,6 +81,10 @@ assert 'globalThis._del' in sheets
 assert 'NUMERIC_ROW_FIELDS' in sheets
 assert 'addSpecialization' in sheets and 'addEquipmentSlot' in sheets
 assert 'this.render({ force: true })' not in sheets and 'fnriSwitchTab: ActorBase.changeTab' in sheets
+# v14 ActiveEffect V2 stores changes under system, with explicit application phase.
+assert 'system: { changes: [{' in sheets and 'phase: "initial"' in sheets
+assert 'transfer: false, system: { changes: [] }' in sheets
+assert 'transfer: false, changes:' not in sheets
 assert 'items.filter(i => ["weapon", "gear", "item"]' not in sheets
 files=[root/'system.json']
 files.extend(root/p for p in manifest['esmodules']+manifest['styles'])

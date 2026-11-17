@@ -2,7 +2,7 @@
  * Fast NRI 7.0 — editable document data models.
  * Stage 2 adds unrestricted skill/specialization entries, resource lists,
  * standard equipment references and user-defined additional slots.
- * No derived game rules, rolls, automatic equip bonuses or migrations.
+ * Stage 3 adds optional numeric check modifiers and card-owned roll formulas.
  */
 const F = foundry.data.fields;
 const T = foundry.abstract.TypeDataModel;
@@ -16,7 +16,7 @@ function checkEntrySchema() {
   // the row, not restrictions on number of rows or its freely editable dice.
   // The old numeric value survives for possible stage-2 draft data; it is not
   // silently interpreted as a dice formula.
-  return new F.SchemaField({ name: text(), kind: text(), dice: text(), value: number() });
+  return new F.SchemaField({ name: text(), kind: text(), dice: text(), modifier: number(), value: number() });
 }
 
 function customSlotSchema() {
@@ -68,7 +68,7 @@ export class NPCModel extends T {
 
 function commonItemSchema() {
   return {
-    notes: text(), description: text(), tags: text(),
+    notes: text(), description: text(), tags: text(), rollFormula: text(),
     mechanics: new F.ObjectField({ required: false, initial: () => ({}) })
   };
 }

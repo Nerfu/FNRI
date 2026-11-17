@@ -65,7 +65,17 @@
       "dice": "Dice / formula",
       "slotName": "Slot name",
       "slotItem": "Assigned item",
-      "legacySkillValue": "Legacy numeric value (preserved, not converted)"
+      "legacySkillValue": "Legacy numeric value (preserved, not converted)",
+      "checkModifier": "Modifier",
+      "messageMode": "Visibility",
+      "effectTarget": "Attribute",
+      "effectAmount": "Adjustment",
+      "rollFormula": "Roll formula",
+      "effective": "Effective",
+      "noDice": "— No dice —",
+      "customDice": "Custom formula…",
+      "primarySpecialization": "Primary — 2d6",
+      "secondarySpecialization": "Secondary — 2d4"
     },
     "Sections": {
       "parameters": "Statistics",
@@ -82,7 +92,10 @@
       "equipment": "Equipment",
       "inventory": "Inventory",
       "wealth": "Wealth",
-      "extraEquipment": "Additional slots"
+      "extraEquipment": "Additional slots",
+      "roll": "Card roll",
+      "effects": "Effects and numeric adjustments",
+      "itemEffects": "Card effects"
     },
     "Hints": {
       "dropItems": "Drag an item or ability from the Foundry directory or Compendium into this area.",
@@ -99,7 +112,17 @@
       "missingItem": "Missing or unavailable item",
       "clearMissingEquipment": "An equipped item is missing. Select “—” or another item to clear the reference.",
       "invalidNumber": "Enter a valid number (decimal dot or comma).",
-      "saveFailed": "Changes were not saved. Retry or check your ownership permissions."
+      "saveFailed": "Changes were not saved. Retry or check your ownership permissions.",
+      "rollFailed": "Invalid formula or roll failure. Check console.",
+      "unsavedRoll": "A field was not saved. Correct it before rolling.",
+      "invalidEffect": "Choose an attribute and enter a valid numeric adjustment.",
+      "emptyRollFormula": "Enter a roll formula in the card.",
+      "nativeEffects": "Foundry applies effects; edit details in the native effect sheet.",
+      "effectDisabled": "disabled",
+      "noEffects": "No active effects",
+      "cardRoll": "The card owns its complete formula. No automatic resource spending or outcomes.",
+      "itemEffectTransfer": "A new effect does not transfer to the Actor until you explicitly enable transfer in the native effect editor.",
+      "transferEffect": "transfers"
     },
     "Actions": {
       "openItem": "Open card",
@@ -111,7 +134,13 @@
       "deleteItem": "Delete item",
       "addSpecialization": "Add specialization",
       "addEquipmentSlot": "Add slot",
-      "removeEquipmentSlot": "Remove slot"
+      "removeEquipmentSlot": "Remove slot",
+      "rollSkill": "Roll check",
+      "rollItem": "Roll card formula",
+      "createEffect": "Add adjustment",
+      "editEffect": "Open effect",
+      "toggleEffect": "Enable/disable",
+      "deleteEffect": "Delete effect"
     },
     "Tabs": {
       "overview": "Overview",
@@ -119,6 +148,13 @@
       "abilities": "Abilities",
       "inventory": "Inventory",
       "description": "Description"
+    },
+    "Modes": {
+      "default": "Default",
+      "public": "Public",
+      "gm": "GM only",
+      "blind": "Blind",
+      "self": "Self only"
     }
   }
 }

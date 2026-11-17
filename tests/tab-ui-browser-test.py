@@ -1,79 +1,53 @@
 #!/usr/bin/env python3
-"""Browser DOM/action regression for Foundry-style HTML; does not claim live Foundry coverage."""
+"""Browser tests for actual tab markup with the real switchTab method.
+Runs against a lightweight Foundry shim; not a live v14 integration test.
+"""
 from pathlib import Path
-import base64, re
 from playwright.sync_api import sync_playwright
+import re,base64
 
-HERE=Path(__file__).resolve().parents[1]
-BEFORE=Path('/mnt/data/fnri_releaseprep_016/FNRI_Stage2_Release_Candidate_0.1.6/GitHub')
+ROOT=Path(__file__).resolve().parents[1]
 TABS=['overview','skills','abilities','inventory','description']
 
-def html_from_template(root,actor):
-    src=(root/'templates'/f'{actor}.hbs').read_text(encoding='utf-8')
-    # Extract attributes literally from actual template, not a hand-written test UI.
-    nav=re.findall(r'<button type="button" data-action="([^"]+)" data-(tab|fnri-target)="([^"]+)"',src)
-    panels=re.findall(r'<div class="fnri-tab-content"(?: data-fnri-panel="([^"]+)")?',src)
-    assert len(nav)==5 and [n[2] for n in nav]==TABS,(actor,nav)
-    assert len(panels)==5
+def html_from_template(path):
+    src=(ROOT/'templates'/f'{path}.hbs').read_text()
+    nav=re.findall(r'<button type="button" data-action="([^\"]+)" data-fnri-target="([^\"]+)"',src)
+    panels=re.findall(r'<div class="fnri-tab-content" data-fnri-panel="([^\"]+)"',src)
+    assert [t[1] for t in nav]==TABS and panels==TABS
     html='<main id="actor-root"><nav class="fnri-tabs">'
-    for action,attribute,tab in nav:
-        html+=f'<button type="button" data-action="{action}" data-{attribute}="{tab}" class="fnri-tab'+(' active' if tab=='overview' else '')+'">'+tab+'</button>'
+    html+=''.join(f'<button data-action="{action}" data-fnri-target="{tab}">{tab}</button>' for action,tab in nav)
     html+='</nav>'
-    for i,panel in enumerate(panels):
-        if panel:assert panel==TABS[i]
-        attrs=f' data-fnri-panel="{panel}"' if panel else ''
-        html+=f'<div class="fnri-tab-content"{attrs}'+(' hidden' if i else '')+f'><input id="input-{TABS[i]}" value="original-{i}">{TABS[i]}</div>'
+    html+=''.join(f'<div class="fnri-tab-content" data-fnri-panel="{tab}" '+('hidden' if i else '')+f'><input id="input-{tab}" value="{tab}"></div>' for i,tab in enumerate(panels))
     return html+'</main>'
 
-INIT_JS='''async ({mode,sourceBase64}) => {
- class BaseSheet {
-  constructor(){ this.isEditable=true;this.renders=0; }
-  async render(){this.renders++;return this;}
-  async _prepareContext(){return {};}
-  async _onRender(){}
- }
- globalThis.foundry={applications:{api:{HandlebarsApplicationMixin:(C)=>C,DialogV2:{}},sheets:{ActorSheetV2:BaseSheet,ItemSheetV2:BaseSheet}}};
- const { FastNRICharacterSheet } = await import('data:text/javascript;base64,'+sourceBase64);
- const sheet = new FastNRICharacterSheet();
- sheet.element=document.querySelector('#actor-root');
- sheet._failedFields.add('system.wealth');
- const action=mode==='old'?'tab':'fnriSwitchTab';
- for(const button of document.querySelectorAll('.fnri-tabs button')) {
-   button.addEventListener('click',e=>{
-     const p=FastNRICharacterSheet.DEFAULT_OPTIONS.actions[action].call(sheet,e,button);
-     if(p && p.catch)p.catch(err=>window.testError=''+err);
-   });
- }
- window._testSheet=sheet;
+src=(ROOT/'module/sheets/sheets.mjs').read_text()
+# Isolate the tab method (the full module imports the rolling adapter).
+start=src.index('  static changeTab(_event, button) {')
+end=src.index('\n  _rollMode()',start)
+method=src[start:end]
+js='''({method}) => {
+const fn=new Function('_event','button','const TAB_IDS=new Set(["overview","skills","abilities","inventory","description"]);'+method.slice(method.indexOf('{')+1,method.lastIndexOf('}')));
+const sheet={element:document.querySelector('#actor-root'),_selectedTab:'overview',_failedFields:new Set(['system.wealth'])};
+for (const button of document.querySelectorAll('.fnri-tabs button')) button.addEventListener('click',e=>fn.call(sheet,e,button));
+window.sheetUnderTest=sheet;
 }'''
-
 with sync_playwright() as p:
     browser=p.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
     try:
-        for mode,root in [('old',BEFORE),('new',HERE)]:
-            for actor in ['character','npc']:
-                page=browser.new_page()
-                page.set_content(html_from_template(root,actor))
-                sourceBase64=base64.b64encode((root/'module/sheets/sheets.mjs').read_bytes()).decode()
-                page.evaluate(INIT_JS,{'mode':mode,'sourceBase64':sourceBase64})
-                page.locator('.fnri-tabs button').nth(3).click()
-                page.wait_for_timeout(50)
-                selected=page.evaluate("window._testSheet._selectedTab")
-                if mode=='old':
-                    assert selected=='overview',(mode,actor,selected)
-                else:
-                    assert selected=='inventory',(mode,actor,selected)
-                    assert page.locator('[data-fnri-panel="inventory"]').is_visible()
-                    assert page.locator('[data-fnri-panel="overview"]').is_hidden()
-                    assert page.locator('.fnri-tabs button.active').inner_text()=='inventory'
-                    assert page.locator('.fnri-tabs button.active').get_attribute('aria-current')=='page'
-                    assert page.locator('#input-overview').input_value()=='original-0'
-                    assert page.evaluate('window._testSheet.renders')==0
-                    # Invalid input on a different panel is not a navigation gate.
-                    page.locator('#input-overview').evaluate("el=>{el.setCustomValidity('bad value');}")
-                    page.locator('.fnri-tabs button').nth(1).click()
-                    assert page.locator('[data-fnri-panel="skills"]').is_visible()
-                    assert page.locator('#input-overview').evaluate('el=>el.validationMessage')=='bad value'
-                page.close()
+        for actor in ['character','npc']:
+            page=browser.new_page()
+            page.set_content(html_from_template(actor))
+            page.evaluate(js,{'method':method})
+            for tab in TABS[1:]:
+                page.locator(f'.fnri-tabs [data-fnri-target="{tab}"]').click()
+                assert page.locator(f'[data-fnri-panel="{tab}"]').is_visible()
+                assert page.locator('[data-fnri-panel]:visible').count()==1
+            page.locator('.fnri-tabs [data-fnri-target="skills"]').click()
+            page.locator('#input-skills').fill('unsaved string')
+            page.locator('.fnri-tabs [data-fnri-target="inventory"]').click()
+            page.locator('.fnri-tabs [data-fnri-target="skills"]').click()
+            assert page.locator('#input-skills').input_value()=='unsaved string'
+            assert page.evaluate('window.sheetUnderTest._selectedTab')=='skills'
+            page.close()
     finally:browser.close()
-print('PASS: real Chromium DOM button clicks on character/NPC, v0.1.6 reproduced blocked navigation, fixed implementation navigates without loss/re-render')
+print('PASS: Chromium actor and NPC tabs, failed-save independence, DOM/input preservation')

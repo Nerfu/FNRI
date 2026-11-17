@@ -50,8 +50,9 @@ for(const model of [CONFIG.Actor.dataModels.character.defineSchema(),CONFIG.Acto
   assert.equal(model.skills.args[1].required,false);
   assert.deepEqual(model.skills.args[1].initial(),{});
   const checkSchema=model.skills.args[0].args[0];
-  for(const key of ['name','kind','dice','value'])assert.ok(checkSchema[key],key);
+  for(const key of ['name','kind','dice','modifier','value'])assert.ok(checkSchema[key],key);
   assert.equal(checkSchema.dice.constructor,Field);
+  assert.equal(checkSchema.modifier.constructor,Field);
   assert.equal(model.equipmentSlots.constructor,Field);
   const slotSchema=model.equipmentSlots.args[0].args[0];
   for(const key of ['name','itemId'])assert.ok(slotSchema[key],key);
@@ -67,7 +68,7 @@ for(const cls of [FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet]){
 assert.equal(FastNRICharacterSheet.DEFAULT_OPTIONS.form.submitOnChange,false,'single Actor save path');
 assert.equal(FastNRIItemSheet.DEFAULT_OPTIONS.form.submitOnChange,true,'Item forms still use core submission');
 const actions=FastNRICharacterSheet.DEFAULT_OPTIONS.actions;
-for(const a of ['fnriSwitchTab','openItem','createItem','deleteItem','addSkill','addSpecialization','removeSkill','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'])assert.equal(typeof actions[a],'function',a);
+for(const a of ['fnriSwitchTab','rollSkill','createEffect','editEffect','toggleEffect','deleteEffect','openItem','createItem','deleteItem','addSkill','addSpecialization','removeSkill','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'])assert.equal(typeof actions[a],'function',a);
 
 function actorFactory(){
  const items=[];let itemCounter=2;
@@ -141,6 +142,15 @@ assert.equal(ctx.handChoices.length,2,'all Item types are eligible for any stand
 assert.equal(ctx.armorChoices.length,2,'armor slot must not filter by type');
 assert.equal(ctx.skillRows[0].hasLegacyValue,true,'draft numeric values remain visible, not erased');
 assert.equal(ctx.skillRows[1].isSpecialization,true);
+
+assert.deepEqual(ctx.skillRows[0].skillDiceOptions.slice(1,6).map(option => option.value),
+  ['1d4','1d6','1d8','1d10','1d12']);
+assert.deepEqual(ctx.skillRows[1].specializationDiceOptions.slice(1,3).map(option => option.value),
+  ['2d6','2d4']);
+assert.equal(ctx.skillRows[0].skillDiceOptions.find(option => option.selected).value,'1d8');
+assert.equal(ctx.skillRows[1].specializationDiceOptions.find(option => option.selected).value,'2d6');
+assert.equal(ctx.skillRows[0].hasCustomDice,false);
+
 assert.equal(ctx.missingEquipment.leftHand,false);
 assert.equal(ctx.abilityItems.length,1);
 
@@ -219,7 +229,7 @@ assert.equal(Object.values(actor.system.skills).filter(x=>x.kind==='specializati
 await actions.addSkill.call(sheet);
 const newSkill=Object.keys(actor.system.skills).find(id=>id.startsWith('testid'));
 assert.ok(newSkill);
-assert.deepEqual(actor.system.skills[newSkill],{name:'',kind:'skill',dice:'',value:null});
+assert.deepEqual(actor.system.skills[newSkill],{name:'',kind:'skill',dice:'',modifier:null,value:null});
 await actions.addSpecialization.call(sheet);
 const specialId=Object.keys(actor.system.skills).at(-1);
 assert.equal(actor.system.skills[specialId].kind,'specialization');
@@ -338,6 +348,8 @@ for(const path of ['templates/character.hbs','templates/npc.hbs']){
  assert.ok(html.includes('missingEquipment.rightHand'));
  assert.ok(html.includes('name="system.wealth"'));
  assert.ok(html.includes('data-action="addSpecialization"'));
+ assert.ok(html.includes('data-action="rollSkill"'));
+ assert.ok(html.includes('data-action="createEffect"'));
  assert.ok(html.includes('data-row-field="dice"'));
  assert.ok(html.includes('data-action="addEquipmentSlot"'));
  assert.ok(html.includes('data-row-collection="equipmentSlots"'));

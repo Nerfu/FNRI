@@ -9,6 +9,31 @@
     </div>
   </header>
   <section class="fnri-panel">
+    <div class="fnri-row-head"><h3>{{localize "FASTNRI.Sections.roll"}}</h3>
+      <label class="fnri-mode-choice">{{localize "FASTNRI.Fields.messageMode"}}<select data-fnri-message-mode>
+        <option value="">{{localize "FASTNRI.Modes.default"}}</option><option value="public">{{localize "FASTNRI.Modes.public"}}</option>
+        <option value="gm">{{localize "FASTNRI.Modes.gm"}}</option><option value="blind">{{localize "FASTNRI.Modes.blind"}}</option>
+        <option value="self">{{localize "FASTNRI.Modes.self"}}</option></select></label>
+    </div>
+    <label>{{localize "FASTNRI.Fields.rollFormula"}}<input type="text" name="system.rollFormula" value="{{system.rollFormula}}" placeholder="1d20 + 2d6" {{#unless editable}}disabled{{/unless}}></label>
+    {{#if hasRollFormula}}<button type="button" data-action="itemRoll"><i class="fa-solid fa-dice-d20"></i> {{localize "FASTNRI.Actions.rollItem"}}</button>{{/if}}
+    <p class="fnri-muted">{{localize "FASTNRI.Hints.cardRoll"}}</p>
+  </section>
+  <section class="fnri-panel">
+    <div class="fnri-row-head"><h3>{{localize "FASTNRI.Sections.itemEffects"}}</h3>
+      {{#if editable}}<button type="button" data-action="createItemEffect">{{localize "FASTNRI.Actions.createEffect"}}</button>{{/if}}
+    </div>
+    <p class="fnri-muted">{{localize "FASTNRI.Hints.itemEffectTransfer"}}</p>
+    <ul class="fnri-item-list">{{#each itemEffects}}
+      <li class="fnri-item-row"><span>{{this.name}} {{#if this.transfer}}<small>({{localize "FASTNRI.Hints.transferEffect"}})</small>{{/if}}
+        {{#if this.disabled}}<small>({{localize "FASTNRI.Hints.effectDisabled"}})</small>{{/if}}</span>
+        <button type="button" data-action="editItemEffect" data-id="{{this.id}}"><i class="fa-solid fa-pen"></i></button>
+        {{#if @root.editable}}<button type="button" data-action="toggleItemEffect" data-id="{{this.id}}"><i class="fa-solid fa-power-off"></i></button>
+          <button type="button" data-action="deleteItemEffect" data-id="{{this.id}}"><i class="fa-solid fa-trash"></i></button>{{/if}}
+      </li>{{else}}<li class="fnri-muted">{{localize "FASTNRI.Hints.noEffects"}}</li>{{/each}}
+    </ul>
+  </section>
+  <section class="fnri-panel">
     <h3>{{localize "FASTNRI.Sections.properties"}}</h3>
     {{#if isWeapon}}
       <div class="fnri-grid-3">
