@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-      - name: 'Validate v0.1.9: syntax, data persistence, sheets and rolls'
+      - name: 'Validate v0.1.9: Foundry 14 effects, persistence and rolls'
         shell: bash
         run: |
           find . -name '*.mjs' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check

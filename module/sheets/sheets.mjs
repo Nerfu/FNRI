@@ -226,8 +226,13 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     await this._queueWrite(async () => {
       const [effect] = await this.actor.createEmbeddedDocuments("ActiveEffect", [{
-        name: localized("Actions.createEffect"), disabled: false,
-        changes: [{ key: target, type: "add", value: String(numeric.value) }]
+        name: localized("Actions.createEffect"), type: "base", disabled: false,
+        // Foundry v14 ActiveEffect V2 stores changes in system.changes, not
+        // the removed v13 root changes array. Use the core initial phase so
+        // prepared Actor fields receive the modifier before checks roll.
+        system: { changes: [{
+          key: target, type: "add", value: String(numeric.value), phase: "initial"
+        }] }
       }]);
       if (effect) await effect.sheet?.render({ force: true });
     });
@@ -594,7 +599,8 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (!this.isEditable) return;
     try {
       const [effect] = await this.item.createEmbeddedDocuments("ActiveEffect", [{
-        name: localized("Actions.createEffect"), disabled: false, transfer: false, changes: []
+        name: localized("Actions.createEffect"), type: "base", disabled: false,
+        transfer: false, system: { changes: [] }
       }]);
       if (effect) await effect.sheet?.render({ force: true });
     } catch (error) {
