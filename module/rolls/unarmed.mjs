@@ -17,11 +17,11 @@ export function unarmedExpression(actor, override = null) {
     const mod = actor.system?.attackModifier;
     if (typeof mod === 'number' && Number.isFinite(mod))
       return {expression: `1d20 ${mod < 0 ? '-' : '+'} ${Math.abs(mod)}`,warning:null};
-    return { expression: '1d20', warning: 'missingCombatDie' };
+    return { expression: '1d20', warning: null };
   }
   const combat = die(actor?.system?.combatDie);
   return { expression: combat ? `1d20 + ${combat}` : '1d20',
-    warning: combat ? null : 'missingCombatDie' };
+    warning: null };
 }
 
 /**

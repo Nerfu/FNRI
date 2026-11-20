@@ -11,22 +11,28 @@ const own=m=>game.user?.isGM || m.isAuthor;
 const element=(tag,css,text)=>{const e=document.createElement(tag);if(css)e.className=css;if(text!==undefined)e.textContent=String(text);return e;};
 function actionButton(label,action) {
   const b=element('button','fnri-damage-button',label);b.type='button';
-  b.addEventListener('click',async()=>{if(b.disabled)return;b.disabled=true;
+  // No visible button is disabled. An in-flight guard avoids duplicate writes,
+  // without turning the control grey or changing its availability.
+  let pending=false;
+  b.addEventListener('click',async()=>{if(pending)return;pending=true;
     try{await action();}catch(error){console.error('Fast NRI | damage action failed',error);ui.notifications?.error(l('error'));}
-    finally{b.disabled=false;}});
+    finally{pending=false;}});
   return b;
 }
 
 export function renderDamageCard(message,html) {
   const card=message?.getFlag?.(ID,'weaponDamage');
-  if(!card || card.version!==2 || !html?.querySelector || html.querySelector('[data-fnri-damage-card]'))return;
+  if(!card || card.version!==2 || !html?.querySelector)return;
+  // On document updates Foundry may reuse the chat element. Rebuild this view
+  // from flags so a GM override immediately adds/removes its intervention button.
+  html.querySelector('[data-fnri-damage-card]')?.remove?.();
   const anchor=html.querySelector('.message-content')??html;
   const container=element('div','fnri-damage-card');container.dataset.fnriDamageCard='';
   const attack=element('div','fnri-damage-attack',`${l('attackTotal')}: ${card.attackTotal??'—'}`);
   container.append(attack);
   const lines=element('div','fnri-damage-parts');
   for(const part of card.parts??[]) {
-    const p=element('span','fnri-damage-part',`${part.formula??part.id}: ${part.value}`);
+    const p=element('span','fnri-damage-part',`${part.formula??part.id}: ${part.pending?l('unrolledDie'):part.value}`);
     if(part.excluded||part.immune)p.classList.add('fnri-damage-excluded');
     else if(part.kind==='die' && Number.isInteger(part.faces)) {
       if(part.value===1)p.classList.add('fnri-die-min');
@@ -48,10 +54,13 @@ export function renderDamageCard(message,html) {
   const chain=(card.history??[]).filter(h=>h.action==='intervention');
   if(chain.length)container.append(element('small','fnri-damage-history',chain.map(h=>h.name??(h.source==='builtin:selfDefense'?l('selfDefense'):
     (h.source??l('intervention')))).join(' → ')));
-  const intervene=actionButton(l('intervention'),()=>initiateIntervention(message));
-  intervene.classList.add('fnri-intervene-button');
-  if(messageIntervention(message)) {intervene.disabled=true;intervene.title=l('interventionBlocked');}
-  container.append(intervene);
+  // An intervention result does not expose an intervention action at all;
+  // never show a permanently disabled button. A GM override reverses this.
+  if(!messageIntervention(message)) {
+    const intervene=actionButton(l('intervention'),()=>initiateIntervention(message));
+    intervene.classList.add('fnri-intervene-button');
+    container.append(intervene);
+  }
   const row=element('div','fnri-damage-bottom');
   if(values.active) {
     const crit=actionButton(l('applyCritical'),()=>applyCardDamage(message,{critical:true}));
@@ -72,7 +81,16 @@ export function renderDamageCard(message,html) {
   anchor.append(container);
 }
 
+/** Refresh displayed cards after their message flags change, including for other clients. */
+export function refreshDamageMessage(message) {
+  if(!message?.id || typeof document==='undefined' || typeof document.querySelectorAll!=='function')return;
+  for(const el of document.querySelectorAll('.chat-message')) {
+    if(el?.dataset?.messageId===message.id)renderDamageCard(message,el);
+  }
+}
+
 export function registerDamageChatControls() {
+  Hooks.on('updateChatMessage',msg=>refreshDamageMessage(msg));
   Hooks.on('renderChatMessageHTML',(msg,html)=>{
     renderDamageCard(msg,html);renderHpReport(msg,html);
     highlightDiceResults(msg,html);

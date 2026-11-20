@@ -370,3 +370,65 @@
   flex:0 0 auto;min-width:0;width:auto;padding-inline:8px;
   white-space:nowrap;font-size:.82rem;
 }
+
+/* v0.1.14: each die has its own explicit action and initialized value.
+ * No control is greyed out when an intervention is unavailable: it is hidden. */
+.fnri-roll-editor {min-width:min(360px,85vw);max-height:68vh;overflow-y:auto;gap:10px;}
+.fnri-roll-editor .fnri-editor-section{border:1px solid var(--color-border-light-tertiary,#8886);border-radius:6px;padding:8px;display:grid;gap:7px;min-width:0;}
+.fnri-roll-editor .fnri-editor-section legend{font-weight:700;padding:0 5px;}
+.fnri-editor-part-row {border-top:1px solid var(--color-border-light-tertiary,#8885);padding-top:7px;display:grid;gap:4px;}
+.fnri-editor-part-heading{font-weight:650;overflow-wrap:anywhere;}
+.fnri-editor-part-excluded .fnri-editor-part-heading {text-decoration:line-through;opacity:.68;}
+.fnri-editor-actions{display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center;}
+.fnri-editor-actions label,.fnri-editor-noop{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+.fnri-editor-actions input[type=number]{max-width:85px;min-width:60px;flex:0 1 85px;}
+.fnri-editor-adjust-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.fnri-editor-adjust-row label{display:flex;align-items:center;gap:5px;}
+.fnri-editor-adjust-row input[type=number]{max-width:100px;}
+.fnri-roll-editor select{width:100%;}
+.fnri-roll-editor small{opacity:.75;}
+
+/* v0.1.14: native Intervention checkbox in the GM roll editor. */
+.fnri-roll-editor .fnri-editor-intervention-toggle{display:inline-flex;align-items:center;gap:8px;justify-content:flex-start;cursor:pointer;}
+.fnri-roll-editor .fnri-editor-intervention-toggle input[type="checkbox"]{width:auto;flex:0 0 auto;margin:0;cursor:pointer;}
+
+/* v0.1.14 local UI follow-up: independent flags and direct component buttons. */
+.fnri-roll-editor .fnri-editor-boolean-toggle{display:inline-flex;align-items:center;gap:9px;cursor:pointer;}
+.fnri-roll-editor .fnri-editor-boolean-toggle input[type="checkbox"]{width:auto;min-width:14px;flex:0 0 auto;margin:0;cursor:pointer;}
+.fnri-roll-editor .fnri-editor-actions{display:flex;flex-wrap:wrap;gap:5px;}
+.fnri-roll-editor .fnri-editor-action{flex:0 0 auto;width:auto;min-width:0;margin:0;padding:4px 9px;font-size:.85rem;line-height:1.35;cursor:pointer;}
+.fnri-roll-editor .fnri-editor-adjust-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.fnri-roll-editor .fnri-editor-part-row{border-top:1px solid var(--color-border-light-tertiary,#8885);}
+
+/* v0.1.14: long damage rolls — page at most 20 independent components.
+ * Properties stay above the scrollable list; no disabled navigation buttons. */
+.fnri-roll-editor .fnri-editor-components {min-height:0;}
+.fnri-roll-editor .fnri-editor-search {display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;}
+.fnri-roll-editor .fnri-editor-find-input {flex:1 1 130px;min-width:90px;max-width:100%;margin:0;}
+.fnri-roll-editor .fnri-editor-search button,.fnri-roll-editor .fnri-editor-pages button {
+  width:auto;min-width:0;flex:0 0 auto;padding:4px 9px;margin:0;}
+.fnri-roll-editor .fnri-editor-page-info {font-variant-numeric:tabular-nums;opacity:.82;font-size:.86rem;}
+.fnri-roll-editor .fnri-editor-parts-list {
+  min-height:0;max-height:min(43vh,380px);overflow-y:auto;overscroll-behavior:contain;
+  border-top:1px solid var(--color-border-light-tertiary,#8886);padding-right:4px;}
+.fnri-roll-editor .fnri-editor-pages {display:flex;justify-content:space-between;gap:8px;}
+@media (max-height:600px){.fnri-roll-editor .fnri-editor-parts-list {max-height:28vh;}}
+
+/* v0.1.14: new GM-only damage components, below the paged list. */
+.fnri-roll-editor .fnri-editor-add-row {border-top:1px solid var(--color-border-light-tertiary,#8886);padding-top:9px;display:flex;justify-content:flex-end;}
+.fnri-roll-editor .fnri-editor-add-row button {width:auto;max-width:100%;padding:5px 12px;}
+.fnri-editor-add-form {display:grid;gap:10px;min-width:0;}
+.fnri-editor-add-form label {display:grid;gap:4px;}
+.fnri-editor-add-form [data-fnri-add-dice] {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+.fnri-editor-add-form [data-fnri-add-fixed][hidden],.fnri-editor-add-form [data-fnri-add-dice][hidden] {display:none;}
+.fnri-editor-add-form input,.fnri-editor-add-form select {min-width:0;width:100%;}
+
+/* Batch dice selector stays outside the scrollable dice list. */
+.fnri-editor-part-line{display:flex;gap:8px;align-items:flex-start;min-width:0;}
+.fnri-editor-part-pick{display:inline-flex;align-items:center;flex:0 0 auto;cursor:pointer;}
+.fnri-editor-part-pick input{width:16px;height:16px;margin:1px 0 0;}
+.fnri-editor-part-pending .fnri-editor-part-heading{font-style:italic;opacity:.75;}
+.fnri-editor-bulk{display:grid;gap:7px;border-top:1px solid var(--color-border-light-tertiary,#8886);padding-top:9px;}
+.fnri-editor-bulk-info{font-size:.85rem;opacity:.85;}
+.fnri-editor-bulk-buttons{display:flex;gap:6px;flex-wrap:wrap;}
+.fnri-editor-bulk-buttons button{width:auto;min-width:0;flex:1 1 120px;margin:0;padding:5px 8px;font-size:.85rem;}

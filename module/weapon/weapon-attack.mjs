@@ -38,8 +38,7 @@ export function attackExpressionForWeapon(item, actor) {
   return {
     expression: proficient && combatDie ? `1d20 + ${combatDie}` : '1d20',
     source: 'standard',
-    warning: proficient && !combatDie ? 'missingCombatDie' :
-      (mode === 'auto' && !cls ? 'unknownProficiency' : null)
+    warning: mode === 'auto' && !cls ? 'unknownProficiency' : null
   };
 }
 

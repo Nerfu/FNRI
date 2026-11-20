@@ -37,7 +37,8 @@ export function selfDefenseFormula(actor,attackKind,chosenStat=null) {
     `1d20 + ${bonus}${combat?` + ${combat}`:''}`;
   const warnings=[];
   if(!Number.isFinite(defense))warnings.push(tr('missingDefense'));
-  if(!isNpc&&!combat)warnings.push(tr('missingCombatDie'));
+  // A missing combat die already yields a valid 1d20 defense. No noisy warning:
+  // an absent term is not a reason to interrupt a GM-approved roll.
   return {expression,warnings,stat};
 }
 
@@ -52,6 +53,9 @@ async function chooseTie(parts) {
 export async function initiateIntervention(message) {
   const card=message?.getFlag?.(ID,'weaponDamage');
   if(!card||card.version!==2)throw new Error('Intervention requires a component damage card');
+  if(card.parts?.some(p=>p.kind==='die'&&p.pending)){
+    ui.notifications?.warn(tr('unrolledDice'));return null;
+  }
   if(messageIntervention(message)) {ui.notifications?.warn(tr('interventionBlocked'));return null;}
   const token=await chooseControlledToken();if(!token)return null;
   const actor=actorForToken(token);

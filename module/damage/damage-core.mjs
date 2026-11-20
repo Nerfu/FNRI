@@ -46,8 +46,10 @@ export function criticalDamageRule(card) {
  * preserve legacy semantics for old stored cards and their interventions. */
 export function calculateDamage(card, {critical}={}) {
   const parts=card?.parts ?? [];
-  const remaining=parts.filter(p=>!p.excluded && !p.immune);
-  const gross=remaining.reduce((sum,p)=>sum+nonNegative(p.value),0);
+  const remaining=parts.filter(p=>!p.excluded && !p.immune && !p.pending);
+  // GM die edits may exceed the die maximum, but cannot fall below 1.
+  // Fixed contributions may be signed; the net damage is floored at zero.
+  const gross=remaining.reduce((sum,p)=>sum+(finite(p.value)?p.value:0),0);
   const a=card?.adjustments ?? {};
   const penalty=nonNegative(a.penalty);
   const criticalRule=criticalDamageRule(card);
@@ -101,19 +103,55 @@ export function changePart(card, id, action, newValue=null) {
   const next=copy(card);
   const part=next.parts?.find(p=>p.id===id);
   if (!part) throw new Error('Damage component not found');
-  const old={value:part.value,excluded:!!part.excluded};
+  const old={value:part.value,excluded:!!part.excluded,pending:!!part.pending};
   if (action==='exclude') part.excluded=true;
   else if (action==='restore') part.excluded=false;
+  else if (action==='reset') {if(part.pending)throw new Error('Unrolled dice must be rolled first');part.value=part.original;part.excluded=false;}
   else if (action==='set' || action==='reroll') {
-    if (!finite(newValue) || newValue<0 || (action==='reroll' && (part.kind!=='die' || !Number.isInteger(newValue) || newValue<1 || newValue>part.faces)))
+    if (!finite(newValue) || (action==='set' && part.kind==='die' && !Number.isInteger(newValue)) ||
+      (action==='reroll' && (part.kind!=='die' || !Number.isInteger(newValue) || newValue<1 || newValue>part.faces)))
       throw new Error('Invalid damage component value');
-    part.value=newValue;
+    part.value=action==='set' && part.kind==='die' ? Math.max(1,newValue) : newValue;
+    if(part.pending) {part.original=part.value;part.pending=false;}
+    if(action==='reroll')part.excluded=false;
   } else throw new Error('Unknown component operation');
-  return {next,old,current:{value:part.value,excluded:!!part.excluded}};
+  return {next,old,current:{value:part.value,excluded:!!part.excluded,pending:!!part.pending}};
+}
+
+/** Append new GM-created components; no original component is rewritten. A die is
+ * stored independently so later rerolls, exclusions and defenses address its ID.
+ * Pending dice have no numeric value until a real evaluated Roll resolves them.
+ */
+export function appendDamageComponents(card,{kind,faces,count=1,values=[],value=0,damageType='',traits=[]}={}) {
+  if(card?.version!==2 || !Array.isArray(card.parts))throw new Error('Damage snapshot is unavailable');
+  if(!['die','fixed'].includes(kind))throw new Error('Unknown component kind');
+  if(kind==='die' && (!Number.isInteger(faces) || faces<2 || faces>1000 ||
+    !Number.isInteger(count) || count<1 || count>1000 ||
+    values.some(v=>!Number.isInteger(v) || v<1 || v>faces) || (values.length!==0 && values.length!==count)))throw new Error('Invalid dice addition');
+  if(kind==='fixed' && !finite(value))throw new Error('Invalid fixed addition');
+  if(typeof damageType!=='string' || damageType.length>100)throw new Error('Invalid damage type');
+  if(!Array.isArray(traits) || traits.length>30 ||
+    traits.some(t=>typeof t!=='string' || t.length>100))throw new Error('Invalid traits');
+  const next=copy(card), occupied=new Set(next.parts.map(p=>p.id));
+  // Never reuse a discarded component ID: old audit entries still reference it.
+  for(const entry of next.history??[]) {
+    for(const id of entry.ids??[])occupied.add(id);
+    for(const part of entry.changes??[])if(part.id)occupied.add(part.id);
+  }
+  let number=1;
+  const makeId=()=>{while(occupied.has(`gm-${number}`))number++;const id=`gm-${number++}`;occupied.add(id);return id;};
+  const pending=kind==='die' && values.length===0;
+  const given=kind==='die' ? (pending?Array(count).fill(null):values) : [value];
+  const appended=given.map(n=>({id:makeId(),kind,faces:kind==='die'?faces:null,
+    formula:kind==='die'?`1d${faces}`:(n>=0?`+${n}`:String(n)),
+    original:n,value:n,pending:kind==='die'&&pending,excluded:false,damageType:damageType.trim(),
+    traits:traits.map(t=>t.trim()).filter(Boolean),source:'gm:roll-editor'}));
+  next.parts.push(...appended);
+  return {next,appended};
 }
 
 export function biggestDamageParts(card) {
-  const live=(card?.parts ?? []).filter(p=>!p.excluded && !p.immune);
+  const live=(card?.parts ?? []).filter(p=>!p.excluded && !p.immune && !p.pending);
   if (!live.length) return [];
   const max=Math.max(...live.map(p=>nonNegative(p.value)));
   return live.filter(p=>nonNegative(p.value)===max);

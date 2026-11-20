@@ -73,6 +73,9 @@ export async function applyHp({kind='damage',amount,sourceMessage=null,token=nul
 export async function applyCardDamage(message,{critical=false}={}) {
   const card=message?.getFlag?.(SYSTEM_ID,'weaponDamage');
   if (!card || card.version!==2) throw new Error('Unsupported damage card');
+  if(card.parts?.some(p=>p.kind==='die'&&p.pending)) {
+    ui.notifications?.warn(t('unrolledDice'));return null;
+  }
   const values=calculateDamage(card,{critical});
   return applyHp({kind:'damage',amount:values.total,sourceMessage:message,
     critical,multiplier:values.multiplier});
@@ -142,9 +145,10 @@ export function renderHpReport(message,html) {
     const hint=document.createElement('small');hint.textContent=t('reverted');wrap.append(hint);
   } else if (game.user?.isGM || message.isAuthor) {
     const b=document.createElement('button');b.type='button';b.textContent=t('undo');
-    b.addEventListener('click',async()=>{if(b.disabled)return;b.disabled=true;
+    let pending=false;
+    b.addEventListener('click',async()=>{if(pending)return;pending=true;
       try {await revertHpReport(message);} catch(e){console.error('Fast NRI | undo failed',e);ui.notifications?.error(t('error'));}
-      finally {b.disabled=false;}});wrap.append(b);
+      finally {pending=false;}});wrap.append(b);
   }
   anchor.append(wrap);
 }

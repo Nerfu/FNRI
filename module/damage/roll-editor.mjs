@@ -1,8 +1,9 @@
 /** GM-only native chat context command. All corrections live in flags;
  * original Roll and already applied HP are NEVER changed.
  */
-import {changePart,calculateDamage,copy} from './damage-core.mjs';
+import {changePart,appendDamageComponents,calculateDamage,criticalDamageRule,copy} from './damage-core.mjs';
 import {messageIntervention} from '../rolls/attack-properties.mjs';
+import {refreshDamageMessage} from './damage-chat.mjs';
 const ID='fast-nri-v14';
 const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const l=key=>game.i18n.localize(`FASTNRI.Damage.${key}`);
@@ -56,9 +57,11 @@ export async function applyRollCorrection(msg,{partId,action,value}={}) {
     const old={value:part.value,excluded:!!part.excluded};
     if(action==='exclude')part.excluded=true;
     else if(action==='restore')part.excluded=false;
+    else if(action==='reset') {part.value=part.original;part.excluded=false;}
     else if(action==='set'||action==='reroll') {
-      if(!Number.isFinite(value)|| (action==='reroll' && (part.kind!=='die'||!Number.isInteger(value)||value<1||value>part.faces)))throw new Error('Invalid roll value');
-      part.value=value;
+      if(!Number.isFinite(value)|| (action==='set' && part.kind==='die' && !Number.isInteger(value)) ||
+        (action==='reroll' && (part.kind!=='die'||!Number.isInteger(value)||value<1||value>part.faces)))throw new Error('Invalid roll value');
+      part.value=action==='set' && part.kind==='die' ? Math.max(1,value) : value;
     } else throw new Error('Unknown roll correction');
     state.history.push({by:game.user.id,at:Date.now(),action,id:partId,before:old,
       after:{value:part.value,excluded:!!part.excluded}});
@@ -66,6 +69,131 @@ export async function applyRollCorrection(msg,{partId,action,value}={}) {
   state.currentTotal=computedRollTotal(state);
   await msg.update({[`flags.${ID}.rollEdit`]:state});
   return state;
+}
+
+/** Add a die batch or one fixed contribution to a version-2 damage message.
+ * The operation is GM-only and uses exactly one flag update with an audit entry.
+ */
+export async function addDamageToMessage(msg,{kind,faces,count=1,value=0,damageType='',traits=[]}={}) {
+  if(!own(msg) || !editableMessage(msg))throw new Error('Only GM may edit system rolls');
+  const card=get(msg,'weaponDamage');
+  if(card?.version!==2)throw new Error('Additions are only supported on damage cards');
+  // Newly added dice are deliberately pending, not rolled on creation.
+  // They have no numerical contribution until resolved by a real Roll.
+  if(kind==='die' && (!Number.isInteger(faces)||faces<2||faces>1000||
+    !Number.isInteger(count)||count<1||count>1000))throw new Error('Invalid dice addition');
+  const values=[];
+  const {next,appended}=appendDamageComponents(card,{kind,faces,count,values,value,damageType,traits});
+  next.history=[...(next.history??[]),{by:game.user.id,at:Date.now(),action:'add',
+    ids:appended.map(p=>p.id),components:copy(appended)}];
+  next.revision=(next.revision??0)+1;
+  await msg.update({[`flags.${ID}.weaponDamage`]:next});
+  refreshDamageMessage(msg);
+  return {added:appended,after:calculateDamage(next)};
+}
+
+/** The editor keeps selection in memory, but pending dice live in chat flags.
+ * A whole selection is evaluated in ONE Foundry Roll and committed in ONE update.
+ * Mapping is by stable component ID, never by filtered page position.
+ */
+export function pendingDiceIds(card) {
+  return (card?.parts??[]).filter(p=>p.kind==='die' && p.pending).map(p=>p.id);
+}
+
+export async function rollMarkedDice(msg,partIds) {
+  if(!own(msg)||!editableMessage(msg))throw Error('Only GM may edit system rolls');
+  const card=get(msg,'weaponDamage');
+  if(card?.version!==2)throw Error('Batch dice are only supported on damage cards');
+  const selected=new Set(partIds??[]);
+  const marked=card.parts.filter(p=>selected.has(p.id) && p.kind==='die');
+  if(!marked.length)throw Error(l('selectDiceFirst'));
+  if(marked.some(p=>!Number.isInteger(p.faces)||p.faces<1))throw Error('Invalid die faces');
+  // Adjacent terms of the same size are grouped to keep enormous formulas compact.
+  const groups=[];
+  for(const part of marked) {
+    const last=groups.at(-1);
+    if(last?.faces===part.faces)last.count++;
+    else groups.push({faces:part.faces,count:1});
+  }
+  const roll=new Roll(groups.map(g=>`${g.count}d${g.faces}`).join(' + '));
+  await roll.evaluate();
+  const actual=(roll.dice??[]).flatMap(d=>(d.results??[])
+    .filter(x=>x.active!==false).map(x=>({faces:d.faces,value:x.result})));
+  if(actual.length!==marked.length || actual.some((v,i)=>v.faces!==marked[i].faces ||
+    !Number.isInteger(v.value)||v.value<1||v.value>v.faces))throw Error('Invalid batch roll results');
+  const next=copy(card),byId=new Map(marked.map((p,i)=>[p.id,actual[i].value]));
+  const changes=[];
+  for(const part of next.parts) {
+    if(!byId.has(part.id))continue;
+    const before={value:part.value,pending:!!part.pending,excluded:!!part.excluded};
+    part.value=byId.get(part.id);
+    if(part.pending)part.original=part.value;
+    part.pending=false;part.excluded=false;
+    changes.push({id:part.id,before,after:{value:part.value,pending:false,excluded:false}});
+  }
+  next.history=[...(next.history??[]),{by:game.user.id,at:Date.now(),action:'rerollBatch',changes}];
+  next.revision=(next.revision??0)+1;
+  await msg.update({[`flags.${ID}.weaponDamage`]:next});
+  refreshDamageMessage(msg);
+  return {count:changes.length,roll,changes,after:calculateDamage(next)};
+}
+
+/** Exclude or restore selected parts, or all parts when no selection exists. */
+export async function setBulkExcluded(msg,partIds=[],excluded=true) {
+  if(!own(msg)||!editableMessage(msg))throw Error('Only GM may edit system rolls');
+  const card=get(msg,'weaponDamage');
+  if(card?.version!==2)throw Error('Bulk edit is only supported on damage cards');
+  const selection=new Set(partIds);
+  const next=copy(card),changed=[];
+  for(const p of next.parts) {
+    if(selection.size && !selection.has(p.id))continue;
+    if(!!p.excluded===excluded)continue;
+    p.excluded=excluded;changed.push(p.id);
+  }
+  if(changed.length) {
+    next.history=[...(next.history??[]),{by:game.user.id,at:Date.now(),
+      action:excluded?'excludeBatch':'restoreBatch',ids:changed}];
+    next.revision=(next.revision??0)+1;
+    await msg.update({[`flags.${ID}.weaponDamage`]:next});
+    refreshDamageMessage(msg);
+  }
+  return {count:changed.length};
+}
+
+/** Remove only unresolved additions. Existing rolled dice are never deleted. */
+export async function discardPendingDice(msg) {
+  if(!own(msg)||!editableMessage(msg))throw Error('Only GM may edit system rolls');
+  const card=get(msg,'weaponDamage');
+  if(card?.version!==2)throw Error('Pending dice are only supported on damage cards');
+  const next=copy(card),ids=pendingDiceIds(next);
+  if(!ids.length)return {count:0};
+  const toRemove=new Set(ids);
+  next.parts=next.parts.filter(p=>!toRemove.has(p.id));
+  next.history=[...(next.history??[]),{by:game.user.id,at:Date.now(),action:'discardPending',ids}];
+  next.revision=(next.revision??0)+1;
+  await msg.update({[`flags.${ID}.weaponDamage`]:next});
+  refreshDamageMessage(msg);
+  return {count:ids.length};
+}
+
+/** On explicit close, all remaining unrolled dice must be resolved or removed. */
+export async function resolvePendingOnClose(msg,dialog=foundry.applications.api.DialogV2) {
+  const ids=pendingDiceIds(get(msg,'weaponDamage'));
+  if(!ids.length)return true;
+  const choice=await dialog.wait({window:{title:l('unrolledDice')},modal:true,
+    content:`<p>${esc(l('unrolledDice'))}: ${ids.length}</p>`,
+    buttons:[{action:'roll',label:l('rollUnrolled')},
+      {action:'discard',label:l('discardUnrolled')},
+      {action:'cancel',label:l('editorCancel')}],rejectClose:false});
+  if(choice==='roll')await rollMarkedDice(msg,ids);
+  else if(choice==='discard')await discardPendingDice(msg);
+  else return false;
+  return true;
+}
+
+/** Only an upwards manual override needs GM confirmation. */
+export function isOutOfRangeDieValue(part,value) {
+  return part?.kind==='die' && Number.isFinite(value) && value>part.faces;
 }
 
 /** Override only the concrete chat result, not its source Item or original Roll. */
@@ -77,6 +205,7 @@ export async function setMessageIntervention(msg,enabled) {
   const history=[...(get(msg,'interventionHistory')??[]),{by:game.user.id,at:Date.now(),before,after:enabled}];
   await msg.update({[`flags.${ID}.interventionOverride`]:enabled,
     [`flags.${ID}.interventionHistory`]:history});
+  refreshDamageMessage(msg);
   return true;
 }
 
@@ -97,6 +226,7 @@ export async function setMessageCritical(msg,mode='auto',multiplier=2) {
   next.history=[...(next.history??[]),{by:game.user.id,at:Date.now(),action:'critical',before:previous,after:current}];
   next.revision=(next.revision??0)+1;
   await msg.update({[`flags.${ID}.weaponDamage`]:next});
+  refreshDamageMessage(msg);
   return true;
 }
 
@@ -125,68 +255,426 @@ export async function executeRollEditorAction(msg,{partId,action,value}={}) {
   return {action,partId,before,current};
 }
 
+/** One button per action. Numbers are entered only after Set is clicked;
+ * checkboxes apply only to this chat message, never to its source card.
+ */
+export function criticalCheckboxState(msg) {
+  const card=get(msg,'weaponDamage');
+  if(card?.version!==2)return null;
+  return card.manualCritical===null || card.manualCritical===undefined
+    ? criticalDamageRule(card).triggered : !!card.manualCritical;
+}
+
+/** Draw only 20 independent dice components at a time. The original part indexes
+ * are used in every action, so pagination and search never change target IDs.
+ */
+export const ROLL_EDITOR_PAGE_SIZE=20;
+/** Component metadata already belongs to the damage snapshot. Search is read-only;
+ * never change component IDs or invent damage types for ordinary checks. */
+export function editorPartTraits(part) {
+  const raw=part?.traits ?? part?.properties ?? [];
+  return (Array.isArray(raw)?raw:String(raw).split(/[,;]+/))
+    .map(value=>String(value??'').trim()).filter(Boolean);
+}
+export function rollEditorPage(parts,{page=0,query=''}={}) {
+  const needle=String(query??'').trim().toLocaleLowerCase();
+  const numeric=/^#?(\d+)$/.exec(needle);
+  const filtered=parts.map((part,index)=>({part,index})).filter(({part,index})=>
+    !needle || (numeric?index+1===Number(numeric[1]):
+      [part.formula,part.id,part.kind,part.damageType,...editorPartTraits(part)]
+        .some(v=>String(v??'').toLocaleLowerCase().includes(needle))));
+  const pages=Math.max(1,Math.ceil(filtered.length/ROLL_EDITOR_PAGE_SIZE));
+  const currentPage=Math.max(0,Math.min(pages-1,Number.isSafeInteger(page)?page:0));
+  return {items:filtered.slice(currentPage*ROLL_EDITOR_PAGE_SIZE,(currentPage+1)*ROLL_EDITOR_PAGE_SIZE),
+    count:filtered.length,pages,page:currentPage};
+}
+
+export function renderRollEditorContent(msg,{feedback='',page=0,query='',interventionDraft,criticalDraft,selectedIds}={}) {
+  const card=get(msg,'weaponDamage');
+  const isDamage=card?.version===2;
+  const parts=getEditorParts(msg);
+  const selected=new Set(selectedIds===undefined?parts.filter(p=>p.pending).map(p=>p.id):selectedIds);
+  const heading=isDamage?calculateDamage(card).total:(get(msg,'rollEdit')?.currentTotal ?? msg.rolls?.[0]?.total);
+  const excludedLabel=l('excludedState');
+  const initial=l('initialValue');
+  const button=(op,label)=>`<button type="button" class="fnri-editor-action" data-fnri-editor-op="${esc(op)}">${esc(label)}</button>`;
+  const listing=rollEditorPage(parts,{page,query});
+  const operations=listing.items.map(({part:p,index:i})=>{
+    const excluded=!!p.excluded;
+    const number=p.pending?l('unrolledDie'):Number(p.value);
+    const partTitle=p.formula??p.id;
+    const metadata=[p.damageType,...editorPartTraits(p)].filter(Boolean);
+    const metadataLabel=metadata.length?` · ${metadata.map(esc).join(' · ')}`:'';
+    const old=!p.pending && number!==p.original?` · ${initial}: ${p.original}`:'';
+    const title=`#${i+1} · ${esc(partTitle)}: ${esc(number)}${metadataLabel}${excluded?` · ${esc(excludedLabel)}`:''}${esc(old)}`;
+    return `<div class="fnri-editor-part-row${excluded?' fnri-editor-part-excluded':''}${p.pending?' fnri-editor-part-pending':''}">`+
+      `<div class="fnri-editor-part-line"><label class="fnri-editor-part-pick">`+
+      `<input type="checkbox" data-fnri-editor-select="${esc(p.id)}" ${selected.has(p.id)?'checked':''} `+
+      `aria-label="${esc(l('selectComponent'))} #${i+1}"></label>`+
+      `<div class="fnri-editor-part-heading">${title}</div></div>`+
+      `<div class="fnri-editor-actions">`+
+      (p.kind==='die'&&!p.pending?button(`reroll:${i}`,l('reroll')):'')+
+      button(`${excluded?'restore':'exclude'}:${i}`,l(excluded?'restore':'exclude'))+
+      (!p.pending&&(excluded || number!==p.original)?button(`reset:${i}`,l('resetOriginal')):'')+
+      (!p.pending?button(`set:${i}`,l('set')):'')+
+      `</div></div>`;
+  }).join('');
+  const selectedParts=parts.filter(p=>selected.has(p.id));
+  const selectedDice=selectedParts.filter(p=>p.kind==='die').length;
+  const selectionLabel=selected.size?`${l('selectedCount')}: ${selected.size}`:l('allComponents');
+  const bulk=isDamage?`<div class="fnri-editor-bulk" aria-live="polite">`+
+    `<div class="fnri-editor-bulk-info">${esc(selectionLabel)}</div>`+
+    `<div class="fnri-editor-bulk-buttons">`+
+    button('rerollMarked',`${l('rerollMarked')} (${selectedDice})`)+
+    button('excludeBulk',selected.size?l('excludeMarked'):l('excludeAll'))+
+    button('restoreBulk',selected.size?l('restoreMarked'):l('restoreAll'))+
+    `</div></div>`:'';
+  const adjustments=isDamage?['penalty','resistance','vulnerability'].map(k=>{
+    const amount=Number(card.adjustments?.[k]??0);
+    return `<div class="fnri-editor-adjust-row"><span>${esc(l(k))}: ${esc(amount)}</span>`+
+      button(`adjustment:${k}`,l('set'))+`</div>`;
+  }).join(''):'';
+  const offset=!isDamage?`<div class="fnri-editor-adjust-row"><span>${esc(l('totalCorrection'))}: `+
+    `${esc(get(msg,'rollEdit')?.offset??0)}</span>${button('offset',l('set'))}</div>`:'';
+  const interventionState=typeof interventionDraft==='boolean'?interventionDraft:messageIntervention(msg);
+  const criticalState=typeof criticalDraft==='boolean'?criticalDraft:criticalCheckboxState(msg);
+  const critical=isDamage?`<label class="fnri-editor-boolean-toggle">`+
+    `<input type="hidden" name="criticalPresent" value="1">`+
+    `<input type="checkbox" name="critical" value="true" ${criticalState?'checked':''}>`+
+    `${esc(l('criticalToggle'))}</label>`:'';
+  return `<div class="fnri-roll-editor"><strong>${esc(l('total'))}: ${esc(heading)}</strong>`+
+    `<fieldset class="fnri-editor-section"><legend>${esc(l('rollProperties'))}</legend>`+
+    `<input type="hidden" name="interventionPresent" value="1">`+
+    `<label class="fnri-editor-boolean-toggle"><input type="checkbox" name="intervention" value="true" `+
+    `${interventionState?'checked':''}> ${esc(l('interventionProperty'))}</label>`+
+    critical+
+    `<small>${esc(l('interventionHint'))}</small></fieldset>`+
+    `<fieldset class="fnri-editor-section fnri-editor-components"><legend>${esc(l('component'))} (${parts.length})</legend>`+
+    `<div class="fnri-editor-search"><input class="fnri-editor-find-input" type="search" name="editorSearch" `+
+    `value="${esc(query)}" placeholder="${esc(l('editorSearch'))}" aria-label="${esc(l('editorSearch'))}">`+
+    (query?`<button type="button" data-fnri-editor-nav="clear">${esc(l('editorClear'))}</button>`:'')+`</div>`+
+    `<div class="fnri-editor-page-info" aria-live="polite">${esc(l('editorResults'))}: ${listing.count} · `+
+    `${esc(l('editorPage'))} ${listing.page+1}/${listing.pages}</div>`+
+    `<div class="fnri-editor-parts-list" role="region" aria-label="${esc(l('component'))}">`+
+    (operations||`<p>${esc(l('editorNoResults'))}</p>`)+`</div>`+
+    `<div class="fnri-editor-pages">`+
+    (listing.page>0?`<button type="button" data-fnri-editor-nav="prev">${esc(l('editorPrev'))}</button>`:'')+
+    (listing.page<listing.pages-1?`<button type="button" data-fnri-editor-nav="next">${esc(l('editorNext'))}</button>`:'')+`</div>`+
+    bulk+adjustments+offset+
+    (isDamage?`<div class="fnri-editor-add-row">${button('add',l('addComponent'))}</div>`:'')+
+    `</fieldset>`+
+    `<small>${esc(l('history'))}: ${isDamage?(card.history?.length??0):(get(msg,'rollEdit')?.history?.length??0)}</small>`+
+    (feedback?`<div class="fnri-roll-editor-feedback" role="status">${esc(feedback)}</div>`:'')+`</div>`;
+}
+
+/** Live update just the result region: keep the search field focused and both
+ * checkboxes untouched. No chat flags are changed during search or pagination.
+ * Returned page may be clamped if a query reduces the result count. */
+export function refreshRollEditorSearch(root,msg,{page=0,query='',selectedIds}={}) {
+  const markup=renderRollEditorContent(msg,{page,query,selectedIds});
+  const template=document.createElement('template');
+  template.innerHTML=markup;
+  const fresh=template.content.querySelector('.fnri-roll-editor');
+  for(const selector of ['.fnri-editor-page-info','.fnri-editor-parts-list','.fnri-editor-pages','.fnri-editor-bulk']) {
+    const existing=root.querySelector(selector);
+    const updated=fresh?.querySelector(selector);
+    if(existing && updated)existing.replaceWith(updated);
+  }
+  const searchBar=root.querySelector('.fnri-editor-search');
+  searchBar?.querySelector('[data-fnri-editor-nav="clear"]')?.remove();
+  const clear=fresh?.querySelector('[data-fnri-editor-nav="clear"]');
+  if(clear && searchBar)searchBar.append(clear);
+  return rollEditorPage(getEditorParts(msg),{page,query}).page;
+}
+
+/** Execute only the action explicitly selected. UI values do not modify dice on
+ * their own. Intervention and critical fields are independent of the dice. */
+export async function saveRollEditorInput(msg,result) {
+  const card=get(msg,'weaponDamage');
+  const isDamage=card?.version===2;
+  const parts=getEditorParts(msg);
+  let op=String(result.operation??'none');
+  // Compatibility with early dialog fixture responses (not exposed in new UI).
+  if(!('operation' in result) && result.part && result.action) {
+    const i=parts.findIndex(p=>p.id===result.part);
+    if(i>=0) {op=`${result.action}:${i}`;result={...result,[`partValue_${i}`]:result.value};}
+  }
+  let outcome=null;
+  if(op!=='none') {
+    if(op.startsWith('adjustment:')) {
+      const k=op.slice('adjustment:'.length);
+      if(!isDamage||!['penalty','resistance','vulnerability'].includes(k))throw Error('Invalid adjustment');
+      const value=Number(result[`adjustValue_${k}`]);
+      if(!Number.isFinite(value)||value<0)throw Error('Invalid adjustment value');
+      if(value!==Number(card.adjustments?.[k]??0))outcome=await executeRollEditorAction(msg,{partId:op,action:'set',value});
+    } else if(op==='offset') {
+      if(isDamage)throw Error('Invalid offset');
+      const value=Number(result.offsetValue);
+      if(!Number.isFinite(value))throw Error('Invalid total correction');
+      if(value!==Number(get(msg,'rollEdit')?.offset??0))outcome=await executeRollEditorAction(msg,{partId:'offset',action:'set',value});
+    } else {
+      const match=/^(reroll|set|exclude|restore|reset):(\d+)$/.exec(op);
+      if(!match)throw Error('Unknown component operation');
+      const [,action,index]=match;const part=parts[Number(index)];
+      if(!part)throw Error('Missing roll component');
+      const value=action==='set'?Number(result[`partValue_${index}`]):undefined;
+      if(action==='set' && !Number.isFinite(value))throw Error('Invalid roll value');
+      if(action==='reroll' && part.kind!=='die')throw Error(l('notADie'));
+      if(action==='exclude' && part.excluded || action==='restore' && !part.excluded ||
+        action==='set' && value===part.value || action==='reset' && part.value===part.original && !part.excluded) {
+        // Do not record a no-op and do not inadvertently adjust another part.
+      } else outcome=await executeRollEditorAction(msg,{partId:part.id,action,value});
+    }
+  }
+  // An unchecked HTML checkbox is absent from FormData. The hidden marker
+  // distinguishes that from a legacy/API call which did not submit this field.
+  const hasInterventionInput=Object.hasOwn(result,'intervention') ||
+    Object.hasOwn(result,'interventionPresent');
+  const rawIntervention=result.intervention;
+  const desired=hasInterventionInput
+    ? (rawIntervention===true || rawIntervention==='true' || rawIntervention==='on' ||
+      rawIntervention==='1' || rawIntervention===1)
+    : messageIntervention(msg);
+  const interventionChanged=await setMessageIntervention(msg,desired);
+  let criticalChanged=false;
+  if(isDamage) {
+    const hasCheckbox=Object.hasOwn(result,'critical') || Object.hasOwn(result,'criticalPresent');
+    if(hasCheckbox) {
+      const enabled=[true,'true','on','1',1].includes(result.critical);
+      const current=criticalCheckboxState(msg);
+      if(enabled!==current) {
+        const currentCard=get(msg,'weaponDamage');
+        const natural=criticalDamageRule(currentCard).triggered;
+        // Restore automatic rule when manual correction matches it again.
+        const mode=enabled===natural?'auto':String(enabled);
+        const mult=Number(currentCard.manualCritMultiplier??currentCard.naturalCritMultiplier??2);
+        criticalChanged=await setMessageCritical(msg,mode,mult);
+      }
+    } else if(Object.hasOwn(result,'criticalMode')) {
+      // Keep backward-compatible programmatic input, but no select in the UI.
+      const mode=String(result.criticalMode);
+      const multiplier=Number(result.criticalMultiplier??card.naturalCritMultiplier??2);
+      criticalChanged=await setMessageCritical(msg,mode,multiplier);
+    }
+  }
+  return {outcome,interventionChanged,criticalChanged};
+}
+
+/** Prompt only for a chosen numeric correction; never show a permanent value field. */
+export async function promptEditorNumber(msg,operation,dialog=foundry.applications.api.DialogV2) {
+  const parts=getEditorParts(msg);
+  let current,allowNegative=false;
+  const match=/^set:(\d+)$/.exec(operation);
+  if(match) {
+    const p=parts[Number(match[1])];
+    if(!p)throw Error('Missing roll component');
+    current=p.value;
+    allowNegative=true; // GM is not bound by the natural die range when manually editing.
+  } else if(operation.startsWith('adjustment:')) {
+    const k=operation.slice('adjustment:'.length);
+    if(!['penalty','resistance','vulnerability'].includes(k))throw Error('Invalid adjustment');
+    current=get(msg,'weaponDamage')?.adjustments?.[k]??0;
+  } else if(operation==='offset') {current=get(msg,'rollEdit')?.offset??0;allowNegative=true;}
+  else throw Error('Action does not require a number');
+  const component=match?parts[Number(match[1])]:null;
+  const input=await dialog.input({window:{title:l('set')},
+    content:`<label>${esc(l('value'))}<input name="newValue" type="number" step="${component?.kind==='die'?'1':'any'}" `+
+      `${allowNegative?'':'min="0"'} value="${esc(current)}" autofocus required></label>`,
+    ok:{label:l('applyCorrection')},rejectClose:false});
+  if(!input)return null;
+  const raw=input.newValue;
+  if(raw===null || raw===undefined || String(raw).trim()==='')throw Error('Value is required');
+  const number=Number(raw);
+  if(!Number.isFinite(number)||(!allowNegative && number<0)||
+    (component?.kind==='die'&&!Number.isInteger(number)))throw Error('Invalid roll value');
+  if(component?.kind==='die' && number<1) {
+    // Notify exactly once. The accepted die value is always at least 1.
+    await dialog.prompt({window:{title:l('dieValueTitle')},
+      content:`<p>${esc(l('dieValueSetToOne'))}</p>`,
+      ok:{label:l('ok')},rejectClose:false});
+    return 1;
+  }
+  if(isOutOfRangeDieValue(component,number)) {
+    // Only exceeding the face count requires explicit confirmation.
+    const confirmed=await dialog.confirm({window:{title:l('dieValueTitle')},
+      content:`<p>${esc(component.formula)}: ${esc(number)} &gt; ${esc(component.faces)}. ${esc(l('outOfRangeQuestion'))}</p>`,
+      yes:{label:l('applyCorrection')},no:{label:l('editorCancel')},rejectClose:false});
+    if(confirmed!==true)return null;
+  }
+  return number;
+}
+
+/** Add UI is available only on a v2 damage message; a single dialog captures
+ * the component type, count, faces, damage type and comma-separated traits.
+ */
+export async function promptAddDamageComponent(dialog=foundry.applications.api.DialogV2) {
+  const input=await dialog.input({window:{title:l('addComponent')},
+    content:`<div class="fnri-editor-add-form">`+
+      `<label>${esc(l('componentKind'))}<select name="kind">`+
+      `<option value="die">${esc(l('componentDie'))}</option>`+
+      `<option value="fixed">${esc(l('componentFixed'))}</option></select></label>`+
+      `<div data-fnri-add-dice><label>${esc(l('diceFaces'))}<input type="number" name="faces" value="6" min="2" max="1000" step="1"></label>`+
+      `<label>${esc(l('diceCount'))}<input type="number" name="count" value="1" min="1" max="1000" step="1"></label></div>`+
+      `<div data-fnri-add-fixed hidden><label>${esc(l('value'))}<input type="number" name="value" value="1" step="any"></label></div>`+
+      `<label>${esc(l('damageType'))}<input type="text" name="damageType" value="" maxlength="100" `+
+      `placeholder="${esc(l('damageTypePlaceholder'))}"></label>`+
+      `<label>${esc(l('componentTraits'))}<input type="text" name="traits" value="" `+
+      `placeholder="${esc(l('componentTraitsPlaceholder'))}"></label></div>`,
+    ok:{label:l('addComponent')},rejectClose:false,
+    render:(_event,app)=>{
+      const root=app.element;
+      const picker=root?.querySelector?.('select[name="kind"]');
+      const sync=()=>{
+        const die=picker?.value==='die';
+        const dieFields=root?.querySelector?.('[data-fnri-add-dice]');
+        const fixedFields=root?.querySelector?.('[data-fnri-add-fixed]');
+        if(dieFields)dieFields.hidden=!die;
+        if(fixedFields)fixedFields.hidden=die;
+      };
+      picker?.addEventListener?.('change',sync);sync();
+    }});
+  if(!input)return null;
+  const kind=String(input.kind??'die');
+  if(!['die','fixed'].includes(kind))throw Error('Unknown component kind');
+  const faces=Number(input.faces??6),count=Number(input.count??1),value=Number(input.value);
+  if(kind==='die' && (!Number.isInteger(faces)||faces<2||faces>1000||
+    !Number.isInteger(count)||count<1||count>1000))throw Error('Invalid dice addition');
+  if(kind==='fixed' && (String(input.value??'').trim()===''||!Number.isFinite(value)))
+    throw Error('Invalid fixed addition');
+  const damageType=String(input.damageType??'').trim();
+  const traits=String(input.traits??'').split(/[,;\n]+/).map(t=>t.trim()).filter(Boolean);
+  return {kind,faces,count,value,damageType,traits};
+}
+
+/** DOM actions are actual buttons. Close the editor to apply each action and
+ * re-open with fresh message flags, so the displayed dice never go stale.
+ */
 export async function openRollEditor(msg) {
   if(!own(msg)||!editableMessage(msg))return;
   const dialog=foundry.applications.api.DialogV2;
-  // A single operation per dialog keeps the immutable audit trail unambiguous.
-  // Reopen to continue editing; never make a chat message for each change.
   let feedback='';
+  let page=0,query='',interventionDraft,criticalDraft;
+  const selectedIds=new Set(getEditorParts(msg).filter(p=>p.pending).map(p=>p.id));
   while(true) {
-    const card=get(msg,'weaponDamage');
-    const isDamage=card?.version===2;
-    let parts;
-    try {parts=getEditorParts(msg);}catch(error){ui.notifications?.error(error.message);return;}
-    const options=parts.map(p=>`<option value="${esc(p.id)}">${esc(p.formula ?? p.id)} · ${p.value}${p.excluded?' (×)':''}</option>`).join('');
-    const offset=(!isDamage)?`<option value="offset">${esc(l('totalCorrection'))}</option>`:
-      ['penalty','resistance','vulnerability'].map(k=>`<option value="adjustment:${k}">${esc(l(k))}: ${card.adjustments?.[k]??0}</option>`).join('');
-    const rows=parts.map(p=>`<div>${p.excluded?'<s>':''}${esc(p.formula ?? p.id)}: ${p.value}${p.excluded?'</s>':''} `+
-      `<small>${esc(p.damageType??'')}</small></div>`).join('');
-    const total=isDamage?calculateDamage(card).total:(get(msg,'rollEdit')?.currentTotal ?? msg.rolls?.[0]?.total);
-    const interventionState=messageIntervention(msg);
-    const critMode=card?.manualCritical===true?'true':card?.manualCritical===false?'false':'auto';
-    const manualCritMultiplier=Number(card?.manualCritMultiplier);
-    const sourceMultiplier=Number(card?.naturalCritMultiplier??card?.criticalMultiplier);
-    const defaultCritMultiplier=manualCritMultiplier>1 && card?.manualCritical===true
-      ? manualCritMultiplier : sourceMultiplier>1 ? sourceMultiplier : 2;
-    const critRow=isDamage?`<option value="__critical__">${esc(l('criticalState'))}</option>`:'';
-    const criticalControls=isDamage?`<div class="form-group"><label>${esc(l('criticalState'))}</label>`+
-      `<select name="criticalMode">`+
-      `<option value="auto" ${critMode==='auto'?'selected':''}>${esc(l('criticalAuto'))}</option>`+
-      `<option value="true" ${critMode==='true'?'selected':''}>${esc(l('criticalEnable'))}</option>`+
-      `<option value="false" ${critMode==='false'?'selected':''}>${esc(l('criticalDisable'))}</option></select>`+
-      `<input name="criticalMultiplier" type="number" min="2" step="any" value="${defaultCritMultiplier}" `+
-      `title="${esc(l('criticalMultiplier'))}"></div>`:'';
-    const content=`<div class="fnri-roll-editor"><div>${rows}</div><strong>${esc(l('total'))}: ${total}</strong>`+
-      `<div class="fnri-intervention-state">${esc(l('interventionProperty'))}: ${interventionState?esc(l('yes')):esc(l('no'))}</div>`+
-      `<div class="form-group"><label>${esc(l('component'))}</label><select name="part">${options}${offset}`+
-      `<option value="__intervention__">${esc(l('interventionProperty'))}</option>${critRow}</select></div>`+
-      `<div class="form-group"><label>${esc(l('interventionProperty'))}</label><select name="intervention">`+
-      `<option value="false" ${interventionState?'':'selected'}>${esc(l('no'))}</option>`+
-      `<option value="true" ${interventionState?'selected':''}>${esc(l('yes'))}</option></select></div>`+
-      criticalControls+
-      `<div class="form-group"><label>${esc(l('action'))}</label><select name="action">`+
-      `<option value="set">${esc(l('set'))}</option><option value="exclude">${esc(l('exclude'))}</option>`+
-      `<option value="restore">${esc(l('restore'))}</option><option value="reroll">${esc(l('reroll'))}</option></select></div>`+
-      `<div class="form-group"><label>${esc(l('value'))}</label><input name="value" type="number" step="any" value="0"></div>`+
-      `<small>${esc(l('history'))}: ${isDamage?(card.history?.length??0):(get(msg,'rollEdit')?.history?.length??0)}</small>`+
-      (feedback?`<div class="fnri-roll-editor-feedback" role="status">${esc(feedback)}</div>`:'')+'</div>';
+    let content;
+    try{content=renderRollEditorContent(msg,{feedback,page,query,interventionDraft,criticalDraft,selectedIds});}
+    catch(error){ui.notifications?.error(error.message);return;}
+    let pressed=null;
     const result=await dialog.input({window:{title:l('editRoll')},content,
-      ok:{label:l('applyCorrection')},rejectClose:false});
-    if(!result)return;
-    const id=String(result.part??'');const action=String(result.action??'');
+      ok:{label:l('applyCorrection')},rejectClose:false,
+      render:(_event,app)=>{
+        const root=app.element?.querySelector?.('.fnri-roll-editor');
+        const updateResults=(nextQuery,nextPage)=>{
+          query=nextQuery;
+          page=refreshRollEditorSearch(root,msg,{query,page:nextPage,selectedIds});
+        };
+        root?.addEventListener?.('change',event=>{
+          const target=event.target;
+          if(!target?.matches?.('input[data-fnri-editor-select]'))return;
+          const id=target.dataset.fnriEditorSelect;
+          if(target.checked)selectedIds.add(id);else selectedIds.delete(id);
+          updateResults(query,page);
+        });
+        root?.addEventListener?.('input',event=>{
+          if(event.target?.matches?.('input[name="editorSearch"]'))
+            updateResults(event.target.value,0);
+        });
+        root?.addEventListener?.('click',event=>{
+          const button=event.target?.closest?.('button[data-fnri-editor-op], button[data-fnri-editor-nav]');
+          if(!button || !root.contains(button))return;
+          event.preventDefault();event.stopPropagation();
+          const navigation=button.dataset.fnriEditorNav;
+          if(navigation) {
+            if(navigation==='clear') {
+              const field=root.querySelector('input[name="editorSearch"]');
+              if(field)field.value='';
+              updateResults('',0);
+              field?.focus();
+            } else if(navigation==='next')updateResults(query,page+1);
+            else if(navigation==='prev')updateResults(query,page-1);
+            return;
+          }
+          const intervention=root.querySelector('input[name="intervention"]')?.checked;
+          const crit=root.querySelector('input[name="critical"]')?.checked;
+          const isDamage=!!get(msg,'weaponDamage')?.parts;
+          pressed={operation:button.dataset.fnriEditorOp??'none',
+            interventionPresent:'1',...(intervention?{intervention:'true'}:{}),
+            ...(isDamage?{criticalPresent:'1',...(crit?{critical:'true'}:{})}:{})};
+          void app.close();
+        });
+        root?.addEventListener?.('keydown',event=>{
+          if(event.key==='Enter' && event.target?.matches?.('input[name="editorSearch"]')) {
+            event.preventDefault();event.stopPropagation();
+            updateResults(event.target.value,0);
+          }
+        });
+      }});
+    if(!pressed && !result) {
+      try {
+        if(await resolvePendingOnClose(msg,dialog))return;
+        feedback=l('unrolledDice');
+        continue;
+      }catch(error){ui.notifications?.error(error.message);feedback=error.message;continue;}
+    }
     try {
-      if(id==='__intervention__') {await setMessageIntervention(msg,result.intervention==='true');
-        feedback=l('interventionSaved');continue;}
-      if(id==='__critical__' && isDamage) {
-        await setMessageCritical(msg,String(result.criticalMode??'auto'),Number(result.criticalMultiplier));
-        feedback=l('criticalSaved');continue;
+      let input=pressed ?? result;
+      if(pressed) {
+        const op=pressed.operation;
+        if(op.startsWith('set:')||op.startsWith('adjustment:')||op==='offset') {
+          const number=await promptEditorNumber(msg,op,dialog);
+          if(number===null) {
+            interventionDraft=['true',true].includes(input.intervention);
+            criticalDraft=['true',true].includes(input.critical);
+            feedback=l('noChanges');continue;
+          }
+          if(op.startsWith('set:'))input[`partValue_${op.slice(4)}`]=number;
+          else if(op.startsWith('adjustment:'))input[`adjustValue_${op.slice('adjustment:'.length)}`]=number;
+          else input.offsetValue=number;
+        }
       }
-      const outcome=await executeRollEditorAction(msg,{partId:id,action,value:num(result.value)});
-      if(outcome.action==='reroll') {
-        feedback=`${l('reroll')}: ${outcome.before} → ${outcome.current}`;
+      const bulkOp=input.operation;
+      if(['rerollMarked','excludeBulk','restoreBulk'].includes(bulkOp)) {
+        // Preserve edited checkboxes independently of the batch action.
+        await saveRollEditorInput(msg,{...input,operation:'none'});
+        if(bulkOp==='rerollMarked') {
+          const chosen=getEditorParts(msg).filter(p=>selectedIds.has(p.id)&&p.kind==='die').map(p=>p.id);
+          if(!chosen.length){feedback=l('selectDiceFirst');continue;}
+          const answer=await rollMarkedDice(msg,chosen);
+          feedback=`${l('rerollMarked')}: ${answer.count}`;
+        } else {
+          const answer=await setBulkExcluded(msg,[...selectedIds],bulkOp==='excludeBulk');
+          feedback=`${l(bulkOp==='excludeBulk'?'excludedCount':'restoredCount')}: ${answer.count}`;
+        }
+        interventionDraft=undefined;criticalDraft=undefined;
+        continue;
+      }
+      let added=null;
+      if(input.operation==='add') {
+        const config=await promptAddDamageComponent(dialog);
+        if(config===null) {
+          interventionDraft=['true',true].includes(input.intervention);
+          criticalDraft=['true',true].includes(input.critical);
+          feedback=l('noChanges');continue;
+        }
+        // Preserve independently edited checkboxes in the same UI action.
+        input={...input,operation:'none'};
+        added=await addDamageToMessage(msg,config);
+        for(const part of added.added)if(part.pending)selectedIds.add(part.id);
+        query='';page=Math.max(0,Math.ceil(getEditorParts(msg).length/ROLL_EDITOR_PAGE_SIZE)-1);
+      }
+      const saved=await saveRollEditorInput(msg,input);
+      interventionDraft=undefined;criticalDraft=undefined;
+      if(added)feedback=`${l('componentAdded')}: ${added.added.length}`;
+      else if(saved.outcome?.action==='reroll') {
+        feedback=`${l('reroll')}: ${saved.outcome.before} → ${saved.outcome.current}`;
         ui.notifications?.info?.(feedback);
-      } else feedback='';
-    } catch(error) {console.error('Fast NRI | roll edit failed',error);ui.notifications?.error(error.message);}
+      } else if(saved.interventionChanged)feedback=l('interventionSaved');
+      else if(saved.criticalChanged)feedback=l('criticalSaved');
+      else feedback=l(saved.outcome?'correctionSaved':'noChanges');
+    } catch(error) {
+      console.error('Fast NRI | roll edit failed',error);
+      ui.notifications?.error(error.message);feedback=error.message;
+    }
   }
 }
 
