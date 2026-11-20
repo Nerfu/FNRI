@@ -7,6 +7,7 @@ import {
   resolveAttackDegree, parseStandardPhysicalProfile,
   standardPhysicalPartsForDegree
 } from '../rolls/attack-core.mjs';
+import {snapshotDamageParts} from '../damage/damage-core.mjs';
 
 export const SYSTEM_ID = 'fast-nri-v14';
 const DEGREES = ['partial', 'success', 'great'];
@@ -47,8 +48,8 @@ export function selectedTargetSnapshot(targets) {
   const token = list[0];
   const a = token?.actor?.system?.ac;
   if (!a || ![a.partial,a.success,a.great].every(n=>typeof n==='number' && Number.isFinite(n)))
-    return { status: 'missingAC', name: token?.name ?? null };
-  return { status: 'one', name: token?.name ?? null, ac: {
+    return { status: 'missingAC', name: token?.name ?? null, uuid:token?.document?.uuid ?? token?.uuid ?? null };
+  return { status: 'one', name: token?.name ?? null, uuid: token?.document?.uuid ?? token?.uuid ?? null, ac: {
     partial: a.partial, success: a.success, great: a.great
   }};
 }
@@ -65,7 +66,8 @@ export function naturalAttackingD20(roll) {
 
 /** A single chat pipeline for held weapons, other item attacks and unarmed. */
 export async function sendAttackSnapshot({actor = null, name, profile, damageType = 'физический',
-  properties = '', sourceUuid = null, expression, warning = null, sourceKind = 'weapon'} = {}) {
+  properties = '', sourceUuid = null, expression, warning = null, sourceKind = 'weapon',
+  attackKind = 'melee', criticalMultiplier = null} = {}) {
   if (!parseStandardPhysicalProfile(profile).ok) throw new Error('No standard physical profile');
   if (typeof Roll.validate === 'function' && !Roll.validate(expression)) throw new Error('Invalid attack formula');
   const target = selectedTargetSnapshot(game.user?.targets);
@@ -81,7 +83,8 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     targetStatus:target.status, targetName:target.name,
     suggestedDegree:suggestion, attackDegree:degree?.ok ? degree.degree : null,
     naturalTwenty:degree?.ok ? degree.naturalTwenty : natural === 20,
-    warning, mode
+    naturalD20:natural, attackTotal:roll.total, attackKind, actorUuid:actor?.uuid ?? null,
+    originalTargetUuid:target.uuid ?? null, criticalMultiplier, warning, mode
   };
   const speaker = actor ? ChatMessage.getSpeaker({actor}) : ChatMessage.getSpeaker();
   return roll.toMessage({
@@ -97,7 +100,8 @@ export async function sendWeaponAttack(item, actor = item?.parent?.documentName 
   return sendAttackSnapshot({actor, name:item.name, profile:item.system.damageProfile,
     damageType:item.system.damageType || 'физический',
     properties:String(item.system.properties ?? ''), sourceUuid:item.uuid ?? null,
-    expression, warning, sourceKind:'weapon'});
+    expression, warning, sourceKind:'weapon',attackKind:item.system.attackKind ?? 'melee',
+    criticalMultiplier:item.system.mechanics?.attack?.criticalMultiplier ?? null});
 }
 
 /** Other attack-capable equipment explicitly defines its profile and roll on its card. */
@@ -114,7 +118,8 @@ export async function sendOtherItemAttack(item, actor) {
   return sendAttackSnapshot({actor,name:item.name,profile:rule.damageProfile,
     damageType:rule.damageType || 'физический',properties:rule.properties || '',
     sourceUuid:item.uuid ?? null,expression:rule.rollFormula || item.system.rollFormula,
-    sourceKind:'other'});
+    sourceKind:'other',attackKind:rule.attackKind ?? 'melee',
+    criticalMultiplier:rule.criticalMultiplier ?? null});
 }
 
 export function damageFormulaForDegree(profile, degree) {
@@ -135,15 +140,27 @@ export async function sendWeaponDamage(message, degree) {
   const roll = await new Roll(selected.formula).evaluate();
   const severityLabel = local(degree);
   const note = data.naturalTwenty ? ` — ${local('criticalNote')}` : '';
+  // A and B are separate evaluated dice; C is a separate fixed component.
+  // Fail explicitly rather than fabricate individual values from an aggregate.
+  const parts=snapshotDamageParts(roll,selected.parts,{damageType:data.damageType,properties:data.properties});
+  const correctedTotal=message.getFlag?.(SYSTEM_ID,'rollEdit')?.currentTotal;
+  const snapshot={version:2,attackMessageId:message.id,previousMessageId:null,
+    name:data.name,degree,effectDegree:degree,sourceUuid:data.sourceUuid,
+    attackKind:data.attackKind ?? 'melee',
+    attackTotal:Number.isFinite(correctedTotal)?correctedTotal:(data.attackTotal ?? message.rolls?.[0]?.total ?? null),
+    originalAttackTotal:data.attackTotal ?? message.rolls?.[0]?.total ?? null,
+    naturalD20:data.naturalD20 ?? null,sourceActorUuid:data.actorUuid ?? null,
+    originalTargetUuid:data.originalTargetUuid ?? null,
+    damageType:data.damageType,properties:data.properties,naturalTwenty:!!data.naturalTwenty,
+    naturalCritMultiplier:Number(data.criticalMultiplier) > 0 ? Number(data.criticalMultiplier) : 2,
+    manualCritical:null,manualCritMultiplier:2,cancelled:false,
+    adjustments:{penalty:0,resistance:0,vulnerability:0},parts,history:[],revision:0};
   return roll.toMessage({
     speaker:message.speaker ?? ChatMessage.getSpeaker(),
     flavor:`<strong>${safe(data.name)}</strong> — ${safe(severityLabel)} (${safe(data.damageType)})${safe(note)}`,
-    // Keep privacy of the originating attack even if the chat mode changed.
     ...(message.whisper?.length ? {whisper:[...message.whisper]} : {}),
     ...(message.blind ? {blind:true} : {}),
-    flags:{[SYSTEM_ID]:{weaponDamage:{attackMessageId:message.id,degree,sourceUuid:data.sourceUuid,
-      damageType:data.damageType,properties:data.properties,naturalTwenty:!!data.naturalTwenty,
-      parts:selected.parts}}}
+    flags:{[SYSTEM_ID]:{weaponDamage:snapshot}}
   },{messageMode:data.mode});
 }
 
@@ -159,7 +176,7 @@ export function registerWeaponChatControls() {
     container.dataset.fnriWeaponDamage='';
     const label=document.createElement('div');
     label.className='fnri-weapon-chat-label';
-    label.textContent=local('damageChoice') + (data.targetName ? ` · ${data.targetName}` : '');
+    label.textContent=`${data.profile.A}/${data.profile.B}/+${data.profile.C}` + (data.targetName ? ` · ${data.targetName}` : '');
     container.append(label);
     const row=document.createElement('div');
     row.className='fnri-weapon-chat-buttons';
@@ -169,8 +186,7 @@ export function registerWeaponChatControls() {
       button.dataset.fnriDegree=degree;
       button.className='fnri-weapon-chat-button';
       if (data.suggestedDegree === degree) button.classList.add('fnri-weapon-suggested');
-      const parsed=damageFormulaForDegree(data.profile,degree);
-      button.textContent=`${local(degree)} · ${parsed.ok ? parsed.formula : '—'}`;
+      button.textContent=local(degree);
       // Unrelated buttons remain fully usable; visual highlight is advisory.
       button.addEventListener('click',async()=>{
         if (button.dataset.busy === 'true') return;

@@ -38,7 +38,8 @@ export async function postRoll({ formula, label, actor = null, mode = "public" }
   const speaker = actor ? ChatMessage.getSpeaker({ actor }) : ChatMessage.getSpeaker();
   await roll.toMessage({
     speaker,
-    flavor: `<strong>${safeText(label)}</strong><div class="fnri-roll-expression">${safeText(expression)}</div>`
+    flavor: `<strong>${safeText(label)}</strong><div class="fnri-roll-expression">${safeText(expression)}</div>`,
+    flags:{'fast-nri-v14':{checkRoll:{version:1,label:String(label),actorUuid:actor?.uuid??null}}}
   }, { messageMode: resolveMessageMode(mode) });
   return roll;
 }

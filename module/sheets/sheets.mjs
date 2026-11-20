@@ -3,6 +3,7 @@ import { isPhysicalWeaponCard, isPhysicalOtherItemAttack, sendWeaponAttack, send
 import { itemGrip, equipmentKind, itemSlot, planEquipmentChange, hasFreeSecondHand } from "../equipment/equipment.mjs";
 import { resolveUnarmedAction, sendUnarmedAttack, availableUnarmedActions, UNARMED_CHOICE_FLAG } from "../rolls/unarmed.mjs";
 import { BASIC_SKILLS, BASIC_SKILLS_BY_ROW_ID, SKILL_GROUPS, standardSkillEntry } from "../data/skills-catalog.mjs";
+import { BASE_SELF_DEFENSE } from "../data/core-actions.mjs";
 /** Fast NRI v14: stage-2 document sheets. No game-rule automation. */
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2, ItemSheetV2 } = foundry.applications.sheets;
@@ -54,6 +55,8 @@ const sortedItems = items => [...items].sort((a, b) =>
 const localized = key => game.i18n.localize("FASTNRI." + key);
 const rowsOf = object => Object.entries(object ?? {}).map(([id, values]) => ({ id, ...values }));
 const showStat = value => value === null || value === undefined || value === "" ? "—" : String(value);
+const escapeHtml = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 /** Reconcile storage with prepared data. Effects may alter prepared modifiers,
  * but editable field defaults must come from source, when it exists. Do not
@@ -139,6 +142,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       toggleEffect: ActorBase.toggleEffect,
       deleteEffect: ActorBase.deleteEffect,
       openItem: ActorBase.openItem,
+      viewBuiltinSelfDefense: ActorBase.viewBuiltinSelfDefense,
       createItem: ActorBase.createItem,
       deleteItem: ActorBase.deleteItem,
       addSkill: ActorBase.addSkill,
@@ -439,6 +443,28 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       content: `<p>${localized("Hints.confirmDelete")}</p>`, rejectClose: false
     })) return;
     await this._queueWrite(() => this.actor.deleteEmbeddedDocuments("ActiveEffect", [effect.id]));
+  }
+
+  /** System-granted ability. Display the normative text only; no Item or edit form. */
+  static async viewBuiltinSelfDefense(_event, button) {
+    if (button?.closest?.('[data-fnri-builtin-action]')?.dataset.fnriBuiltinAction !== BASE_SELF_DEFENSE.id) return;
+    const title = localized(BASE_SELF_DEFENSE.nameKey);
+    const field = (label, value) => `<div class="fnri-builtin-field"><strong>${escapeHtml(localized('Builtin.' + label))}</strong>` +
+      `<span>${escapeHtml(value)}</span></div>`;
+    const content = `<section class="fnri-builtin-detail">` +
+      `<p class="fnri-builtin-readonly">${escapeHtml(localized('Builtin.readOnly'))}</p>` +
+      field('requirement', localized(BASE_SELF_DEFENSE.actionCostKey)) +
+      field('traits', localized(BASE_SELF_DEFENSE.traitsKey)) +
+      field('target', localized(BASE_SELF_DEFENSE.targetKey)) +
+      `<p>${escapeHtml(localized('Builtin.selfDefenseDescription'))}</p>` +
+      field('melee', localized('Builtin.selfDefenseMelee')) +
+      field('ranged', localized('Builtin.selfDefenseRanged')) +
+      field('formula', localized(this.actor.type === 'npc' ? 'Builtin.selfDefenseNpcFormula' : 'Builtin.selfDefenseCharacterFormula')) +
+      `<p>${escapeHtml(localized('Builtin.selfDefenseResolution'))}</p>` +
+      `<p>${escapeHtml(localized('Builtin.selfDefenseLimits'))}</p>` +
+      `</section>`;
+    await DialogV2.prompt({ window: { title }, content,
+      ok: { label: localized('Builtin.close') }, rejectClose: false });
   }
 
   static async openItem(_event, button) {
@@ -751,6 +777,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
         description: tab === "description"
       },
       items: items.map(item => rowWithSelection(item, actor.system)),
+      builtinSelfDefense: { id: BASE_SELF_DEFENSE.id, name: localized(BASE_SELF_DEFENSE.nameKey) },
       abilityItems: items.filter(i => i.type === "ability").map(item => rowWithSelection(item, actor.system)),
       inventoryItems: items.filter(i => i.type !== "ability").map(item => rowWithSelection(item, actor.system)),
       attackHands: hands, unarmedAction: unarmed, otherAttacks, hasOtherAttacks: otherAttacks.length > 0,

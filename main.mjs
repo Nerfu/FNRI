@@ -1,8 +1,11 @@
+import {registerRollEditor} from './module/damage/roll-editor.mjs';
+import {registerDamageChatControls} from './module/damage/damage-chat.mjs';
 import {registerWeaponChatControls} from "./module/weapon/weapon-attack.mjs";
 /**
  * Fast NRI 7.0 — Foundry VTT v14 system initialization.
  * The subtype data models and sheets are registered during the init hook.
- * No combat rules or character data are changed by this release.
+ * Roll and damage cards provide explicit, auditable interactions.
+ * No migration or automatic world edits are performed during startup.
  */
 import {
   CharacterModel, NPCModel, WeaponModel, ArmorModel,
@@ -48,7 +51,9 @@ Hooks.once("init", () => {
   });
 
   registerWeaponChatControls();
-  console.info("Fast NRI 7.0 | data models, sheets and weapon chat controls registered");
+  registerRollEditor();
+  registerDamageChatControls();
+  console.info("Fast NRI 7.0 | sheets and combat chat controls registered");
 });
 
 /**

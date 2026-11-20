@@ -7,6 +7,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 root = Path(__file__).resolve().parents[1]
+core = (root / 'module/data/core-actions.mjs').read_text().replace('export const ', 'const ')
 sheets = (root / 'module/sheets/sheets.mjs').read_text()
 assert sheets.startswith('import { skillFormula, itemFormula, postRoll }')
 sheets = '\n'.join(line for line in sheets.splitlines() if not line.startswith('import ')).replace('export class ', 'class ')
@@ -71,7 +72,7 @@ with sync_playwright() as p:
     try:
         page = browser.new_page()
         page.set_content(html)
-        page.add_script_tag(content=shim + '\n' + sheets + '''
+        page.add_script_tag(content=shim + '\n' + core + '\n' + sheets + '''
 window.sheet=new FastNRICharacterSheet({actor:window.actor});
 window.sheet._onRender({},{});
 ''')

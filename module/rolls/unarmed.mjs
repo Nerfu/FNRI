@@ -92,6 +92,6 @@ export async function sendUnarmedAttack(actor) {
   return sendAttackSnapshot({
     actor, name: action.name, profile: action.damageProfile, damageType: action.damageType,
     properties: action.properties, sourceUuid: action.sourceUuid,
-    expression, warning, sourceKind: 'unarmed'
+    expression, warning, sourceKind: 'unarmed', attackKind:'melee'
   });
 }

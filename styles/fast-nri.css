@@ -45,6 +45,17 @@
 .fast-nri-v14.fast-nri-sheet .fnri-item-row span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .fast-nri-v14.fast-nri-sheet .fnri-item-row small { opacity: .7; }
 .fast-nri-v14.fast-nri-sheet .fnri-item-row button { width: 31px; height: 29px; padding: 2px; flex: none; }
+/* Read-only innate ability is a virtual row, not a draggable/editable Item. */
+.fast-nri-v14.fast-nri-sheet .fnri-builtin-action .fnri-builtin-icon {
+  flex: 0 0 28px; height: 28px; display: inline-flex; align-items: center;
+  justify-content: center; font-size: 17px;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-builtin-action { cursor: default; }
+.fnri-builtin-detail { display: flex; flex-direction: column; gap: 10px; line-height: 1.45; }
+.fnri-builtin-detail p { margin: 0; }
+.fnri-builtin-detail .fnri-builtin-readonly { opacity: .75; font-style: italic; }
+.fnri-builtin-detail .fnri-builtin-field { display: grid; grid-template-columns: minmax(105px, 35%) 1fr; gap: 12px; }
+
 
 /* ApplicationV2: the Foundry window-content is the single scrolling region. */
 .application.fast-nri-v14.fast-nri-sheet .window-content,
@@ -305,3 +316,22 @@
     grid-template-columns: minmax(80px,85px) minmax(0,1fr) 34px;
   }
 }
+
+/* v0.1.12 draft — separate damage snapshots, native chat actions and undo */
+.fnri-damage-card {border-top:1px solid var(--color-border-light-tertiary,#8886);margin-top:8px;padding-top:7px;display:grid;gap:6px;}
+.fnri-damage-attack {font-size:.81rem;opacity:.8;}
+.fnri-damage-parts {display:flex;flex-wrap:wrap;gap:4px;}
+.fnri-damage-part {border:1px solid var(--color-border-light-tertiary,#8886);border-radius:4px;padding:2px 5px;font-size:.82rem;}
+.fnri-damage-excluded{text-decoration:line-through;opacity:.45;}
+.fnri-damage-total{font-weight:700;font-size:1.05rem;}
+.fnri-damage-history{opacity:.8;}
+.fnri-damage-bottom{display:flex;gap:6px;min-width:0;}
+.fnri-damage-bottom .fnri-apply-button{flex:1 1 auto;min-width:0;}
+.fnri-damage-bottom .fnri-crit-button{flex:0 0 auto;min-width:58px;}
+.fnri-crit-active{border:2px solid var(--color-level-success,#409a6a)!important;}
+.fnri-intervene-button{width:100%;}
+.fnri-hp-report-actions{margin-top:5px;}
+.fnri-hp-reverted .fnri-hp-report{text-decoration:line-through;opacity:.65;}
+.fnri-roll-editor{display:grid;gap:8px;min-width:260px;}
+.fnri-roll-editor .form-group{display:grid;gap:3px;}
+.fnri-roll-corrected{font-weight:700;padding:5px 0;}

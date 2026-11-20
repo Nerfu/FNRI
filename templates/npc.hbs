@@ -134,6 +134,12 @@
 {{/each}}</div></div></div></section></div>
 <div class="fnri-tab-content" data-fnri-panel="abilities" {{#unless tabs.abilities}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.abilities"}}</h3><div class="fnri-row-head"><p class="fnri-muted">{{localize "FASTNRI.Hints.dropItems"}}</p>
 {{#if editable}}<button type="button" data-action="createItem" data-type="ability">{{localize "FASTNRI.Actions.createAbility"}}</button>{{/if}}</div><ul class="fnri-item-list">
+<li class="fnri-item-row fnri-builtin-action" data-fnri-builtin-action="{{builtinSelfDefense.id}}">
+  <span class="fnri-builtin-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
+  <span>{{builtinSelfDefense.name}}</span>
+  <small>{{localize "FASTNRI.Builtin.readOnlyShort"}}</small>
+  <button type="button" data-action="viewBuiltinSelfDefense" title="{{localize 'FASTNRI.Builtin.view'}}" aria-label="{{localize 'FASTNRI.Builtin.view'}}"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+</li>
 {{#each abilityItems}}
   <li data-item-id="{{this.id}}" class="fnri-item-row">
     <img src="{{this.img}}" alt="">
@@ -143,8 +149,6 @@
     <button type="button" data-action="openItem" title="{{localize 'FASTNRI.Actions.openItem'}}"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
     {{#if @root.editable}}<button type="button" data-action="deleteItem" title="{{localize 'FASTNRI.Actions.deleteItem'}}"><i class="fa-solid fa-trash"></i></button>{{/if}}
   </li>
-{{else}}
-<li class="fnri-empty">{{localize "FASTNRI.Hints.noItems"}}</li>
 {{/each}}
 </ul></section></div>
 <div class="fnri-tab-content" data-fnri-panel="inventory" {{#unless tabs.inventory}}hidden{{/unless}}>

@@ -8,7 +8,7 @@ const actor={documentName:'Actor',system:{className:'Воин',combatDie:'d10'},
 const messages=[];let nextD20=12;let nextTotal=19;
 class RollMock {
   static validate(formula){return formula.length>0;}
-  constructor(formula){this.formula=formula;this.dice=formula.includes('d20')?[{faces:20,number:1,results:[{result:nextD20,active:true}]}]:[{faces:10,number:1,results:[{result:7,active:true}]}];this.total=nextTotal;}
+  constructor(formula){this.formula=formula;this.dice=[...formula.matchAll(/(\d+)d(\d+)/g)].map(([,count,faces])=>({faces:Number(faces),number:Number(count),results:Array.from({length:Number(count)},()=>({result:Number(faces)===20?nextD20:Number(faces)===10?7:3,active:true}))}));this.total=nextTotal;}
   async evaluate(){return this;}
   async toMessage(data,opts){
     const message={id:'msg'+(messages.length+1),isAuthor:true,speaker:data.speaker,
@@ -37,6 +37,7 @@ assert.equal(first.formula,'1d10');
 assert.equal(second.formula,'1d10 + 1d4');
 assert.equal(third.formula,'1d10 + 1d4 + 4');
 assert.equal(third.getFlag('fast-nri-v14','weaponDamage').naturalTwenty,false);
+assert.deepEqual(third.getFlag('fast-nri-v14','weaponDamage').parts.map(x=>x.value),[7,3,4]);
 assert.equal(messages.length,4);
 nextD20=1;nextTotal=99;
 attack=await sendWeaponAttack(item,actor);
@@ -82,4 +83,8 @@ assert.equal(buttons[1].classList.contains('fnri-weapon-suggested'),true);
 assert.equal(buttons.every(x=>!('disabled' in x)),true);
 await buttons[2].listeners.click();
 assert.equal(messages.at(-1).formula,'1d10 + 1d4 + 4');
+inputMessage.flags['fast-nri-v14'].rollEdit={currentTotal:31};
+const correctedDamage=await sendWeaponDamage(inputMessage,'partial');
+assert.equal(correctedDamage.getFlag('fast-nri-v14','weaponDamage').attackTotal,31,
+  'new damage card uses corrected attack result without touching original');
 console.log('PASS: native weapon attack with/without target, 3 unblocked chat damage buttons, no AC leak');
