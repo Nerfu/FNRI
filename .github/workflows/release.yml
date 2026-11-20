@@ -1,8 +1,10 @@
 name: Package and publish Foundry system
 
-# Explicit manual release only. A normal push to main must never create a
-# release or send CI failure notifications during code review.
+# Explicit release request only. Ordinary commits and pushes to main never
+# publish. Assistant may request a release by creating release/vVERSION
+# at the audited HEAD of main; users may use workflow_dispatch.
 on:
+  create:
   workflow_dispatch:
     inputs:
       release_approved:
@@ -14,22 +16,46 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: fnri-publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-and-release:
-    if: ${{ inputs.release_approved == true }}
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.release_approved == true && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'create' && github.event.ref_type == 'branch' && startsWith(github.event.ref, 'release/v'))
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-      - name: 'Validate v0.1.10: Foundry 14 effects, persistence and rolls'
+      - name: Verify explicit release request and exact main commit
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_EVENT: ${{ github.event_name }}
+          REQUEST_REF: ${{ github.event.ref }}
         run: |
-          find . -name '*.mjs' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
-          node tests/bootstrap-smoke.mjs
-          node tests/stage3-rolls.mjs
-          node tests/stage3-actions.mjs
-          node tests/catalog-reload.mjs
-          python3 tests/contract_check.py
+          set -euo pipefail
+          version="$(python3 -c 'import json; print(json.load(open("system.json"))["version"])')"
+          if [[ "$REQUEST_EVENT" == 'create' ]]; then
+            if [[ "$REQUEST_REF" != "release/v${version}" ]]; then
+              echo "::error::Release branch must be release/v${version}"
+              exit 1
+            fi
+          fi
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$GITHUB_SHA" != "$main_sha" ]]; then
+            echo "::error::Release must use the audited exact main commit"
+            exit 1
+          fi
+          if gh release view "v${version}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release v${version} already exists"
+            exit 1
+          fi
+      - name: Run the same test gate as local pre-release
+        shell: bash
+        run: bash tests/release-gate.sh
       - name: Validate manifest and package system-only files
         shell: bash
         run: |
@@ -58,6 +84,7 @@ jobs:
               assert z.testzip() is None
           print(f"Packaged {len(files)} runtime files")
           PY
+          sha256sum dist/fast-nri-v14.zip
       - name: Publish versioned release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,8 +94,8 @@ jobs:
           version="$(python3 -c 'import json;print(json.load(open("system.json"))["version"])')"
           tag="v${version}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release already exists; refusing to replace it."
-            exit 0
+            echo "::error::Release already exists; refusing to replace it."
+            exit 1
           fi
           gh release create "$tag" dist/fast-nri-v14.zip \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
