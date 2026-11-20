@@ -65,7 +65,7 @@ for(const file of ['templates/character.hbs','templates/npc.hbs']){
  for(const action of ['rollSkill','createEffect','editEffect','toggleEffect','deleteEffect'])
   assert.ok(src.includes(`data-action="${action}"`),`${file} missing ${action}`);
  assert.ok(src.includes('data-row-field="modifier"'));
- assert.ok(src.includes('data-fnri-message-mode'));
+ assert.ok(!src.includes('data-fnri-message-mode'));
 }
 const item=read('templates/item.hbs');
 for(const action of ['itemRoll','createItemEffect','editItemEffect','toggleItemEffect','deleteItemEffect'])

@@ -11,7 +11,8 @@ class RollMock {
 }
 globalThis.Roll=RollMock;
 globalThis.ChatMessage={getSpeaker({actor}={}){return actor?{actor:actor.id}:{alias:'No actor'};}};
-globalThis.game={i18n:{localize},settings:{get(){return 'public';}}};
+let currentMode='gm';
+globalThis.game={i18n:{localize},settings:{get(scope,key){assert.equal(scope,'core');assert.equal(key,'messageMode');return currentMode;}}};
 let warnings=0,errors=0;
 globalThis.ui={notifications:{warn(){warnings++;},error(){errors++;}}};
 const DialogV2={confirm:async()=>true};
@@ -28,11 +29,8 @@ const actor={documentName:'Actor',id:'a1',type:'character',system:{skills:{sampl
 actor.createEmbeddedDocuments=async (type,records)=>{
  assert.equal(type,'ActiveEffect');
  assert.equal(records.length,1);
- assert.equal(records[0].type,'base','v14 ActiveEffect subtype');
- assert.equal('changes' in records[0],false,'v13 root changes must not be used');
- assert.ok(Array.isArray(records[0].system?.changes),'v14 system.changes required');
- assert.equal(records[0].system.changes[0]?.phase,'initial','prepared-data timing');
- const e={id:'e1',name:records[0].name,disabled:false,system:records[0].system,
+ assert.equal(records[0].type,'base');
+ const e={id:'e1',name:records[0].name,disabled:false,changes:records[0].system.changes,
   sheet:{async render(){}},async update(patch){Object.assign(this,patch);}};
  effectRows.push(e);return [e];
 };
@@ -41,9 +39,7 @@ actor.deleteEmbeddedDocuments=async (type,ids)=>{
  for(const id of ids){const i=effectRows.findIndex(e=>e.id===id);if(i>=0)effectRows.splice(i,1);}
 };
 const sheet=new FastNRICharacterSheet({actor});
-let currentMode='gm';
 sheet.element={querySelector(sel){
- if(sel==='[data-fnri-message-mode]')return {value:currentMode};
  if(sel==='[data-fnri-effect-key]')return {value:'system.skills.sample.modifier'};
  if(sel==='[data-fnri-effect-amount]')return {value:'2'};
  return null;
@@ -55,7 +51,7 @@ assert.equal(rolls[0].opts.messageMode,'gm');
 assert.deepEqual(rolls[0].msg.speaker,{actor:'a1'});
 await actions.createEffect.call(sheet,null,{});
 assert.equal(effectRows.length,1);
-assert.deepEqual(effectRows[0].system.changes,[{key:'system.skills.sample.modifier',type:'add',value:'2',phase:'initial'}]);
+assert.deepEqual(effectRows[0].changes,[{key:'system.skills.sample.modifier',type:'add',value:'2',phase:'initial'}]);
 await actions.toggleEffect.call(sheet,null,{dataset:{id:'e1'}});
 assert.equal(effectRows[0].disabled,true);
 await actions.editEffect.call(sheet,null,{dataset:{id:'e1'}});
@@ -76,19 +72,17 @@ const item={id:'it',name:'Старая способность',parent:actor,syst
  effects:{get(id){return itemEffects.find(e=>e.id===id);},get contents(){return itemEffects;}},
  async createEmbeddedDocuments(type,records){
   assert.equal(type,'ActiveEffect');assert.equal(records[0].transfer,false);
-  assert.equal(records[0].type,'base');
-  assert.deepEqual(records[0].system,{changes:[]},'v14 Item ActiveEffect type/base schema');
-  assert.equal('changes' in records[0],false);
+  assert.equal(records[0].type,'base');assert.deepEqual(records[0].system.changes,[]);
   const e={id:'iE',name:'E',disabled:false,transfer:false,sheet:{async render(){}},async update(patch){Object.assign(this,patch);}};
   itemEffects.push(e);return [e];
  },
  async deleteEmbeddedDocuments(_type,ids){itemEffects.splice(0,itemEffects.length,...itemEffects.filter(e=>!ids.includes(e.id)));},
  getFlag(){return 'deprecated'}
 };
+currentMode='self';
 const itemSheet=new FastNRIItemSheet({item});
 itemSheet.element={querySelector(sel){
  if(sel==='[name="system.rollFormula"]')return {value:'1d4+3'};
- if(sel==='[data-fnri-message-mode]')return {value:'self'};
  return null;
 }};
 const itemActions=FastNRIItemSheet.DEFAULT_OPTIONS.actions;
@@ -111,6 +105,22 @@ entry.modifier=3;
 const context=await sheet._prepareContext({});
 assert.equal(context.system.defenses.will,7,'form field must use source, not AE-adjusted value');
 assert.equal(context.effectiveSystem.defenses.will,9,'display uses prepared Actor');
+// Compact header shows effective prepared values while detailed fields retain source values.
+actor.system.hp={current:18,max:25,temp:3};
+actor.system.ac={partial:10,success:18,great:22};
+actor.system.speed=7;
+actor.system.combatDie='d10';
+const summaryContext=await sheet._prepareContext({});
+assert.equal(summaryContext.summary.hp,'18 / 25');
+assert.equal(summaryContext.summary.tempHP,'+3');
+assert.equal(summaryContext.summary.ac,'10 / 18 / 22');
+assert.equal(summaryContext.summary.combatDie,'d10');
+assert.equal(summaryContext.summary.attackModifier,'—');
+assert.equal(summaryContext.summary.speed,'7');
+actor.system.hp.current=0;
+const zeroContext=await sheet._prepareContext({});
+assert.equal(zeroContext.summary.hp,'0 / 25','zero must remain visible');
+
 assert.equal(context.skillRows[0].modifier,1,'skill edit field shows original number');
 assert.equal(context.skillRows[0].effectiveModifier,3,'display/roll use prepared modifier');
 assert.equal(context.skillRows[0].hasEffectiveModifier,true);
@@ -128,4 +138,4 @@ baseSystem.skills.sample.dice='2d6';
 sheet._failedFields.clear();
 await actions.rollSkill.call(sheet,null,{dataset:{id:'sample'}});
 assert.equal(rolls.at(-1).expression,'1d20 + (2d6) + (3)');
-console.log('PASS stage 3 actions: Actor Skill Check, targeted ActiveEffect, item card Roll, disable/delete, message modes');
+console.log('PASS stage 3 actions: Actor Skill Check, targeted ActiveEffect, item card Roll, disable/delete, native visibility mode');

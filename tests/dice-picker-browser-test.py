@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 
 root = Path(__file__).resolve().parents[1]
 sheets = (root / 'module/sheets/sheets.mjs').read_text()
-assert sheets.startswith('import { skillFormula, itemFormula, postRoll, resolveMessageMode }')
+assert sheets.startswith('import { skillFormula, itemFormula, postRoll }')
 sheets = '\n'.join(line for line in sheets.splitlines() if not line.startswith('import ')).replace('export class ', 'class ')
 # Existing test covers custom entries; catalogue source symbols only need stubs.
 sheets = '''const BASIC_SKILLS=[]; const BASIC_SKILLS_BY_ROW_ID=new Map();
