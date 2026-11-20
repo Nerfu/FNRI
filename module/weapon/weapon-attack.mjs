@@ -8,6 +8,7 @@ import {
   standardPhysicalPartsForDegree
 } from '../rolls/attack-core.mjs';
 import {snapshotDamageParts} from '../damage/damage-core.mjs';
+import {normalizeAttackKind,effectiveWeaponProperties,explicitInterventionFromCard,messageIntervention} from '../rolls/attack-properties.mjs';
 
 export const SYSTEM_ID = 'fast-nri-v14';
 const DEGREES = ['partial', 'success', 'great'];
@@ -67,7 +68,8 @@ export function naturalAttackingD20(roll) {
 /** A single chat pipeline for held weapons, other item attacks and unarmed. */
 export async function sendAttackSnapshot({actor = null, name, profile, damageType = 'физический',
   properties = '', sourceUuid = null, expression, warning = null, sourceKind = 'weapon',
-  attackKind = 'melee', criticalMultiplier = null} = {}) {
+  attackKind = 'melee', criticalMultiplier = null, criticalThreshold=20, targetDefense = 'ac',
+  selfDefenseRule=null,isIntervention=false} = {}) {
   if (!parseStandardPhysicalProfile(profile).ok) throw new Error('No standard physical profile');
   if (typeof Roll.validate === 'function' && !Roll.validate(expression)) throw new Error('Invalid attack formula');
   const target = selectedTargetSnapshot(game.user?.targets);
@@ -83,8 +85,11 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     targetStatus:target.status, targetName:target.name,
     suggestedDegree:suggestion, attackDegree:degree?.ok ? degree.degree : null,
     naturalTwenty:degree?.ok ? degree.naturalTwenty : natural === 20,
-    naturalD20:natural, attackTotal:roll.total, attackKind, actorUuid:actor?.uuid ?? null,
-    originalTargetUuid:target.uuid ?? null, criticalMultiplier, warning, mode
+    naturalD20:natural, attackTotal:roll.total, attackKind:normalizeAttackKind(attackKind),
+    targetDefense, selfDefenseRule, isIntervention:!!isIntervention, actorUuid:actor?.uuid ?? null,
+    originalTargetUuid:target.uuid ?? null, criticalMultiplier,
+    criticalThreshold:Number.isInteger(Number(criticalThreshold)) && Number(criticalThreshold)>=1 && Number(criticalThreshold)<=20
+      ? Number(criticalThreshold) : 20, warning, mode
   };
   const speaker = actor ? ChatMessage.getSpeaker({actor}) : ChatMessage.getSpeaker();
   return roll.toMessage({
@@ -99,15 +104,19 @@ export async function sendWeaponAttack(item, actor = item?.parent?.documentName 
   const {expression, warning} = attackExpressionForWeapon(item,actor);
   return sendAttackSnapshot({actor, name:item.name, profile:item.system.damageProfile,
     damageType:item.system.damageType || 'физический',
-    properties:String(item.system.properties ?? ''), sourceUuid:item.uuid ?? null,
-    expression, warning, sourceKind:'weapon',attackKind:item.system.attackKind ?? 'melee',
-    criticalMultiplier:item.system.mechanics?.attack?.criticalMultiplier ?? null});
+    properties:effectiveWeaponProperties(item.system), sourceUuid:item.uuid ?? null,
+    expression, warning, sourceKind:'weapon',attackKind:item.system.attackKind,
+    targetDefense:item.system.mechanics?.attack?.targetDefense || 'ac',
+    selfDefenseRule:item.system.mechanics?.attack?.selfDefense ?? null,
+    isIntervention:explicitInterventionFromCard(item),
+    criticalMultiplier:item.system.mechanics?.attack?.criticalMultiplier ?? null,
+    criticalThreshold:item.system.mechanics?.attack?.criticalThreshold ?? 20});
 }
 
 /** Other attack-capable equipment explicitly defines its profile and roll on its card. */
 export function isPhysicalOtherItemAttack(item) {
   const rule = item?.system?.mechanics?.attack;
-  return item?.type !== 'weapon' && item?.type !== 'ability' && rule?.kind === 'physical' &&
+  return item?.type !== 'weapon' && rule?.kind === 'physical' &&
     parseStandardPhysicalProfile(rule.damageProfile).ok &&
     !!String(rule.rollFormula ?? item.system.rollFormula ?? '').trim();
 }
@@ -118,8 +127,10 @@ export async function sendOtherItemAttack(item, actor) {
   return sendAttackSnapshot({actor,name:item.name,profile:rule.damageProfile,
     damageType:rule.damageType || 'физический',properties:rule.properties || '',
     sourceUuid:item.uuid ?? null,expression:rule.rollFormula || item.system.rollFormula,
-    sourceKind:'other',attackKind:rule.attackKind ?? 'melee',
-    criticalMultiplier:rule.criticalMultiplier ?? null});
+    sourceKind:item.type==='ability'?'ability':'other',attackKind:rule.attackKind ?? 'melee',
+    targetDefense:rule.targetDefense ?? 'ac',selfDefenseRule:rule.selfDefense ?? null,
+    isIntervention:explicitInterventionFromCard(item),criticalMultiplier:rule.criticalMultiplier ?? null,
+    criticalThreshold:rule.criticalThreshold ?? 20});
 }
 
 export function damageFormulaForDegree(profile, degree) {
@@ -139,21 +150,26 @@ export async function sendWeaponDamage(message, degree) {
   if (typeof Roll.validate === 'function' && !Roll.validate(selected.formula)) throw new Error('Invalid damage formula');
   const roll = await new Roll(selected.formula).evaluate();
   const severityLabel = local(degree);
-  const note = data.naturalTwenty ? ` — ${local('criticalNote')}` : '';
+  const threshold=Number.isInteger(Number(data.criticalThreshold)) && Number(data.criticalThreshold)>=1 && Number(data.criticalThreshold)<=20
+    ? Number(data.criticalThreshold) : 20;
+  const triggered=Number.isInteger(data.naturalD20) && data.naturalD20>=threshold;
+  const note = triggered ? ` — ${local('criticalNote')}` : '';
   // A and B are separate evaluated dice; C is a separate fixed component.
   // Fail explicitly rather than fabricate individual values from an aggregate.
   const parts=snapshotDamageParts(roll,selected.parts,{damageType:data.damageType,properties:data.properties});
   const correctedTotal=message.getFlag?.(SYSTEM_ID,'rollEdit')?.currentTotal;
   const snapshot={version:2,attackMessageId:message.id,previousMessageId:null,
     name:data.name,degree,effectDegree:degree,sourceUuid:data.sourceUuid,
-    attackKind:data.attackKind ?? 'melee',
+    attackKind:data.attackKind ?? null,targetDefense:data.targetDefense??'ac',
+    selfDefenseRule:data.selfDefenseRule??null,isIntervention:messageIntervention(message),
     attackTotal:Number.isFinite(correctedTotal)?correctedTotal:(data.attackTotal ?? message.rolls?.[0]?.total ?? null),
     originalAttackTotal:data.attackTotal ?? message.rolls?.[0]?.total ?? null,
     naturalD20:data.naturalD20 ?? null,sourceActorUuid:data.actorUuid ?? null,
     originalTargetUuid:data.originalTargetUuid ?? null,
     damageType:data.damageType,properties:data.properties,naturalTwenty:!!data.naturalTwenty,
-    naturalCritMultiplier:Number(data.criticalMultiplier) > 0 ? Number(data.criticalMultiplier) : 2,
-    manualCritical:null,manualCritMultiplier:2,cancelled:false,
+    naturalCritMultiplier:Number(data.criticalMultiplier) > 1 ? Number(data.criticalMultiplier) : 2,
+    criticalThreshold:threshold,criticalTriggered:triggered,
+    manualCritical:null,manualCritMultiplier:Number(data.criticalMultiplier)>1?Number(data.criticalMultiplier):2,cancelled:false,
     adjustments:{penalty:0,resistance:0,vulnerability:0},parts,history:[],revision:0};
   return roll.toMessage({
     speaker:message.speaker ?? ChatMessage.getSpeaker(),
@@ -206,10 +222,9 @@ export function registerWeaponChatControls() {
       info.textContent=local(key);
       container.append(info);
     }
-    if (data.naturalTwenty) {
-      const info=document.createElement('small');
-      info.className='fnri-weapon-chat-warning'; info.textContent=local('criticalNote'); container.append(info);
-    }
+    // Critical damage is displayed as a fully computed total in the damage card.
+    // Do not show a stale ×2 note beside the attack; private card thresholds can differ.
+
     const anchor=html.querySelector('.message-content') ?? html;
     anchor.append(container);
   });

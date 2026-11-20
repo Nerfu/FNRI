@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {applyHp,applyCardDamage,revertHpReport} from '../module/damage/hp-actions.mjs';
+import {applyHp,applyCardDamage,revertHpReport,actorForToken} from '../module/damage/hp-actions.mjs';
 const ID='fast-nri-v14',messages=[];let seq=0;
 const actor={uuid:'Actor.x',name:'Воин',isOwner:true,system:{hp:{current:20,max:25,temp:5}},
   canUserModify(){return true;},async update(patch){for(const [k,v] of Object.entries(patch)){
@@ -17,7 +17,7 @@ const lookups={'Scene.x.Token.y':{actor},'Actor.x':actor};
 globalThis.fromUuid=async uuid=>lookups[uuid];
 globalThis.canvas={tokens:{controlled:[token]}};
 globalThis.ui={notifications:{warn(){},error(s){throw Error('unexpected notification '+s)}}};
-globalThis.foundry={applications:{api:{DialogV2:{confirm:async()=>true}}}};
+let confirmationCalls=0;globalThis.foundry={applications:{api:{DialogV2:{confirm:async()=>{confirmationCalls++;return true;}}}}};
 globalThis.game={user:{id:'gm',isGM:true},messages:{contents:messages,get:id=>messages.find(m=>m.id===id)},
   i18n:{localize:x=>x}};
 globalThis.ChatMessage={getSpeaker(){return {actor:'x'}},async create(data){return makeMsg(data)}};
@@ -31,6 +31,26 @@ assert.equal(actor.system.hp.current,20);
 assert.equal(actor.system.hp.temp,5);
 assert.equal(report.getFlag(ID,'hpReport').reverted,true);
 assert.equal(await revertHpReport(report),null,'idempotent undo');
+// Reapplying the same card must never prompt. Both reports have independent undo.
+const again=await applyCardDamage(source);
+const twice=await applyCardDamage(source);
+assert.equal(confirmationCalls,0,'no repeat-damage confirmation');
+assert.equal(again.getFlag(ID,'hpReport').requested,12);
+assert.equal(twice.getFlag(ID,'hpReport').requested,12);
+assert.equal(actor.system.hp.current,1);
+assert.equal(await revertHpReport(twice),true);
+assert.equal(await revertHpReport(again),true);
+assert.equal(actor.system.hp.current,20);
+assert.equal(actor.system.hp.temp,5);
+const criticalReport=await applyCardDamage(source,{critical:true});
+assert.equal(criticalReport.getFlag(ID,'hpReport').requested,24);
+assert.equal(criticalReport.getFlag(ID,'hpReport').critical,true);
+assert.equal(criticalReport.getFlag(ID,'hpReport').multiplier,2);
+assert.equal(actor.system.hp.current,1);
+assert.equal(await revertHpReport(criticalReport),true);
+assert.equal(actor.system.hp.current,20);
+assert.equal(actor.system.hp.temp,5);
+
 const healed=await applyHp({kind:'heal',amount:20,token});
 assert.equal(healed.getFlag(ID,'hpReport').actual,5);
 assert.equal(actor.system.hp.current,25);
@@ -44,3 +64,24 @@ await revertHpReport(temp);
 assert.equal(actor.system.hp.temp,4,'reverse the delta, not stale before snapshot');
 assert.equal(temp.getFlag(ID,'hpReport').reverted,true);
 console.log('PASS stage 5 HP: selected actor, saved deltas, heal/temp, changes after application, single-use reversal');
+
+// Regression: a GM must not be accused of lacking permissions when a Token
+// placeable has no direct Actor but its TokenDocument does.
+const documentActorOnly={name:'Существо со связью через TokenDocument',actor:null,document:{uuid:'Scene.x.Token.z',actor}};
+assert.equal(actorForToken(documentActorOnly),actor);
+const newReport=await applyHp({kind:'damage',amount:1,token:documentActorOnly});
+assert.ok(newReport?.getFlag(ID,'hpReport'),'GM can apply damage to TokenDocument Actor');
+assert.equal(actor.system.hp.current,25);
+assert.equal(actor.system.hp.temp,3);
+// A selected Token without ANY Actor must produce a distinct diagnostic, not
+// an incorrect permission error. There must be no HP write.
+let notified='';const originalError=ui.notifications.error;
+ui.notifications.error=(text)=>{notified=text;};
+try{
+  const noActorToken={name:'Токен без Actor',actor:null,document:{uuid:'Scene.x.Token.empty',actor:null,actorId:null}};
+  assert.equal(await applyHp({kind:'damage',amount:10,token:noActorToken}),null);
+  assert.equal(notified,'FASTNRI.Damage.missingTokenActor');
+  assert.equal(actor.system.hp.current,25);
+assert.equal(actor.system.hp.temp,3);
+}finally {ui.notifications.error=originalError;}
+console.log('PASS GM HP target: TokenDocument Actor fallback and honest missing Actor diagnostic');

@@ -29,7 +29,8 @@ export function resolveMessageMode(selected, defaultMode = "public") {
   return MESSAGE_MODES.has(defaultMode) ? defaultMode : "public";
 }
 
-export async function postRoll({ formula, label, actor = null, mode = "public" }) {
+export async function postRoll({ formula, label, actor = null, mode = "public", isIntervention=false,
+  attackKind=null,targetDefense=null,selfDefenseRule=null }) {
   const expression = String(formula ?? "").trim();
   if (!expression) throw new Error("empty-formula");
   if (typeof Roll.validate === "function" && !Roll.validate(expression)) throw new Error("invalid-formula");
@@ -39,7 +40,8 @@ export async function postRoll({ formula, label, actor = null, mode = "public" }
   await roll.toMessage({
     speaker,
     flavor: `<strong>${safeText(label)}</strong><div class="fnri-roll-expression">${safeText(expression)}</div>`,
-    flags:{'fast-nri-v14':{checkRoll:{version:1,label:String(label),actorUuid:actor?.uuid??null}}}
+    flags:{'fast-nri-v14':{checkRoll:{version:1,label:String(label),actorUuid:actor?.uuid??null,
+      isIntervention:!!isIntervention,attackKind,targetDefense,selfDefenseRule}}}
   }, { messageMode: resolveMessageMode(mode) });
   return roll;
 }

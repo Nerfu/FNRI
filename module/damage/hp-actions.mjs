@@ -4,7 +4,18 @@ export const SYSTEM_ID='fast-nri-v14';
 const locks=new Set();
 const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const t=key=>game.i18n.localize(`FASTNRI.Damage.${key}`);
-const canChange=actor=>!!actor && (game.user?.isGM || actor.canUserModify?.(game.user,'update')===true || actor.isOwner===true);
+const canChange=actor=>!!actor && (game.user?.isGM === true || actor.canUserModify?.(game.user,'update')===true || actor.isOwner===true);
+/** The placed Token may proxy an Actor through its TokenDocument. Never edit
+ * the baseActor: for unlinked tokens that would damage every copy of an NPC. */
+export const actorForToken=token=>token?.actor ?? token?.document?.actor ?? null;
+function reportMissingActor(token) {
+  console.warn('Fast NRI | Cannot apply HP: selected Token has no Actor', {
+    tokenId:token?.id ?? token?.document?.id ?? null,
+    tokenName:token?.name ?? token?.document?.name ?? null,
+    actorId:token?.document?.actorId ?? null
+  });
+  ui.notifications?.error(t('missingTokenActor'));
+}
 const confirm=async(content,title)=>Boolean(await foundry.applications.api.DialogV2.confirm({window:{title},content,modal:true,rejectClose:false}));
 const messageFrom=id=>game.messages?.get(id);
 
@@ -19,24 +30,17 @@ export async function chooseControlledToken() {
   return fd && Number.isInteger(n) && n>=0 && n<all.length ? all[n] : null;
 }
 
-function reportsForMessage(id) {
-  return (game.messages?.contents ?? []).filter(m=>m.getFlag?.(SYSTEM_ID,'hpReport')?.sourceMessageId===id);
-}
-
 /** Healing is available for future card adapters and macros, not silently
  * inferred from a weapon's damage type. */
-export async function applyHp({kind='damage',amount,sourceMessage=null,token=null}={}) {
+export async function applyHp({kind='damage',amount,sourceMessage=null,token=null,critical=false,multiplier=1}={}) {
   token??=await chooseControlledToken();
   if (!token) return null;
-  const actor=token.actor;
+  const actor=actorForToken(token);
+  if (!actor) {reportMissingActor(token);return null;}
   if (!canChange(actor)) {ui.notifications?.error(t('noPermission'));return null;}
   if (!['damage','heal','temp'].includes(kind)) throw new Error('Unknown HP channel');
   const key=actor.uuid;
   if (locks.has(key)) return null;
-  if (sourceMessage && reportsForMessage(sourceMessage.id).length) {
-    const yes=await confirm(`<p>${esc(t('alreadyApplied'))}</p>`,t('apply'));
-    if (!yes) return null;
-  }
   locks.add(key);
   try {
     const plan=planHpChange(actor.system.hp,amount,kind);
@@ -45,11 +49,13 @@ export async function applyHp({kind='damage',amount,sourceMessage=null,token=nul
       actorUuid:actor.uuid,tokenUuid:doc.uuid ?? null,sourceMessageId:sourceMessage?.id ?? null,
       sourceRevision:sourceMessage?.getFlag?.(SYSTEM_ID,'weaponDamage')?.revision ?? 0,
       before:plan.before,after:plan.after,delta:plan.delta,requested:plan.requested,
-      actual:plan.actual,reverted:false,author:game.user.id,createdAt:Date.now()};
+      actual:plan.actual,critical:kind==='damage' && critical,multiplier:kind==='damage'&&critical?multiplier:1,
+      reverted:false,author:game.user.id,createdAt:Date.now()};
     await actor.update({'system.hp.current':plan.after.current,'system.hp.temp':plan.after.temp});
     try {
       return await ChatMessage.create({speaker:ChatMessage.getSpeaker({actor}),
-        content:`<div class="fnri-hp-report">${esc(token.name ?? actor.name)} · ${esc(t(kind))}: <strong>${plan.actual}</strong>`+
+        content:`<div class="fnri-hp-report">${esc(token.name ?? actor.name)} · ${esc(t(kind))}`+
+          (kind==='damage' && critical ? ` (${esc(t('critical'))} ×${esc(multiplier)})` : '')+`: <strong>${plan.actual}</strong>`+
           (kind==='damage' ? ` <small>(${esc(t('temp'))} ${-plan.delta.temp}, HP ${-plan.delta.current})</small>`:'')+`</div>`,
         flags:{[SYSTEM_ID]:{hpReport:report}}});
     } catch(error) {
@@ -64,10 +70,12 @@ export async function applyHp({kind='damage',amount,sourceMessage=null,token=nul
   } finally {locks.delete(key);}
 }
 
-export async function applyCardDamage(message) {
+export async function applyCardDamage(message,{critical=false}={}) {
   const card=message?.getFlag?.(SYSTEM_ID,'weaponDamage');
   if (!card || card.version!==2) throw new Error('Unsupported damage card');
-  return applyHp({kind:'damage',amount:calculateDamage(card).total,sourceMessage:message});
+  const values=calculateDamage(card,{critical});
+  return applyHp({kind:'damage',amount:values.total,sourceMessage:message,
+    critical,multiplier:values.multiplier});
 }
 
 export async function revertHpReport(message) {
@@ -84,6 +92,7 @@ export async function revertHpReport(message) {
     if (!saved || saved.reverted || saved.pendingUndo) return null;
     const doc=saved.tokenUuid ? await fromUuid(saved.tokenUuid) : null;
     const actor=doc?.actor ?? (saved.actorUuid ? await fromUuid(saved.actorUuid) : null);
+    if (!actor) {ui.notifications?.error(t('missingReportActor'));return null;}
     if (!canChange(actor)) {ui.notifications?.error(t('noPermission'));return null;}
     const hpBeforeUndo={current:actor.system.hp.current,temp:actor.system.hp.temp};
     const reverse=reverseHpChange(actor.system.hp,saved);

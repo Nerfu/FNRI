@@ -10,6 +10,10 @@
   <section class="fnri-panel">
     <h3>{{localize "FASTNRI.Sections.roll"}}</h3>
     <label>{{localize "FASTNRI.Fields.rollFormula"}}<input type="text" name="system.rollFormula" value="{{system.rollFormula}}" placeholder="1d20 + 2d6" {{#unless editable}}disabled{{/unless}}></label>
+    <label>{{localize "FASTNRI.Damage.interventionProperty"}}<select data-dtype="Boolean" name="system.mechanics.isIntervention" {{#unless editable}}disabled{{/unless}}>
+      <option value="false" {{#unless itemIsIntervention}}selected{{/unless}}>{{localize "FASTNRI.Damage.no"}}</option>
+      <option value="true" {{#if itemIsIntervention}}selected{{/if}}>{{localize "FASTNRI.Damage.yes"}}</option>
+    </select></label>
     {{#if hasRollFormula}}<button type="button" data-action="itemRoll"><i class="fa-solid fa-dice-d20"></i> {{localize "FASTNRI.Actions.rollItem"}}</button>{{/if}}
     
   </section>
@@ -34,7 +38,13 @@
         <label>{{localize "FASTNRI.Fields.category"}}<input type="text" name="system.category" value="{{system.category}}" {{#unless editable}}disabled{{/unless}}></label>
         <label>{{localize "FASTNRI.Weapon.grip"}}<input type="text" name="system.grip" value="{{system.grip}}" placeholder="1 / 1+ / 2" {{#unless editable}}disabled{{/unless}}></label>
         <label>{{localize "FASTNRI.Weapon.distance"}}<input type="text" name="system.distance" value="{{system.distance}}" {{#unless editable}}disabled{{/unless}}></label>
-        <label>{{localize "FASTNRI.Weapon.attackKind"}}<input type="text" name="system.attackKind" value="{{system.attackKind}}" {{#unless editable}}disabled{{/unless}}></label>
+        <label>{{localize "FASTNRI.Weapon.attackKind"}}<select name="system.attackKind" {{#unless editable}}disabled{{/unless}}>
+          <option value="" {{#if weaponUnknownKind}}selected{{/if}}>{{localize "FASTNRI.Weapon.kindUnknown"}}</option>
+          {{#if weaponLegacyKind}}<option value="{{weaponLegacyKind}}" selected>{{weaponLegacyKind}} ({{localize "FASTNRI.Weapon.legacyKind"}})</option>{{/if}}
+          <option value="melee" {{#if weaponMelee}}selected{{/if}}>{{localize "FASTNRI.Weapon.melee"}}</option>
+          <option value="ranged" {{#if weaponRanged}}selected{{/if}}>{{localize "FASTNRI.Weapon.ranged"}}</option>
+          <option value="focus" {{#if weaponFocus}}selected{{/if}}>{{localize "FASTNRI.Weapon.focus"}}</option>
+        </select></label>
         <label>{{localize "FASTNRI.Weapon.damageType"}}<input type="text" name="system.damageType" value="{{system.damageType}}" {{#unless editable}}disabled{{/unless}}></label>
       </div>
       <label>{{localize "FASTNRI.Weapon.owners"}}<input type="text" name="system.proficiencyClasses" value="{{system.proficiencyClasses}}" {{#unless editable}}disabled{{/unless}}></label>
@@ -44,6 +54,7 @@
         <option value="no" {{#if weaponNoProficiency}}selected{{/if}}>{{localize "FASTNRI.Weapon.noProficiency"}}</option>
       </select></label>
       <label>{{localize "FASTNRI.Weapon.properties"}}<input type="text" name="system.properties" value="{{system.properties}}" {{#unless editable}}disabled{{/unless}}></label>
+      {{#if computedReach}}<p class="fnri-muted fnri-computed-reach">{{localize "FASTNRI.Weapon.computedReach"}}</p>{{/if}}
       <details class="fnri-weapon-legacy"><summary>{{localize "FASTNRI.Weapon.legacyFields"}}</summary>
         <div class="fnri-grid-3">
           <label>{{localize "FASTNRI.Fields.hands"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.hands" value="{{system.hands}}" {{#unless editable}}disabled{{/unless}}></label>
@@ -57,6 +68,22 @@
         <label>{{localize "FASTNRI.Fields.success"}} (B)<input type="text" name="system.damageProfile.B" value="{{system.damageProfile.B}}" placeholder="1d8" {{#unless editable}}disabled{{/unless}}></label>
         <label>{{localize "FASTNRI.Fields.great"}} (+C)<input type="text" data-dtype="Number" inputmode="decimal" name="system.damageProfile.C" value="{{system.damageProfile.C}}" placeholder="3" {{#unless editable}}disabled{{/unless}}></label>
       </div>
+      <div class="fnri-grid-3 fnri-critical-rules">
+        <label>{{localize "FASTNRI.Damage.criticalThreshold"}}<input type="number" min="1" max="20" step="1" data-dtype="Number" name="system.mechanics.attack.criticalThreshold" value="{{system.mechanics.attack.criticalThreshold}}" placeholder="20" {{#unless editable}}disabled{{/unless}}></label>
+        <label>{{localize "FASTNRI.Damage.criticalMultiplier"}}<input type="number" min="2" step="1" data-dtype="Number" name="system.mechanics.attack.criticalMultiplier" value="{{system.mechanics.attack.criticalMultiplier}}" placeholder="2" {{#unless editable}}disabled{{/unless}}></label>
+      </div>
+      <details class="fnri-defense-settings"><summary>{{localize "FASTNRI.Damage.defenseSettings"}}</summary>
+        <label>{{localize "FASTNRI.Damage.attackTargetDefense"}}<select name="system.mechanics.attack.targetDefense" {{#unless editable}}disabled{{/unless}}>
+          {{#each targetDefenseOptions}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
+        </select></label>
+        <label>{{localize "FASTNRI.Damage.selfDefenseMode"}}<select name="system.mechanics.attack.selfDefense.mode" {{#unless editable}}disabled{{/unless}}>
+          {{#each attackDefenseModes}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
+        </select></label>
+        <label>{{localize "FASTNRI.Damage.selfDefenseStat"}}<select name="system.mechanics.attack.selfDefense.stat" {{#unless editable}}disabled{{/unless}}>
+          {{#each attackDefenseStats}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
+        </select></label>
+        <label>{{localize "FASTNRI.Damage.selfDefenseOptions"}}<input name="system.mechanics.attack.selfDefense.options" value="{{attackDefenseChoices}}" placeholder="fortitude, reflex, will" {{#unless editable}}disabled{{/unless}}></label>
+      </details>
       {{#if canWeaponAttack}}<button type="button" data-action="weaponAttack"><i class="fa-solid fa-crosshairs"></i> {{localize "FASTNRI.Weapon.attack"}}</button>{{/if}}
       {{#if weaponRuleRows.length}}<div class="fnri-weapon-property-reference"><h3>{{localize "FASTNRI.Weapon.propertyRules"}}</h3>
         {{#each weaponRuleRows}}<details><summary>{{this.name}}</summary><p>{{this.description}}</p></details>{{/each}}
@@ -117,8 +144,35 @@
           <label>+C<input type="text" data-dtype="Number" name="system.mechanics.unarmedAttack.damageProfile.C" value="{{system.mechanics.unarmedAttack.damageProfile.C}}" placeholder="2" {{#unless editable}}disabled{{/unless}}></label>
         </div>
         <label>{{localize "FASTNRI.Weapon.damageType"}}<input name="system.mechanics.unarmedAttack.damageType" value="{{system.mechanics.unarmedAttack.damageType}}" {{#unless editable}}disabled{{/unless}}></label>
+        <div class="fnri-grid-3 fnri-critical-rules">
+          <label>{{localize "FASTNRI.Damage.criticalThreshold"}}<input type="number" min="1" max="20" step="1" data-dtype="Number" name="system.mechanics.unarmedAttack.criticalThreshold" value="{{system.mechanics.unarmedAttack.criticalThreshold}}" placeholder="20" {{#unless editable}}disabled{{/unless}}></label>
+          <label>{{localize "FASTNRI.Damage.criticalMultiplier"}}<input type="number" min="2" step="1" data-dtype="Number" name="system.mechanics.unarmedAttack.criticalMultiplier" value="{{system.mechanics.unarmedAttack.criticalMultiplier}}" placeholder="2" {{#unless editable}}disabled{{/unless}}></label>
+        </div>
       </details>
     {{/if}}
+    {{#if gearPhysicalAttack}}
+      <details class="fnri-critical-rules"><summary>{{localize "FASTNRI.Damage.criticalSettings"}}</summary>
+        <div class="fnri-grid-3">
+          <label>{{localize "FASTNRI.Damage.criticalThreshold"}}<input type="number" min="1" max="20" step="1" data-dtype="Number" name="system.mechanics.attack.criticalThreshold" value="{{system.mechanics.attack.criticalThreshold}}" placeholder="20" {{#unless editable}}disabled{{/unless}}></label>
+          <label>{{localize "FASTNRI.Damage.criticalMultiplier"}}<input type="number" min="2" step="1" data-dtype="Number" name="system.mechanics.attack.criticalMultiplier" value="{{system.mechanics.attack.criticalMultiplier}}" placeholder="2" {{#unless editable}}disabled{{/unless}}></label>
+        </div>
+      </details>
+    {{/if}}
+    {{#if isAbility}}<details class="fnri-defense-settings"><summary>{{localize "FASTNRI.Damage.defenseSettings"}}</summary>
+      <label>{{localize "FASTNRI.Damage.selfDefenseActivation"}}<select name="system.mechanics.selfDefense.activation" {{#unless editable}}disabled{{/unless}}>
+        {{#each abilityDefenseActivations}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
+      </select></label>
+      <label>{{localize "FASTNRI.Damage.selfDefenseMode"}}<select name="system.mechanics.selfDefense.mode" {{#unless editable}}disabled{{/unless}}>
+        {{#each abilityDefenseModes}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
+      </select></label>
+      <label>{{localize "FASTNRI.Damage.selfDefenseStat"}}<select name="system.mechanics.selfDefense.stat" {{#unless editable}}disabled{{/unless}}>
+        {{#each abilityDefenseStats}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
+      </select></label>
+      <label>{{localize "FASTNRI.Damage.selfDefenseOptions"}}<input name="system.mechanics.selfDefense.options" value="{{abilityDefenseChoices}}" placeholder="fortitude, reflex, will" {{#unless editable}}disabled{{/unless}}></label>
+      <label>{{localize "FASTNRI.Damage.againstKind"}}<select name="system.mechanics.selfDefense.againstKind" {{#unless editable}}disabled{{/unless}}>
+        {{#each abilityAgainstKinds}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
+      </select></label>
+    </details>{{/if}}
     {{#unless isLegacy}}
       <label>{{localize "FASTNRI.Fields.tags"}}<input type="text" name="system.tags" value="{{system.tags}}" {{#unless editable}}disabled{{/unless}} /></label>
     {{/unless}}

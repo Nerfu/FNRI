@@ -42,7 +42,7 @@ export function availableUnarmedActions(actor) {
     key: BASE_UNARMED_CHOICE, name: 'Безоружная атака',
     damageProfile: { ...BASE_UNARMED_ATTACK.damageProfile },
     damageType: BASE_UNARMED_ATTACK.damageType, properties: BASE_UNARMED_ATTACK.properties,
-    sourceUuid: null, rollFormula: '', sourceItemId: null, mode: 'base'
+    sourceUuid: null, rollFormula: '', sourceItemId: null, mode: 'base', isIntervention:false
   };
   const cards = (actor?.items?.contents ?? []).filter(item => {
     const rule = item.system?.mechanics?.unarmedAttack;
@@ -58,7 +58,9 @@ export function availableUnarmedActions(actor) {
       damageType: String(rule.damageType || base.damageType),
       properties: String(rule.properties || base.properties),
       rollFormula: String(rule.rollFormula ?? ''), sourceUuid: item.uuid ?? null,
-      sourceItemId: item.id, mode: rule.mode
+      sourceItemId: item.id, mode: rule.mode, isIntervention:item.system?.mechanics?.isIntervention===true,
+      criticalThreshold:rule.criticalThreshold ?? item.system?.mechanics?.attack?.criticalThreshold ?? 20,
+      criticalMultiplier:rule.criticalMultiplier ?? item.system?.mechanics?.attack?.criticalMultiplier ?? null
     };
   });
   return [base, ...cards];
@@ -92,6 +94,8 @@ export async function sendUnarmedAttack(actor) {
   return sendAttackSnapshot({
     actor, name: action.name, profile: action.damageProfile, damageType: action.damageType,
     properties: action.properties, sourceUuid: action.sourceUuid,
-    expression, warning, sourceKind: 'unarmed', attackKind:'melee'
+    expression, warning, sourceKind: 'unarmed', attackKind:'melee',
+    isIntervention:action.isIntervention,
+    criticalThreshold:action.criticalThreshold ?? 20,criticalMultiplier:action.criticalMultiplier ?? null
   });
 }

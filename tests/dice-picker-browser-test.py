@@ -12,7 +12,7 @@ sheets = (root / 'module/sheets/sheets.mjs').read_text()
 assert sheets.startswith('import { skillFormula, itemFormula, postRoll }')
 sheets = '\n'.join(line for line in sheets.splitlines() if not line.startswith('import ')).replace('export class ', 'class ')
 # Existing test covers custom entries; catalogue source symbols only need stubs.
-sheets = '// Equipment/attack internals are covered by separate Node tests; these browser tests target legacy UI behavior.\nconst itemSlot=()=>null, equipmentKind=()=>null, itemGrip=()=>"1", hasFreeSecondHand=()=>true;\nconst isPhysicalWeaponCard=()=>false, isPhysicalOtherItemAttack=()=>false;\nconst resolveUnarmedAction=()=>({name:"Безоружная атака",conflict:false});\n'+sheets
+sheets = '// Equipment/attack internals are covered by separate Node tests; these browser tests target legacy UI behavior.\nconst itemSlot=()=>null, equipmentKind=()=>null, itemGrip=()=>"1", hasFreeSecondHand=()=>true;\nconst isPhysicalWeaponCard=()=>false, isPhysicalOtherItemAttack=()=>false;\nconst resolveUnarmedAction=()=>({name:"Безоружная атака",conflict:false});\nconst compactPhysicalProfile=()=>"", attackCardDetails=()=>"";\n'+sheets
 sheets = '''const BASIC_SKILLS=[]; const BASIC_SKILLS_BY_ROW_ID=new Map();
 const SKILL_GROUPS=[]; const standardSkillEntry=()=>({});
 ''' + sheets

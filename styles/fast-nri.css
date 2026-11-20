@@ -243,6 +243,10 @@
   min-height: 35px; padding: 6px 9px; border: 1px solid var(--color-border-light-tertiary,#8885); border-radius: 5px; }
 .fast-nri-v14.fast-nri-sheet .fnri-attack-slot .fnri-slot-name { min-width: 120px; font-size: .83rem; }
 .fast-nri-v14.fast-nri-sheet .fnri-attack-slot .fnri-slot-occupant { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.fast-nri-v14.fast-nri-sheet .fnri-attack-slot .fnri-attack-information { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.fast-nri-v14.fast-nri-sheet .fnri-attack-information > .fnri-slot-occupant { flex: none; }
+.fast-nri-v14.fast-nri-sheet .fnri-attack-details { opacity: .8; font-size: .72rem; line-height: 1.2; }
+.fast-nri-v14.fast-nri-sheet .fnri-attack-profile { flex: 0 0 auto; white-space: nowrap; font-size: .81rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .fast-nri-v14.fast-nri-sheet .fnri-attack-slot button { width: 34px; height: 29px; flex: none; padding: 3px; }
 .fast-nri-v14.fast-nri-sheet .fnri-other-attacks > strong { display: block; margin: 8px 0 5px; font-size: .86rem; }
 .fast-nri-v14.fast-nri-sheet .fnri-other-attacks > .fnri-attack-slot { margin-top: 4px; }
@@ -273,7 +277,7 @@
  */
 .fast-nri-v14.fast-nri-sheet .fnri-attack-slot.fnri-unarmed-row {
   display: grid;
-  grid-template-columns: minmax(85px,120px) minmax(0,1fr) 34px;
+  grid-template-columns: minmax(85px,120px) minmax(0,1fr) max-content 34px;
   align-items: start;
   border: 2px solid var(--color-border-highlight,#ad935c);
   background: rgba(128,128,128,.065);
@@ -313,7 +317,7 @@
 }
 @media (max-width: 490px) {
   .fast-nri-v14.fast-nri-sheet .fnri-attack-slot.fnri-unarmed-row {
-    grid-template-columns: minmax(80px,85px) minmax(0,1fr) 34px;
+    grid-template-columns: minmax(80px,85px) minmax(0,1fr) max-content 34px;
   }
 }
 
@@ -335,3 +339,34 @@
 .fnri-roll-editor{display:grid;gap:8px;min-width:260px;}
 .fnri-roll-editor .form-group{display:grid;gap:3px;}
 .fnri-roll-corrected{font-weight:700;padding:5px 0;}
+
+/* The original Foundry result stays in history; the active corrected number is shown separately. */
+.fnri-original-roll {text-decoration:line-through;opacity:.55;}
+.fnri-roll-editor-feedback {font-weight:600;font-variant-numeric:tabular-nums;padding:4px 0;}
+
+/* v0.1.13 — explicit normal/critical damage choices and actual totals. */
+.fnri-damage-totals{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;}
+.fnri-damage-critical-total{font-weight:700;font-size:.94rem;font-variant-numeric:tabular-nums;}
+.fnri-damage-total{font-variant-numeric:tabular-nums;}
+.fnri-damage-bottom .fnri-apply-button{flex:1 1 60%;min-width:0;}
+.fnri-damage-bottom .fnri-crit-button{flex:1 1 38%;min-width:92px;}
+.fnri-damage-critical-total.fnri-crit-active{border:none!important;box-shadow:none!important;color:var(--color-level-success,#55b77e);}
+.fnri-die-max{color:#aef2b8!important;border-color:#3c8751!important;background:rgba(22,93,50,.40)!important;font-weight:700!important;}
+.fnri-die-min{color:#ffc3bf!important;border-color:#ac5552!important;background:rgba(109,31,31,.38)!important;font-weight:700!important;}
+.fnri-damage-part.fnri-die-max,.fnri-damage-part.fnri-die-min{border-width:1px;border-style:solid;}
+.fnri-damage-excluded.fnri-die-max,.fnri-damage-excluded.fnri-die-min{color:inherit!important;background:transparent!important;}
+
+/* v0.1.13 stage 4: one displayed damage total; critical primary with compact normal fallback. */
+.fnri-damage-totals{display:flex;align-items:center;min-width:0;}
+.fnri-damage-total{overflow-wrap:anywhere;}
+.fnri-damage-total.fnri-crit-active{color:var(--color-level-success,#55b77e);}
+.fnri-damage-bottom{display:flex;flex-wrap:nowrap;align-items:stretch;gap:6px;min-width:0;}
+.fnri-damage-bottom .fnri-apply-button{flex:1 1 auto;min-width:0;white-space:normal;}
+.fnri-damage-bottom .fnri-apply-normal-button{flex:0 0 auto;width:auto;min-width:0;padding-inline:8px;white-space:nowrap;font-size:.82rem;}
+
+/* v0.1.13 stage 5: on every damage card, allow the alternate application;
+ * it is compact and never changes the card's critical state. */
+.fnri-damage-bottom .fnri-secondary-damage-button{
+  flex:0 0 auto;min-width:0;width:auto;padding-inline:8px;
+  white-space:nowrap;font-size:.82rem;
+}

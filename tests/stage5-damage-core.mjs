@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {snapshotDamageParts,calculateDamage,changePart,biggestDamageParts,selfDefenseOutcome,
-  planHpChange,reverseHpChange} from '../module/damage/damage-core.mjs';
+  planHpChange,reverseHpChange,damageChoices,criticalDamageRule} from '../module/damage/damage-core.mjs';
 const defs=[{id:'A',kind:'die',faces:6,formula:'1d6'},
   {id:'B',kind:'die',faces:8,formula:'1d8'},
   {id:'C',kind:'fixed',value:6,formula:'6'}];
@@ -13,6 +13,17 @@ const card={version:2,parts,degree:'great',effectDegree:'great',attackTotal:19,n
   adjustments:{penalty:1,resistance:4,vulnerability:2},manualCritical:true,manualCritMultiplier:2};
 assert.deepEqual(biggestDamageParts(card).map(p=>p.id),['A','C']);
 assert.equal(calculateDamage(card).total,28, '(16-1)*2 -4 +2');
+const choices=damageChoices(card);
+assert.equal(choices.normal.total,13, '(16-1)-4+2');
+assert.equal(choices.critical.total,28, '(16-1)*2-4+2');
+assert.equal(calculateDamage({...card,naturalD20:20,manualCritical:null},{critical:false}).total,13);
+const special={...card,naturalD20:19,criticalThreshold:19,naturalCritMultiplier:3,manualCritical:null};
+assert.deepEqual(criticalDamageRule(special),{threshold:19,multiplier:3,triggered:true});
+assert.equal(damageChoices(special).critical.total,43,'(16-1)*3-4+2');
+assert.equal(damageChoices(special).normal.total,13);
+assert.equal(criticalDamageRule({...special,naturalD20:18}).triggered,false);
+assert.equal(criticalDamageRule({...special,naturalD20:20,criticalThreshold:0}).threshold,20);
+
 const removed=changePart(card,'C','exclude');
 assert.equal(removed.next.parts[2].excluded,true);
 assert.equal(card.parts[2].excluded,false,'original is untouched');

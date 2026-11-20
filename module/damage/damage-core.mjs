@@ -29,22 +29,72 @@ export function snapshotDamageParts(roll, definitions, {damageType='физиче
 /** Immunity removes a part and its traits. Defense removal and GM exclusion
  * are also exclusions. Reducing a die to zero DOES NOT remove its traits.
  */
-export function calculateDamage(card) {
+/** Critical rules live on the attack card. 20 is the ordinary threshold,
+ * but a private card may define another inclusive natural-d20 threshold.
+ * Never derive it from the modified roll total. */
+export function criticalDamageRule(card) {
+  const raw=Number(card?.criticalThreshold);
+  const threshold=Number.isInteger(raw) && raw>=1 && raw<=20 ? raw : 20;
+  const multiplier=Number(card?.naturalCritMultiplier ?? card?.criticalMultiplier);
+  const validMultiplier=Number.isFinite(multiplier) && multiplier>1 ? multiplier : 2;
+  const natural=Number(card?.naturalD20);
+  return {threshold,multiplier:validMultiplier,
+    triggered:Number.isInteger(natural) && natural>=threshold && natural<=20};
+}
+
+/** Explicit buttons may request normal/critical damage. Without the option,
+ * preserve legacy semantics for old stored cards and their interventions. */
+export function calculateDamage(card, {critical}={}) {
   const parts=card?.parts ?? [];
   const remaining=parts.filter(p=>!p.excluded && !p.immune);
   const gross=remaining.reduce((sum,p)=>sum+nonNegative(p.value),0);
   const a=card?.adjustments ?? {};
   const penalty=nonNegative(a.penalty);
-  const multiplier=card?.cancelled ? 1 :
-    (card?.manualCritical === null || card?.manualCritical === undefined
-      ? (card?.naturalD20 === 20 ? nonNegative(card?.naturalCritMultiplier || 2) : 1)
-      : (card.manualCritical ? nonNegative(card.manualCritMultiplier || 2) : 1));
+  const criticalRule=criticalDamageRule(card);
+  const multiply=typeof critical==='boolean' ? critical :
+    (card?.manualCritical === null || card?.manualCritical === undefined ? criticalRule.triggered : !!card.manualCritical);
+  const manualMultiplier=Number(card?.manualCritMultiplier);
+  const chosenMultiplier=card?.manualCritical===true && finite(manualMultiplier) && manualMultiplier>1
+    ? manualMultiplier : criticalRule.multiplier;
+  const multiplier=card?.cancelled ? 1 : (multiply ? chosenMultiplier : 1);
   const base=Math.max(0,gross-penalty);
   const resistance=remaining.length ? nonNegative(a.resistance) : 0;
   const vulnerability=remaining.length ? nonNegative(a.vulnerability) : 0;
   return {gross, penalty, multiplier, resistance, vulnerability,
     total:card?.cancelled ? 0 : Math.max(0,base*multiplier-resistance)+vulnerability,
     activeParts:remaining.length};
+}
+
+/** Both displayed values use the same surviving components, penalties and defenses. */
+export function damageChoices(card) {
+  return {normal:calculateDamage(card,{critical:false}),
+    critical:calculateDamage(card,{critical:true}),
+    rule:criticalDamageRule(card)};
+}
+
+/** One honest total on the chat card. Critical multiplication precedes resistance
+ * and vulnerability; never multiply an already mitigated normal total. */
+export function damageDisplay(card) {
+  const values=damageChoices(card);
+  const active=card?.manualCritical===true ||
+    (card?.manualCritical!==false && values.rule.triggered);
+  const {normal,critical}=values;
+  if(!active) return {...values,active,expression:String(normal.total)};
+  if(card?.cancelled) return {...values,active,expression:'0'};
+  const n=critical.multiplier;
+  const close=(a,b)=>Math.abs(a-b)<1e-9;
+  if(close(normal.total*n,critical.total))
+    return {...values,active,expression:`${normal.total} × ${n} = ${critical.total}`};
+  // More complicated defenses operate in this order: base, multiplication,
+  // resistance with floor at zero, then vulnerability.
+  const base=Math.max(0,critical.gross-critical.penalty);
+  let expression=`${base} × ${n}`;
+  if(critical.resistance) {
+    expression+=` − ${critical.resistance}`;
+    if(base*n<critical.resistance)expression=`max(0, ${expression})`;
+  }
+  if(critical.vulnerability)expression+=` + ${critical.vulnerability}`;
+  return {...values,active,expression:`${expression} = ${critical.total}`};
 }
 
 export function changePart(card, id, action, newValue=null) {

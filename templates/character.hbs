@@ -156,12 +156,15 @@
   <div class="fnri-attack-slots">
   {{#each attackHands}}
     <div class="fnri-attack-slot" {{#if this.id}}data-item-id="{{this.id}}"{{/if}}>
-      <strong class="fnri-slot-name">{{this.label}}</strong><span class="fnri-slot-occupant">{{#if this.name}}{{this.name}}{{else}}—{{/if}}</span>
+      <strong class="fnri-slot-name">{{this.label}}</strong>
+      <span class="fnri-attack-information"><span class="fnri-slot-occupant">{{#if this.name}}{{this.name}}{{else}}—{{/if}}</span>{{#if this.details}}<small class="fnri-attack-details">{{this.details}}</small>{{/if}}</span>
+      {{#if this.damageSummary}}<span class="fnri-attack-profile">{{this.damageSummary}}</span>{{/if}}
       {{#if this.canAttack}}<button type="button" data-action="attackEquipped" title="{{localize 'FASTNRI.Weapon.attack'}}"><i class="fa-solid fa-dice-d20"></i></button>{{else}}{{#if this.blocked}}<small title="{{localize 'FASTNRI.Equipment.secondHandRequired'}}"><i class="fa-solid fa-hand"></i></small>{{/if}}{{/if}}
     </div>
   {{/each}}
     <div class="fnri-attack-slot fnri-unarmed-row">
       <strong class="fnri-slot-name">{{localize "FASTNRI.Equipment.unarmedSlot"}}</strong>
+      <span class="fnri-attack-information">
       {{#if unarmedAction.hasChoices}}
       <details class="fnri-unarmed-picker">
         <summary class="fnri-slot-occupant" title="{{localize 'FASTNRI.Equipment.chooseUnarmed'}}">{{unarmedAction.name}}</summary>
@@ -174,10 +177,14 @@
         </div>
       </details>
       {{else}}<span class="fnri-slot-occupant">{{unarmedAction.name}}</span>{{/if}}
+      {{#if unarmedAction.details}}<small class="fnri-attack-details">{{unarmedAction.details}}</small>{{/if}}
+      </span>
+      {{#if unarmedAction.damageSummary}}<span class="fnri-attack-profile">{{unarmedAction.damageSummary}}</span>{{/if}}
       <button type="button" data-action="attackUnarmed" title="{{localize 'FASTNRI.Weapon.attack'}}"><i class="fa-solid fa-dice-d20"></i></button>
     </div>
   {{#if hasOtherAttacks}}<div class="fnri-other-attacks"><strong>{{localize "FASTNRI.Equipment.other"}}</strong>
-    {{#each otherAttacks}}<div class="fnri-attack-slot" data-item-id="{{this.id}}"><span class="fnri-slot-occupant">{{this.name}}</span>
+    {{#each otherAttacks}}<div class="fnri-attack-slot" data-item-id="{{this.id}}"><span class="fnri-attack-information"><span class="fnri-slot-occupant">{{this.name}}</span>{{#if this.details}}<small class="fnri-attack-details">{{this.details}}</small>{{/if}}</span>
+      {{#if this.damageSummary}}<span class="fnri-attack-profile">{{this.damageSummary}}</span>{{/if}}
       {{#if this.canAttack}}<button type="button" data-action="attackEquipped" title="{{localize 'FASTNRI.Weapon.attack'}}"><i class="fa-solid fa-dice-d20"></i></button>{{/if}}</div>{{/each}}
   </div>{{/if}}
   </div>

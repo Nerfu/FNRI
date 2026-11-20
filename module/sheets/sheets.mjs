@@ -4,6 +4,8 @@ import { itemGrip, equipmentKind, itemSlot, planEquipmentChange, hasFreeSecondHa
 import { resolveUnarmedAction, sendUnarmedAttack, availableUnarmedActions, UNARMED_CHOICE_FLAG } from "../rolls/unarmed.mjs";
 import { BASIC_SKILLS, BASIC_SKILLS_BY_ROW_ID, SKILL_GROUPS, standardSkillEntry } from "../data/skills-catalog.mjs";
 import { BASE_SELF_DEFENSE } from "../data/core-actions.mjs";
+import {compactPhysicalProfile,attackCardDetails} from "./attack-preview.mjs";
+import {normalizeAttackKind,effectiveWeaponProperties,hasComputedReach,explicitInterventionFromCard} from "../rolls/attack-properties.mjs";
 /** Fast NRI v14: stage-2 document sheets. No game-rule automation. */
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2, ItemSheetV2 } = foundry.applications.sheets;
@@ -53,6 +55,14 @@ function diceOptions(kind, current, customEditing = false) {
 const sortedItems = items => [...items].sort((a, b) =>
   (a.sort - b.sort) || a.name.localeCompare(b.name));
 const localized = key => game.i18n.localize("FASTNRI." + key);
+const fmtOptions = raw => Array.isArray(raw) ? raw.join(', ') : String(raw??'');
+const makeOptions=(values,current)=>values.map(value=>({value,label:({
+  '':'—',ac:'КЗ',fortitude:localized('Damage.statFortitude'),
+  reflex:localized('Damage.statReflex'),will:localized('Damage.statWill'),
+  set:localized('Damage.defenseSet'),choose:localized('Damage.defenseChoose'),
+  passive:localized('Damage.passive'),intervention:localized('Damage.intervention'),
+  any:localized('Damage.any'),melee:localized('Weapon.melee'),ranged:localized('Weapon.ranged')
+})[value]??value, selected:value===current}));
 const rowsOf = object => Object.entries(object ?? {}).map(([id, values]) => ({ id, ...values }));
 const showStat = value => value === null || value === undefined || value === "" ? "—" : String(value);
 const escapeHtml = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -279,6 +289,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!formula) return;
     try {
       await postRoll({formula, label: item.name, actor: this.actor,
+        isIntervention:explicitInterventionFromCard(item),
         mode: game.settings.get("core", "messageMode")});
     } catch (error) {
       console.error("Fast NRI | Ability roll failed", error);
@@ -728,8 +739,17 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       const activeSlot = item ? itemSlot(item.id, actor.system) : null;
       const blocked = item?.type === 'weapon' && itemGrip(item) === '1+' &&
         activeSlot?.kind === 'hand' && !hasFreeSecondHand(actor.system, activeSlot.positions[0]);
+      const attack = item?.type === 'weapon' ? item.system : item?.system?.mechanics?.attack;
+      const damageSummary = allowed ? compactPhysicalProfile(attack?.damageProfile) : '';
+      const details = allowed ? attackCardDetails({
+        distance: attack?.distance || item.system?.distance,
+        properties: item?.type === 'weapon' ? effectiveWeaponProperties(item.system) : attack?.properties,
+        reach: item?.type === 'weapon' ? item.system?.reach : null,
+        range: item?.type === 'weapon' ? item.system?.range : null,
+        rangeLabel: localized('Fields.range'), reachLabel: localized('Fields.reach')
+      }) : '';
       return { id: item?.id ?? '', name: item?.name ?? '', label, occupied,
-        canAttack: !!allowed && !blocked, blocked: !!blocked };
+        damageSummary, details, canAttack: !!allowed && !blocked, blocked: !!blocked };
     };
     const bothHands = !!equipment.leftHand && equipment.leftHand === equipment.rightHand;
     const hands = bothHands ? [attackRow(equipment.leftHand,localized('Equipment.bothHands'))] : [
@@ -737,6 +757,8 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       attackRow(equipment.rightHand,localized('Equipment.hand2'))
     ];
     const unarmed = resolveUnarmedAction(actor);
+    unarmed.damageSummary=compactPhysicalProfile(unarmed.damageProfile);
+    unarmed.details=attackCardDetails({properties:unarmed.properties});
     const otherAttacks = items.filter(item => {
       const slot = itemSlot(item.id,actor.system);
       return slot?.kind === 'other' && isPhysicalOtherItemAttack(item);
@@ -885,7 +907,7 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     try {
       // Respect the native Chat sidebar visibility mode at the moment of the roll.
       const mode = game.settings.get("core", "messageMode");
-      await postRoll({ formula, label: item.name,
+      await postRoll({ formula, label: item.name, isIntervention:explicitInterventionFromCard(item),
         actor: item.parent?.documentName === "Actor" ? item.parent : null, mode });
     } catch (error) {
       console.error("Fast NRI | item roll failed", error);
@@ -916,6 +938,22 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       weaponYesProficiency: this.item.system.proficiencyMode === 'yes',
       weaponNoProficiency: this.item.system.proficiencyMode === 'no',
       weaponRuleRows: Object.entries(this.item.system?.mechanics?.propertyRules ?? {}).map(([name,description])=>({name,description})),
+      computedReach: this.item.type==='weapon' && hasComputedReach(this.item.system),
+      weaponMelee:normalizeAttackKind(this.item.system.attackKind)==='melee',
+      weaponRanged:normalizeAttackKind(this.item.system.attackKind)==='ranged',
+      weaponFocus:normalizeAttackKind(this.item.system.attackKind)==='focus',
+      weaponUnknownKind:!String(this.item.system.attackKind??'').trim(),
+      weaponLegacyKind:!normalizeAttackKind(this.item.system.attackKind)?String(this.item.system.attackKind??'').trim():null,
+      itemIsIntervention:explicitInterventionFromCard(this.item),
+      targetDefenseOptions:makeOptions(['ac','fortitude','reflex','will'],this.item.system.mechanics?.attack?.targetDefense || 'ac'),
+      attackDefenseModes:makeOptions(['','set','choose'],this.item.system.mechanics?.attack?.selfDefense?.mode ?? ''),
+      attackDefenseStats:makeOptions(['','fortitude','reflex','will'],this.item.system.mechanics?.attack?.selfDefense?.stat ?? ''),
+      attackDefenseChoices:fmtOptions(this.item.system.mechanics?.attack?.selfDefense?.options),
+      abilityDefenseActivations:makeOptions(['','passive','intervention'],this.item.system.mechanics?.selfDefense?.activation ?? ''),
+      abilityDefenseModes:makeOptions(['','set','choose'],this.item.system.mechanics?.selfDefense?.mode ?? ''),
+      abilityDefenseStats:makeOptions(['','fortitude','reflex','will'],this.item.system.mechanics?.selfDefense?.stat ?? ''),
+      abilityDefenseChoices:fmtOptions(this.item.system.mechanics?.selfDefense?.options),
+      abilityAgainstKinds:makeOptions(['any','melee','ranged'],this.item.system.mechanics?.selfDefense?.againstKind ?? 'any'),
       itemEffects: [...(this.item.effects?.contents ?? [])].map(effect => ({
         id: effect.id, name: effect.name, disabled: effect.disabled, transfer: effect.transfer
       }))

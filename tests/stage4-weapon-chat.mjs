@@ -61,6 +61,17 @@ assert.equal(attack.getFlag('fast-nri-v14','weaponAttack').suggestedDegree,null)
 game.user.targets=new Set([{actor:{system:{ac:{partial:10}}},name:'Incomplete'}]);
 assert.equal(selectedTargetSnapshot(game.user.targets).status,'missingAC');
 assert.equal(naturalAttackingD20({dice:[{faces:20,number:2,results:[{result:20}]}]}),null);
+item.system.mechanics={attack:{criticalThreshold:19,criticalMultiplier:3}};
+nextD20=19;nextTotal=24;
+game.user.targets=new Set([guard]);
+const thresholdAttack=await sendWeaponAttack(item,actor);
+assert.equal(thresholdAttack.getFlag('fast-nri-v14','weaponAttack').criticalThreshold,19);
+const thresholdDamage=await sendWeaponDamage(thresholdAttack,'success');
+assert.equal(thresholdDamage.getFlag('fast-nri-v14','weaponDamage').criticalTriggered,true);
+assert.equal(thresholdDamage.getFlag('fast-nri-v14','weaponDamage').naturalCritMultiplier,3);
+delete item.system.mechanics;
+nextD20=12;nextTotal=19;
+
 // A tiny DOM shim validates the v14 HTML hook generates three *unblocked* buttons.
 const listeners={};
 class MiniNode{
