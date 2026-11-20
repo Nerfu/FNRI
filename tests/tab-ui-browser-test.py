@@ -7,7 +7,7 @@ from playwright.sync_api import sync_playwright
 import re,base64
 
 ROOT=Path(__file__).resolve().parents[1]
-TABS=['overview','skills','abilities','inventory','description']
+TABS=['characteristics','skills','abilities','inventory','description']
 
 def html_from_template(path):
     src=(ROOT/'templates'/f'{path}.hbs').read_text()
@@ -23,11 +23,12 @@ def html_from_template(path):
 src=(ROOT/'module/sheets/sheets.mjs').read_text()
 # Isolate the tab method (the full module imports the rolling adapter).
 start=src.index('  static changeTab(_event, button) {')
-end=src.index('\n  _rollMode()',start)
+end=src.index('\n  static toggleQuickHp',start)
 method=src[start:end]
 js='''({method}) => {
-const fn=new Function('_event','button','const TAB_IDS=new Set(["overview","skills","abilities","inventory","description"]);'+method.slice(method.indexOf('{')+1,method.lastIndexOf('}')));
-const sheet={element:document.querySelector('#actor-root'),_selectedTab:'overview',_failedFields:new Set(['system.wealth'])};
+const fn=new Function('_event','button','const TAB_IDS=new Set(["characteristics","skills","abilities","inventory","description"]);const SYSTEM_ID="fast-nri-v14";'+method.slice(method.indexOf('{')+1,method.lastIndexOf('}')));
+const flags={}; window.game={user:{setFlag(_system,key,tab){flags[key]=tab;return Promise.resolve();}, getFlag(_system,key){return flags[key];}}};
+const sheet={element:document.querySelector('#actor-root'),actor:{id:'a1'},_selectedTab:'characteristics',_tabFlagQueue:Promise.resolve(),_failedFields:new Set(['system.wealth'])};window.savedFlags=flags;
 for (const button of document.querySelectorAll('.fnri-tabs button')) button.addEventListener('click',e=>fn.call(sheet,e,button));
 window.sheetUnderTest=sheet;
 }'''
@@ -48,6 +49,7 @@ with sync_playwright() as p:
             page.locator('.fnri-tabs [data-fnri-target="skills"]').click()
             assert page.locator('#input-skills').input_value()=='unsaved string'
             assert page.evaluate('window.sheetUnderTest._selectedTab')=='skills'
+            page.wait_for_function("window.savedFlags['sheetTab_a1']==='skills'")
             page.close()
     finally:browser.close()
 print('PASS: Chromium actor and NPC tabs, failed-save independence, DOM/input preservation')

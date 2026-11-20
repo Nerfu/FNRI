@@ -67,7 +67,6 @@
       "slotItem": "Предмет в слоте",
       "legacySkillValue": "Старое числовое значение (сохранено без преобразования)",
       "checkModifier": "Поправка",
-      "messageMode": "Видимость",
       "effectTarget": "Показатель",
       "effectAmount": "Изменение",
       "rollFormula": "Формула броска",
@@ -75,7 +74,11 @@
       "noDice": "— Без куба —",
       "customDice": "Своя формула…",
       "primarySpecialization": "Основная — 2d6",
-      "secondarySpecialization": "Дополнительная — 2d4"
+      "secondarySpecialization": "Дополнительная — 2d4",
+      "acShort": "КЗ",
+      "skillFilter": "Показать",
+      "skillAll": "Все",
+      "skillAssigned": "С кубами"
     },
     "Sections": {
       "parameters": "Показатели",
@@ -96,7 +99,8 @@
       "roll": "Бросок карточки",
       "effects": "Эффекты и числовые поправки",
       "itemEffects": "Эффекты карточки",
-      "customChecks": "Свои навыки и Специализации"
+      "customChecks": "Свои навыки и Специализации",
+      "characteristics": "Характеристики"
     },
     "Hints": {
       "dropItems": "Перетащите предмет или способность сюда из каталога Foundry или Compendium.",
@@ -135,27 +139,27 @@
       "createEffect": "Добавить поправку",
       "editEffect": "Открыть эффект",
       "toggleEffect": "Включить/выключить",
-      "deleteEffect": "Удалить эффект"
+      "deleteEffect": "Удалить эффект",
+      "editHp": "Изменить HP",
+      "rollAbility": "Бросок способности"
     },
     "Tabs": {
-      "overview": "Обзор",
       "skills": "Навыки",
       "abilities": "Способности",
       "inventory": "Инвентарь",
-      "description": "Описание"
-    },
-    "Modes": {
-      "default": "По умолчанию",
-      "public": "Публично",
-      "gm": "Ведущему",
-      "blind": "Тайный",
-      "self": "Только мне"
+      "description": "Описание",
+      "characteristics": "Характеристики"
     },
     "SkillGroups": {
       "physical": "Физические и скрытные",
       "practical": "Практические",
       "magical": "Магические",
       "social": "Социальные"
+    },
+    "Save": {
+      "saved": "Сохранено",
+      "saving": "Сохранение…",
+      "error": "Ошибка сохранения"
     }
   }
 }

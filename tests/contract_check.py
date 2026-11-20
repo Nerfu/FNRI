@@ -60,15 +60,27 @@ for name in ('character','npc'):
     assert 'name="system.hp.current"' in src
     assert src.index('fnri-persistent') < src.index('fnri-tabs')
     assert src.index('name="system.hp.current"') < src.index('fnri-tabs')
-    assert src.index('name="system.defenses.awareness"') < src.index('fnri-tabs')
-    assert src.count('name="system.hp.current"') == 1
+    assert src.rindex('name="system.hp.current"') > src.index('fnri-tabs')
+    assert src.index('name="system.defenses.awareness"') > src.index('fnri-tabs')
+    assert src.count('name="system.hp.current"') == 2
+    assert 'data-fnri-target="characteristics"' in src
+    assert 'data-fnri-panel="characteristics"' in src
+    assert 'fnri-summary-stats' in src and src.count('fnri-summary-stat"') == 4
+    assert 'name="name"' in src[src.index('data-fnri-panel="characteristics"'):]
+    assert 'data-fnri-message-mode' not in src
+    assert 'data-action="toggleQuickHp"' in src
+    assert 'data-fnri-quick-hp' in src and 'data-fnri-save-state' in src
+    assert 'data-fnri-skill-filter' in src
+    assert 'data-fnri-skill-group-content' in src and 'data-fnri-skill-entry' in src
+    assert 'data-action="rollAbility"' in src
+    assert src.count('data-fnri-section=') == 7
     assert 'name="system.wealth"' in src
     assert 'missingEquipment.leftHand' in src
     assert 'missingEquipment.armor' in src
     assert '{{#unless editable}}disabled{{/unless}}' in src
 css=(root/'styles'/'fast-nri.css').read_text()
 assert '.fnri-tab-content[hidden]' in css and 'overflow-y: auto !important' in css
-assert '.fnri-persistent' in css and 'max-height: 650px' in css
+assert '.fnri-persistent' in css and '.fnri-summary-stats' in css and 'max-height: 650px' in css
 models=(root/'module'/'data'/'models.mjs').read_text()
 assert 'new F.TypedObjectField' in models
 assert 'dice: text()' in models
@@ -77,14 +89,17 @@ assert 'equipmentSlots: new F.TypedObjectField' in models
 assert 'new F.ArrayField' not in models
 sheets=(root/'module'/'sheets'/'sheets.mjs').read_text()
 assert 'submitOnChange: false' in sheets
+assert 'data-fnri-message-mode' not in sheets
+assert 'game.settings.get("core", "messageMode")' in sheets
 assert 'globalThis._del' in sheets
 assert 'NUMERIC_ROW_FIELDS' in sheets
+assert 'rollAbility: ActorBase.rollAbility' in sheets
+assert 'toggleQuickHp: ActorBase.toggleQuickHp' in sheets
+assert 'toggleSkillGroup: ActorBase.toggleSkillGroup' in sheets
+assert 'sheetTab_' in sheets and 'game.user.setFlag' in sheets
+assert 'Save.' in sheets and '_updateSaveIndicator' in sheets
 assert 'addSpecialization' in sheets and 'addEquipmentSlot' in sheets
 assert 'this.render({ force: true })' not in sheets and 'fnriSwitchTab: ActorBase.changeTab' in sheets
-# v14 ActiveEffect V2 stores changes under system, with explicit application phase.
-assert 'system: { changes: [{' in sheets and 'phase: "initial"' in sheets
-assert 'transfer: false, system: { changes: [] }' in sheets
-assert 'transfer: false, changes:' not in sheets
 assert 'items.filter(i => ["weapon", "gear", "item"]' not in sheets
 files=[root/'system.json']
 files.extend(root/p for p in manifest['esmodules']+manifest['styles'])

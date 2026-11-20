@@ -1,11 +1,16 @@
-import { skillFormula, itemFormula, postRoll, resolveMessageMode } from "../rolls/checks.mjs";
+import { skillFormula, itemFormula, postRoll } from "../rolls/checks.mjs";
 import { BASIC_SKILLS, BASIC_SKILLS_BY_ROW_ID, SKILL_GROUPS, standardSkillEntry } from "../data/skills-catalog.mjs";
 /** Fast NRI v14: stage-2 document sheets. No game-rule automation. */
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2, ItemSheetV2 } = foundry.applications.sheets;
 
+const SYSTEM_ID = "fast-nri-v14";
 const STYLES = ["fast-nri-v14", "fast-nri-sheet"];
-const TAB_IDS = new Set(["overview", "skills", "abilities", "inventory", "description"]);
+const SECTION_DEFAULTS = Object.freeze({
+  identity: true, parameters: true, ac: true, defenses: true,
+  effects: false, resources: false, wealth: false
+});
+const TAB_IDS = new Set(["characteristics", "skills", "abilities", "inventory", "description"]);
 const ITEM_TYPES = new Set(["weapon", "armor", "gear", "ability"]);
 const ROW_FIELDS = {
   skills: new Set(["name", "kind", "dice", "modifier", "value"]),
@@ -45,6 +50,7 @@ const sortedItems = items => [...items].sort((a, b) =>
   (a.sort - b.sort) || a.name.localeCompare(b.name));
 const localized = key => game.i18n.localize("FASTNRI." + key);
 const rowsOf = object => Object.entries(object ?? {}).map(([id, values]) => ({ id, ...values }));
+const showStat = value => value === null || value === undefined || value === "" ? "—" : String(value);
 
 /** Reconcile storage with prepared data. Effects may alter prepared modifiers,
  * but editable field defaults must come from source, when it exists. Do not
@@ -61,6 +67,7 @@ function storedSkills(actor) {
 function preparedSkillRow(row, actor, customEditors) {
   return {
     ...row,
+    hasDice: !!String(row.dice ?? "").trim(),
     effectiveModifier: actor.system.skills?.[row.id]?.modifier,
     hasEffectiveModifier: (actor.system.skills?.[row.id]?.modifier ?? 0) !== (row.modifier ?? 0),
     isSpecialization: row.kind === "specialization",
@@ -91,7 +98,8 @@ function rowWithSelection(item, equipment) {
     item, id: item.id, name: item.name, img: item.img, type: item.type,
     selectedLeft: equipment?.leftHand === item.id,
     selectedRight: equipment?.rightHand === item.id,
-    selectedArmor: equipment?.armor === item.id
+    selectedArmor: equipment?.armor === item.id,
+    hasRollFormula: !!itemFormula(item)
   };
 }
 
@@ -105,6 +113,9 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     form: { submitOnChange: false, closeOnSubmit: false },
     actions: {
       fnriSwitchTab: ActorBase.changeTab,
+      toggleQuickHp: ActorBase.toggleQuickHp,
+      toggleSkillGroup: ActorBase.toggleSkillGroup,
+      rollAbility: ActorBase.rollAbility,
       rollSkill: ActorBase.rollSkill,
       createEffect: ActorBase.createEffect,
       editEffect: ActorBase.editEffect,
@@ -125,10 +136,17 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   constructor(options = {}) {
     super(options);
-    this._selectedTab = "overview";
+    const savedTab = game.user?.getFlag?.(SYSTEM_ID, "sheetTab_" + this.actor?.id);
+    this._selectedTab = TAB_IDS.has(savedTab) ? savedTab : "characteristics";
     this._writeQueue = Promise.resolve();
+    this._tabFlagQueue = Promise.resolve();
+    this._quickHpOpen = false;
+    this._skillsFilter = "all";
+    this._groupState = new Map();
+    this._sectionState = new Map();
+    this._pendingWrites = 0;
+    this._lastWriteError = false;
     this._failedFields = new Set();
-    this._messageMode = "";
     // UI-only selection; never persisted as a game-rule constraint or sentinel.
     this._customDiceEditors = new Set();
   }
@@ -137,15 +155,32 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
    * after a rejected update. Across clients, each edit uses an independent
    * document field path instead of replacing skills/resources wholesale.
    */
+  _updateSaveIndicator() {
+    const el = this.element?.querySelector?.("[data-fnri-save-state]");
+    if (!el) return;
+    const status = this._pendingWrites ? "saving" :
+      (this._lastWriteError || this._failedFields.size ? "error" : "saved");
+    el.dataset.state = status;
+    el.textContent = localized("Save." + status);
+  }
+
   _queueWrite(operation, fieldKey = null) {
+    this._pendingWrites++;
+    this._updateSaveIndicator();
     const update = this._writeQueue.then(async () => {
       if (!this.isEditable) return;
       return operation();
     });
     this._writeQueue = update.then(() => {
       if (fieldKey) this._failedFields.delete(fieldKey);
+      this._lastWriteError = false;
+      this._pendingWrites--;
+      this._updateSaveIndicator();
     }, error => {
       if (fieldKey) this._failedFields.add(fieldKey);
+      this._lastWriteError = true;
+      this._pendingWrites--;
+      this._updateSaveIndicator();
       console.error("Fast NRI | Actor sheet update failed", error);
       ui.notifications?.error(localized("Hints.saveFailed"));
     });
@@ -154,7 +189,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   async _flushWrites() {
     await this._writeQueue;
-    return this._failedFields.size === 0;
+    return !this._lastWriteError && this._failedFields.size === 0;
   }
 
   /** Switch visible panels in place, without saving or re-rendering the
@@ -180,12 +215,54 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     for (const panel of root.querySelectorAll("[data-fnri-panel]")) {
       panel.hidden = panel.dataset.fnriPanel !== tab;
     }
+    // A user's last tab is remembered per Actor, without touching Actor data.
+    if (this.actor?.id && game.user?.setFlag) {
+      this._tabFlagQueue = this._tabFlagQueue.then(() =>
+        game.user.setFlag(SYSTEM_ID, "sheetTab_" + this.actor.id, tab)
+      ).catch(error => console.warn("Fast NRI | Could not save last sheet tab", error));
+    }
   }
 
-  _rollMode() {
-    const selected = this.element?.querySelector?.("[data-fnri-message-mode]")?.value || this._messageMode;
-    if (selected) this._messageMode = selected;
-    return resolveMessageMode(selected, game.settings.get("core", "messageMode"));
+  static toggleQuickHp() {
+    if (!this.isEditable) return;
+    this._quickHpOpen = !this._quickHpOpen;
+    const panel = this.element?.querySelector?.("[data-fnri-quick-hp]");
+    if (panel) panel.hidden = !this._quickHpOpen;
+    const button = this.element?.querySelector?.("[data-action='toggleQuickHp']");
+    button?.setAttribute?.("aria-expanded", String(this._quickHpOpen));
+    if (this._quickHpOpen) panel?.querySelector?.("input")?.focus?.();
+  }
+
+  static toggleSkillGroup(_event, button) {
+    const id = button.dataset.group;
+    if (![...SKILL_GROUPS, "custom"].includes(id)) return;
+    const expanded = !(this._groupState.get(id) ?? true);
+    this._groupState.set(id, expanded);
+    const panel = [...(this.element?.querySelectorAll?.("[data-fnri-skill-group-content]") ?? [])]
+      .find(node => node.dataset.fnriSkillGroupContent === id);
+    if (panel) panel.hidden = !expanded;
+    button.setAttribute?.("aria-expanded", String(expanded));
+  }
+
+  _applySkillFilter() {
+    for (const row of this.element?.querySelectorAll?.("[data-fnri-skill-entry]") ?? []) {
+      row.hidden = this._skillsFilter === "assigned" && row.dataset.fnriDiceAssigned !== "true";
+    }
+  }
+
+  static async rollAbility(_event, button) {
+    const id = button.closest?.("[data-item-id]")?.dataset.itemId;
+    const item = this.actor.items.get(id);
+    if (!item || item.type !== "ability") return;
+    const formula = itemFormula(item);
+    if (!formula) return;
+    try {
+      await postRoll({formula, label: item.name, actor: this.actor,
+        mode: game.settings.get("core", "messageMode")});
+    } catch (error) {
+      console.error("Fast NRI | Ability roll failed", error);
+      ui.notifications?.warn(localized("Hints.rollFailed"));
+    }
   }
 
   static async rollSkill(_event, button) {
@@ -200,7 +277,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     try {
       await postRoll({
         formula: skillFormula(entry), label: entry.name || localized("Fields.skill"),
-        actor: this.actor, mode: this._rollMode()
+        actor: this.actor, mode: game.settings.get("core", "messageMode")
       });
     } catch (error) {
       console.error("Fast NRI | skill check failed", error);
@@ -382,6 +459,11 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     const parsed = isNumber ? numberFromInput(control.value) : { valid: true, value: control.value };
     if (!parsed.valid) return this._invalidNumber(control);
     control.setCustomValidity?.("");
+    if (collection === "skills" && field === "dice") {
+      const row = control.closest?.("[data-fnri-skill-entry]");
+      if (row) row.dataset.fnriDiceAssigned = String(!!String(parsed.value ?? "").trim());
+      this._applySkillFilter();
+    }
     const fieldKey = "system." + collection + "." + id + "." + field;
     void this._queueWrite(async () => {
       if (!Object.hasOwn(this.actor.system[collection] ?? {}, id)) {
@@ -411,10 +493,20 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _onRender(context, options) {
     await super._onRender(context, options);
     const root = this.element;
-    const modeControl = root.querySelector?.("[data-fnri-message-mode]");
-    if (modeControl) {
-      modeControl.value = this._messageMode;
-      modeControl.addEventListener("change", event => { this._messageMode = event.currentTarget.value; });
+    this._updateSaveIndicator();
+    const filter = root.querySelector?.("[data-fnri-skill-filter]");
+    if (filter) {
+      filter.value = this._skillsFilter;
+      filter.addEventListener("change", event => {
+        this._skillsFilter = event.currentTarget.value === "assigned" ? "assigned" : "all";
+        this._applySkillFilter();
+      });
+      this._applySkillFilter();
+    }
+    for (const section of root.querySelectorAll?.("[data-fnri-section]") ?? []) {
+      section.addEventListener("toggle", event => {
+        this._sectionState.set(event.currentTarget.dataset.fnriSection, event.currentTarget.open);
+      });
     }
     for (const input of root.querySelectorAll("[data-row-collection][data-row-field][data-row-id]")) {
       input.addEventListener("change", event => {
@@ -514,14 +606,27 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
         actorId: actor.id, missingPrepared
       });
     }
-    const tab = TAB_IDS.has(this._selectedTab) ? this._selectedTab : "overview";
+    const tab = TAB_IDS.has(this._selectedTab) ? this._selectedTab : "characteristics";
     return {
       ...context,
       actor, system: base, effectiveSystem: actor.system, effectiveDiffs, editable: this.isEditable,
+      quickHpOpen: this._quickHpOpen,
+      skillFilterAssigned: this._skillsFilter === "assigned",
+      sections: Object.fromEntries(Object.entries(SECTION_DEFAULTS).map(([id, initial]) =>
+        [id, this._sectionState.get(id) ?? initial])),
+      customGroupExpanded: this._groupState.get("custom") ?? true,
+      summary: {
+        hp: `${showStat(actor.system.hp?.current)} / ${showStat(actor.system.hp?.max)}`,
+        tempHP: Number(actor.system.hp?.temp) ? (Number(actor.system.hp.temp) > 0 ? `+${actor.system.hp.temp}` : String(actor.system.hp.temp)) : "",
+        ac: ["partial", "success", "great"].map(key => showStat(actor.system.ac?.[key])).join(" / "),
+        combatDie: showStat(actor.system.combatDie),
+        attackModifier: showStat(actor.system.attackModifier),
+        speed: showStat(actor.system.speed)
+      },
       preparedResourceRows: rowsOf(actor.system.resources),
       activeTab: tab,
       tabs: {
-        overview: tab === "overview", skills: tab === "skills",
+        characteristics: tab === "characteristics", skills: tab === "skills",
         abilities: tab === "abilities", inventory: tab === "inventory",
         description: tab === "description"
       },
@@ -545,6 +650,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       ],
       catalogGroups: SKILL_GROUPS.map(group => ({
         id: group, name: localized("SkillGroups." + group),
+        expanded: this._groupState.get(group) ?? true,
         rows: BASIC_SKILLS.filter(skill => skill.group === group).map(skill => {
           const id = "core_" + skill.id;
           const current = completeSkills[id] ?? standardSkillEntry(skill);
@@ -582,18 +688,6 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       deleteItemEffect: FastNRIItemSheet.deleteItemEffect
     }
   };
-  constructor(options = {}) {
-    super(options);
-    this._messageMode = "";
-  }
-  async _onRender(context, options) {
-    await super._onRender(context, options);
-    const select = this.element?.querySelector?.("[data-fnri-message-mode]");
-    if (select) {
-      select.value = this._messageMode;
-      select.addEventListener("change", event => { this._messageMode = event.currentTarget.value; });
-    }
-  }
   _itemEffect(button) { return this.item.effects?.get(button.dataset.id); }
   static async createItemEffect() {
     if (!this.isEditable) return;
@@ -632,7 +726,8 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const formula = this.element?.querySelector?.('[name="system.rollFormula"]')?.value?.trim() ?? itemFormula(item);
     if (!formula) return ui.notifications?.warn(localized("Hints.emptyRollFormula"));
     try {
-      const mode = this.element?.querySelector?.("[data-fnri-message-mode]")?.value || this._messageMode || game.settings.get("core", "messageMode");
+      // Respect the native Chat sidebar visibility mode at the moment of the roll.
+      const mode = game.settings.get("core", "messageMode");
       await postRoll({ formula, label: item.name,
         actor: item.parent?.documentName === "Actor" ? item.parent : null, mode });
     } catch (error) {

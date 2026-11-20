@@ -75,7 +75,7 @@ for(const cls of [FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet]){
 assert.equal(FastNRICharacterSheet.DEFAULT_OPTIONS.form.submitOnChange,false,'single Actor save path');
 assert.equal(FastNRIItemSheet.DEFAULT_OPTIONS.form.submitOnChange,true,'Item forms still use core submission');
 const actions=FastNRICharacterSheet.DEFAULT_OPTIONS.actions;
-for(const a of ['fnriSwitchTab','rollSkill','createEffect','editEffect','toggleEffect','deleteEffect','openItem','createItem','deleteItem','addSkill','addSpecialization','removeSkill','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'])assert.equal(typeof actions[a],'function',a);
+for(const a of ['fnriSwitchTab','toggleQuickHp','toggleSkillGroup','rollAbility','rollSkill','createEffect','editEffect','toggleEffect','deleteEffect','openItem','createItem','deleteItem','addSkill','addSpecialization','removeSkill','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'])assert.equal(typeof actions[a],'function',a);
 
 function actorFactory(){
  const items=[];let itemCounter=2;
@@ -141,7 +141,7 @@ async function attachControls(sheet,rowControls=[],namedControls=[]){
 
 const actor=actorFactory();const sheet=new FastNRICharacterSheet({actor});
 let ctx=await sheet._prepareContext({});
-assert.equal(ctx.tabs.overview,true);
+assert.equal(ctx.tabs.characteristics,true);
 assert.equal(ctx.skillRows.length,2);
 assert.equal(ctx.resourceRows.length,1);
 assert.equal(ctx.handChoices.find(x=>x.id==='i1').selectedLeft,true);
@@ -342,13 +342,16 @@ await attachControls(readonly,[],[locked]);locked.fireChange();await readonly._f
 assert.equal(actor.updates.length,originalUpdateCount);
 assert.equal(errors,0);
 
-// Confirm persistent fields belong to the non-tabbed header, only once.
+// Confirm compact summary is persistent and editable fields live in Characteristics, once.
 for(const path of ['templates/character.hbs','templates/npc.hbs']){
  const html=readFileSync(file(path),'utf8');
  assert.ok(html.indexOf('fnri-persistent')<html.indexOf('fnri-tabs'));
- assert.ok(html.indexOf('name="system.hp.current"')<html.indexOf('fnri-tabs'));
- assert.ok(html.indexOf('name="system.defenses.awareness"')<html.indexOf('fnri-tabs'));
- assert.equal(html.match(/name="system.hp.current"/g).length,1);
+ assert.ok(html.lastIndexOf('name="system.hp.current"')>html.indexOf('fnri-tabs'));
+ assert.ok(html.indexOf('name="system.defenses.awareness"')>html.indexOf('fnri-tabs'));
+ assert.equal(html.match(/name="system.hp.current"/g).length,2);
+ assert.ok(html.includes('fnri-summary-stats'));
+ assert.ok(html.includes('data-fnri-target="characteristics"'));
+ assert.ok(!html.includes('data-fnri-message-mode'));
  assert.equal(html.match(/data-action="fnriSwitchTab"/g).length,5);
  assert.equal(html.match(/data-fnri-panel=/g).length,5);
  assert.equal(html.match(/fnri-tab-content"/g).length,5);
@@ -356,6 +359,11 @@ for(const path of ['templates/character.hbs','templates/npc.hbs']){
  assert.ok(html.includes('name="system.wealth"'));
  assert.ok(html.includes('data-action="addSpecialization"'));
  assert.ok(html.includes('data-action="rollSkill"'));
+ assert.ok(html.includes('data-action="rollAbility"'));
+ assert.ok(html.includes('data-fnri-quick-hp'));
+ assert.ok(html.includes('data-fnri-save-state'));
+ assert.ok(html.includes('data-fnri-skill-filter'));
+ assert.equal((html.match(/data-fnri-section=/g)||[]).length,7);
  assert.ok(html.includes('data-action="createEffect"'));
  assert.ok(html.includes('data-row-field="dice"'));
  assert.ok(html.includes('data-action="addEquipmentSlot"'));

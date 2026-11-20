@@ -67,7 +67,6 @@
       "slotItem": "Assigned item",
       "legacySkillValue": "Legacy numeric value (preserved, not converted)",
       "checkModifier": "Modifier",
-      "messageMode": "Visibility",
       "effectTarget": "Attribute",
       "effectAmount": "Adjustment",
       "rollFormula": "Roll formula",
@@ -75,7 +74,11 @@
       "noDice": "— No dice —",
       "customDice": "Custom formula…",
       "primarySpecialization": "Primary — 2d6",
-      "secondarySpecialization": "Secondary — 2d4"
+      "secondarySpecialization": "Secondary — 2d4",
+      "acShort": "AC",
+      "skillFilter": "Show",
+      "skillAll": "All",
+      "skillAssigned": "With dice"
     },
     "Sections": {
       "parameters": "Statistics",
@@ -96,7 +99,8 @@
       "roll": "Card roll",
       "effects": "Effects and numeric adjustments",
       "itemEffects": "Card effects",
-      "customChecks": "Custom Skills and Specializations"
+      "customChecks": "Custom Skills and Specializations",
+      "characteristics": "Characteristics"
     },
     "Hints": {
       "dropItems": "Drag an item or ability from the Foundry directory or Compendium into this area.",
@@ -135,27 +139,27 @@
       "createEffect": "Add adjustment",
       "editEffect": "Open effect",
       "toggleEffect": "Enable/disable",
-      "deleteEffect": "Delete effect"
+      "deleteEffect": "Delete effect",
+      "editHp": "Edit HP",
+      "rollAbility": "Roll ability"
     },
     "Tabs": {
-      "overview": "Overview",
       "skills": "Skills",
       "abilities": "Abilities",
       "inventory": "Inventory",
-      "description": "Description"
-    },
-    "Modes": {
-      "default": "Default",
-      "public": "Public",
-      "gm": "GM only",
-      "blind": "Blind",
-      "self": "Self only"
+      "description": "Description",
+      "characteristics": "Characteristics"
     },
     "SkillGroups": {
       "physical": "Physical and Stealth",
       "practical": "Practical",
       "magical": "Magical",
       "social": "Social"
+    },
+    "Save": {
+      "saved": "Saved",
+      "saving": "Saving…",
+      "error": "Save failed"
     }
   }
 }
