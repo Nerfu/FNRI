@@ -7,6 +7,7 @@ from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
 cat=(root/'module/data/skills-catalog.mjs').read_text().replace('export const ','const ').replace('export function ','function ')
 sheet='\n'.join(line for line in (root/'module/sheets/sheets.mjs').read_text().splitlines() if not line.startswith('import ')).replace('export class ','class ')
+sheet='// Equipment/attack internals are covered by separate Node tests; these browser tests target legacy UI behavior.\nconst itemSlot=()=>null, equipmentKind=()=>null, itemGrip=()=>"1", hasFreeSecondHand=()=>true;\nconst isPhysicalWeaponCard=()=>false, isPhysicalOtherItemAttack=()=>false;\nconst resolveUnarmedAction=()=>({name:"Безоружная атака",conflict:false});\n'+sheet
 for name in ('character','npc'):
     template=(root/'templates'/f'{name}.hbs').read_text()
     for required in ('{{#each catalogGroups}}','{{#each this.rows}}','fnri-core-skill-name','data-fnri-dice-picker="skill"','data-row-field="modifier"','{{#each skillRows}}','data-action="addSpecialization"'):

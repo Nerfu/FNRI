@@ -141,7 +141,9 @@
       "toggleEffect": "Enable/disable",
       "deleteEffect": "Delete effect",
       "editHp": "Edit HP",
-      "rollAbility": "Roll ability"
+      "rollAbility": "Roll ability",
+      "equip": "Equip",
+      "unequip": "Unequip"
     },
     "Tabs": {
       "skills": "Skills",
@@ -160,6 +162,55 @@
       "saved": "Saved",
       "saving": "Saving…",
       "error": "Save failed"
+    },
+    "Weapon": {
+      "attack": "Attack",
+      "damageChoice": "Select damage (all options available)",
+      "partial": "Partial",
+      "success": "Success",
+      "great": "Great success",
+      "criticalNote": "Natural 20: remaining damage after defenses ×2; not applied automatically here",
+      "damageError": "Unable to roll damage",
+      "missingCombatDie": "Combat die is not assigned: rolling 1d20",
+      "unknownProficiency": "Proficiency not specified: rolling 1d20; set it on the card",
+      "multipleTargets": "Multiple targets selected: no suggested degree",
+      "targetWithoutAC": "Three AC thresholds unavailable: choose damage manually",
+      "level": "Weapon level",
+      "grip": "Hands (Rulebook notation)",
+      "distance": "Distance (Rulebook notation)",
+      "attackKind": "Weapon kind (melee / ranged / focus)",
+      "damageType": "Damage type",
+      "owners": "Proficient classes (Rulebook)",
+      "proficiencyMode": "Proficiency for this card owner",
+      "autoProficiency": "Auto: by class",
+      "yesProficiency": "Yes (use combat die)",
+      "noProficiency": "No (1d20 only)",
+      "properties": "Properties",
+      "legacyFields": "Numeric fields from older cards",
+      "damageProfile": "Strict damage profile A / B / +C",
+      "propertyRules": "Property rules stored on this card",
+      "manualPropertyHint": "Properties, defenses, resources, and HP are resolved manually for now. Spellcasting weapons do not get physical damage buttons."
+    },
+    "Equipment": {
+      "attacks": "Attacks",
+      "hand1": "Hand 1",
+      "hand2": "Hand 2",
+      "bothHands": "Both hands",
+      "unarmedSlot": "Unarmed",
+      "other": "Other items",
+      "secondHandRequired": "A second free hand is required",
+      "chooseUnarmed": "Choose unarmed attack",
+      "cleanMissing": "Clear missing references",
+      "cardOptions": "Item attack and slot",
+      "slotRule": "Equipment slot",
+      "slotAuto": "Automatic",
+      "slotHand": "Held in hand",
+      "otherAttack": "Item attack",
+      "physicalAttack": "Physical attack",
+      "unarmedCardRule": "Unarmed attack modifier",
+      "unarmedReplace": "Card rule",
+      "replace": "Preferred variant (base remains available)",
+      "unarmedOption": "Additional option"
     }
   }
 }

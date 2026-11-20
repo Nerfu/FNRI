@@ -1,4 +1,7 @@
 import { skillFormula, itemFormula, postRoll } from "../rolls/checks.mjs";
+import { isPhysicalWeaponCard, isPhysicalOtherItemAttack, sendWeaponAttack, sendOtherItemAttack } from "../weapon/weapon-attack.mjs";
+import { itemGrip, equipmentKind, itemSlot, planEquipmentChange, hasFreeSecondHand } from "../equipment/equipment.mjs";
+import { resolveUnarmedAction, sendUnarmedAttack, availableUnarmedActions, UNARMED_CHOICE_FLAG } from "../rolls/unarmed.mjs";
 import { BASIC_SKILLS, BASIC_SKILLS_BY_ROW_ID, SKILL_GROUPS, standardSkillEntry } from "../data/skills-catalog.mjs";
 /** Fast NRI v14: stage-2 document sheets. No game-rule automation. */
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -93,13 +96,21 @@ function numberFromInput(raw, integer = false) {
   return { valid: true, value: parsed };
 }
 
-function rowWithSelection(item, equipment) {
+function rowWithSelection(item, system) {
+  const slot = itemSlot(item.id, system);
+  const isEquipped = Boolean(slot);
+  const label = slot?.kind === 'hand' ?
+    (slot.positions.length === 2 ? localized('Equipment.bothHands') :
+      localized(slot.positions[0] === 'leftHand' ? 'Equipment.hand1' : 'Equipment.hand2')) :
+    slot?.kind === 'armor' ? localized('Fields.armorSlot') :
+      (slot?.label || localized('Equipment.other'));
   return {
     item, id: item.id, name: item.name, img: item.img, type: item.type,
-    selectedLeft: equipment?.leftHand === item.id,
-    selectedRight: equipment?.rightHand === item.id,
-    selectedArmor: equipment?.armor === item.id,
-    hasRollFormula: !!itemFormula(item)
+    isEquipped, equipmentLabel: isEquipped ? label : '',
+    canEquip: equipmentKind(item) !== null,
+    hasRollFormula: !!itemFormula(item),
+    canWeaponAttack: isPhysicalWeaponCard(item),
+    canOtherAttack: isPhysicalOtherItemAttack(item)
   };
 }
 
@@ -116,6 +127,12 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       toggleQuickHp: ActorBase.toggleQuickHp,
       toggleSkillGroup: ActorBase.toggleSkillGroup,
       rollAbility: ActorBase.rollAbility,
+      weaponAttack: ActorBase.weaponAttack,
+      attackEquipped: ActorBase.attackEquipped,
+      attackUnarmed: ActorBase.attackUnarmed,
+      selectUnarmedAttack: ActorBase.selectUnarmedAttack,
+      toggleEquipment: ActorBase.toggleEquipment,
+      cleanOrphanedEquipment: ActorBase.cleanOrphanedEquipment,
       rollSkill: ActorBase.rollSkill,
       createEffect: ActorBase.createEffect,
       editEffect: ActorBase.editEffect,
@@ -265,6 +282,92 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   }
 
+  static async weaponAttack(_event, button) {
+    const id = button.closest?.("[data-item-id]")?.dataset.itemId;
+    const item = this.actor.items.get(id);
+    if (!isPhysicalWeaponCard(item)) return;
+    await this._writeQueue;
+    if (this._failedFields.size) return ui.notifications?.warn(localized("Hints.unsavedRoll"));
+    try { await sendWeaponAttack(item, this.actor); }
+    catch (error) {
+      console.error("Fast NRI | weapon attack failed",error);
+      ui.notifications?.warn(localized("Hints.rollFailed"));
+    }
+  }
+
+  static async toggleEquipment(_event, button) {
+    if (!this.isEditable) return;
+    const id = button.closest?.('[data-item-id]')?.dataset.itemId;
+    const item = this.actor.items.get(id);
+    if (!item || equipmentKind(item) === null) return;
+    await this._queueWrite(async () => {
+      const equipped = Boolean(itemSlot(id, this.actor.system));
+      const planned = planEquipmentChange(this.actor.system, item, !equipped);
+      if (!planned.ok) throw new Error(`Equipment: ${planned.reason}`);
+      if (Object.keys(planned.updates).length) await this.actor.update(planned.updates);
+    });
+  }
+
+  static async cleanOrphanedEquipment() {
+    if (!this.isEditable) return;
+    await this._queueWrite(async () => {
+      const known = new Set(this.actor.items.contents.map(item => item.id));
+      const equipment = this.actor.system.equipment ?? {};
+      const updates = {};
+      for (const key of EQUIPMENT_SLOTS) {
+        if (equipment[key] && !known.has(equipment[key])) {
+          updates[`system.equipment.${key}`] = '';
+          if (key !== 'armor') updates[`system.equipmentWear.${key}`] = 0;
+        }
+      }
+      for (const [slotId, row] of Object.entries(this.actor.system.equipmentSlots ?? {})) {
+        if (VALID_ROW_ID.test(slotId) && row?.itemId && !known.has(row.itemId))
+          updates[`system.equipmentSlots.${slotId}.itemId`] = '';
+      }
+      if (Object.keys(updates).length) await this.actor.update(updates);
+    });
+  }
+
+  static async attackEquipped(_event, button) {
+    const id = button.closest?.('[data-item-id]')?.dataset.itemId;
+    const item = this.actor.items.get(id);
+    const slot = item && itemSlot(id, this.actor.system);
+    if (!slot) return; // Cannot attack from a backpack or a stale UI row.
+    if (item.type === 'weapon' && itemGrip(item) === '1+' && slot.kind === 'hand' &&
+        !hasFreeSecondHand(this.actor.system, slot.positions[0])) {
+      return ui.notifications?.warn(localized('Equipment.secondHandRequired'));
+    }
+    await this._writeQueue;
+    if (this._failedFields.size) return ui.notifications?.warn(localized('Hints.unsavedRoll'));
+    try {
+      if (isPhysicalWeaponCard(item)) await sendWeaponAttack(item, this.actor);
+      else if (isPhysicalOtherItemAttack(item)) await sendOtherItemAttack(item, this.actor);
+    } catch (error) {
+      console.error('Fast NRI | equipped attack failed', error);
+      ui.notifications?.warn(localized('Hints.rollFailed'));
+    }
+  }
+
+  /** Keep the user's explicit choice on the Actor, not in an item or UI-only state. */
+  static async selectUnarmedAttack(_event, button) {
+    if (!this.isEditable) return;
+    const key = button.dataset.unarmedChoice;
+    if (!key || !availableUnarmedActions(this.actor).some(option => option.key === key)) return;
+    await this._queueWrite(() => this.actor.update({
+      [`flags.${SYSTEM_ID}.${UNARMED_CHOICE_FLAG}`]: key
+    }), `flags.${SYSTEM_ID}.${UNARMED_CHOICE_FLAG}`);
+  }
+
+  static async attackUnarmed() {
+    await this._writeQueue;
+    if (this._failedFields.size) return ui.notifications?.warn(localized('Hints.unsavedRoll'));
+    try { await sendUnarmedAttack(this.actor); }
+    catch (error) {
+      console.error('Fast NRI | unarmed attack failed', error);
+      ui.notifications?.warn(localized('Hints.rollFailed'));
+    }
+  }
+
   static async rollSkill(_event, button) {
     const id = button.dataset.id;
     if (!VALID_ROW_ID.test(id ?? "")) return;
@@ -371,7 +474,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Slot cleanup for our own delete action. Other deletion routes are
       // displayed as an explicit missing choice that the user can clear.
       const equipment = this.actor.system.equipment ?? {};
-      const changes = {};
+      const changes = planEquipmentChange(this.actor.system, item, false).updates ?? {};
       for (const slot of EQUIPMENT_SLOTS) {
         if (equipment[slot] === id) changes["system.equipment." + slot] = "";
       }
@@ -581,20 +684,37 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     };
     const items = sortedItems(actor.items.contents);
     const equipment = actor.system.equipment ?? {};
-    // Every embedded Item is assignable. Type labels do not impose game-rule
-    // restrictions on manual equipment choices.
-    const allChoices = items.map(item => rowWithSelection(item, equipment));
+    // Equipment buttons, not editable selectors, own the slot assignment.
     const allIDs = new Set(items.map(item => item.id));
     const missingEquipment = {
       leftHand: !!equipment.leftHand && !allIDs.has(equipment.leftHand),
       rightHand: !!equipment.rightHand && !allIDs.has(equipment.rightHand),
       armor: !!equipment.armor && !allIDs.has(equipment.armor)
     };
-    const extraSlotRows = Object.entries(actor.system.equipmentSlots ?? {}).map(([id, slot]) => ({
-      id, name: slot.name, itemId: slot.itemId,
-      missing: !!slot.itemId && !allIDs.has(slot.itemId),
-      choices: items.map(item => ({ id: item.id, name: item.name, selected: item.id === slot.itemId }))
-    }));
+    // Keep legacy custom slot rows readable/editable by name, never erase data.
+    const extraSlotRows = Object.entries(actor.system.equipmentSlots ?? {})
+      .filter(([id,slot]) => !id.startsWith('auto_') || !!slot.itemId)
+      .map(([id, slot]) => ({ id, name: slot.name, itemId: slot.itemId,
+        missing: !!slot.itemId && !allIDs.has(slot.itemId) }));
+    const attackRow = (id, label, occupied = false) => {
+      const item = items.find(i => i.id === id);
+      const allowed = item && (isPhysicalWeaponCard(item) || isPhysicalOtherItemAttack(item));
+      const activeSlot = item ? itemSlot(item.id, actor.system) : null;
+      const blocked = item?.type === 'weapon' && itemGrip(item) === '1+' &&
+        activeSlot?.kind === 'hand' && !hasFreeSecondHand(actor.system, activeSlot.positions[0]);
+      return { id: item?.id ?? '', name: item?.name ?? '', label, occupied,
+        canAttack: !!allowed && !blocked, blocked: !!blocked };
+    };
+    const bothHands = !!equipment.leftHand && equipment.leftHand === equipment.rightHand;
+    const hands = bothHands ? [attackRow(equipment.leftHand,localized('Equipment.bothHands'))] : [
+      attackRow(equipment.leftHand,localized('Equipment.hand1')),
+      attackRow(equipment.rightHand,localized('Equipment.hand2'))
+    ];
+    const unarmed = resolveUnarmedAction(actor);
+    const otherAttacks = items.filter(item => {
+      const slot = itemSlot(item.id,actor.system);
+      return slot?.kind === 'other' && isPhysicalOtherItemAttack(item);
+    }).map(item => attackRow(item.id,localized('Equipment.other')));
     const completeSkills = storedSkills(actor);
     // Diagnostics only: if source has records that the prepared model missed,
     // show them from the source and report the mismatch once per sheet.
@@ -630,11 +750,11 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
         abilities: tab === "abilities", inventory: tab === "inventory",
         description: tab === "description"
       },
-      items: items.map(item => rowWithSelection(item, equipment)),
-      abilityItems: items.filter(i => i.type === "ability").map(item => rowWithSelection(item, equipment)),
-      inventoryItems: items.filter(i => i.type !== "ability").map(item => rowWithSelection(item, equipment)),
-      handChoices: allChoices, armorChoices: allChoices, missingEquipment,
-      extraSlotRows,
+      items: items.map(item => rowWithSelection(item, actor.system)),
+      abilityItems: items.filter(i => i.type === "ability").map(item => rowWithSelection(item, actor.system)),
+      inventoryItems: items.filter(i => i.type !== "ability").map(item => rowWithSelection(item, actor.system)),
+      attackHands: hands, unarmedAction: unarmed, otherAttacks, hasOtherAttacks: otherAttacks.length > 0,
+      missingEquipment, extraSlotRows,
       hasMissingEquipment: Object.values(missingEquipment).some(Boolean) || extraSlotRows.some(row => row.missing),
       effectRows: [...(actor.effects?.contents ?? [])].map(effect => ({
         id: effect.id, name: effect.name, disabled: effect.disabled
@@ -682,6 +802,7 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
       itemRoll: FastNRIItemSheet.rollItem,
+      weaponAttack: FastNRIItemSheet.weaponAttack,
       createItemEffect: FastNRIItemSheet.createItemEffect,
       editItemEffect: FastNRIItemSheet.editItemEffect,
       toggleItemEffect: FastNRIItemSheet.toggleItemEffect,
@@ -719,6 +840,15 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       content: `<p>${localized("Hints.confirmDelete")}</p>`, rejectClose: false })) return;
     await this.item.deleteEmbeddedDocuments("ActiveEffect", [effect.id]);
   }
+  static async weaponAttack() {
+    if (!isPhysicalWeaponCard(this.item)) return;
+    try { await sendWeaponAttack(this.item); }
+    catch (error) {
+      console.error("Fast NRI | weapon attack failed",error);
+      ui.notifications?.warn(localized("Hints.rollFailed"));
+    }
+  }
+
   static async rollItem(_event, _button) {
     // A roll from an Item sheet belongs to that card; no fixed game rules
     // are applied or silently derived from class, weapon or user settings.
@@ -746,8 +876,19 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       isWeapon: this.item.type === "weapon", isArmor: this.item.type === "armor",
       isGear: this.item.type === "gear", isAbility: this.item.type === "ability",
       isLegacy: this.item.type === "item",
+      gearHand: this.item.system?.mechanics?.equipment?.slot === 'hand',
+      gearArmor: this.item.system?.mechanics?.equipment?.slot === 'armor',
+      gearOther: this.item.system?.mechanics?.equipment?.slot === 'other',
+      gearPhysicalAttack: this.item.system?.mechanics?.attack?.kind === 'physical',
+      abilityReplaceUnarmed: this.item.system?.mechanics?.unarmedAttack?.mode === 'replace',
+      abilityOptionUnarmed: this.item.system?.mechanics?.unarmedAttack?.mode === 'option',
       deprecated: this.item.getFlag("fast-nri-v14", "status") === "deprecated",
       hasRollFormula: !!itemFormula(this.item),
+      canWeaponAttack: isPhysicalWeaponCard(this.item),
+      weaponAutoProficiency: !this.item.system.proficiencyMode || this.item.system.proficiencyMode === 'auto',
+      weaponYesProficiency: this.item.system.proficiencyMode === 'yes',
+      weaponNoProficiency: this.item.system.proficiencyMode === 'no',
+      weaponRuleRows: Object.entries(this.item.system?.mechanics?.propertyRules ?? {}).map(([name,description])=>({name,description})),
       itemEffects: [...(this.item.effects?.contents ?? [])].map(effect => ({
         id: effect.id, name: effect.name, disabled: effect.disabled, transfer: effect.transfer
       }))

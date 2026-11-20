@@ -53,7 +53,13 @@ function actorSchema() {
       leftHand: text(), rightHand: text(), armor: text()
     }),
     // No limit on extra equipment positions or Item types assigned to them.
-    equipmentSlots: new F.TypedObjectField(customSlotSchema(), { required: false, initial: () => ({}) })
+    equipmentSlots: new F.TypedObjectField(customSlotSchema(), { required: false, initial: () => ({}) }),
+    // Sequence is monotonic; the older of two occupied hands is replaced first.
+    equipmentWear: new F.SchemaField({
+      sequence: new F.NumberField({ required: false, integer: true, initial: 0 }),
+      leftHand: new F.NumberField({ required: false, integer: true, initial: 0 }),
+      rightHand: new F.NumberField({ required: false, integer: true, initial: 0 })
+    })
   };
 }
 
@@ -78,6 +84,9 @@ export class WeaponModel extends T {
   static defineSchema() {
     return {
       ...commonItemSchema(), hands: integer(), reach: number(), range: number(),
+      level: integer(), category: text(), proficiencyClasses: text(),
+      grip: text(), distance: text(), attackKind: text(), proficiencyMode: text(),
+      properties: text(), damageType: text(),
       damageProfile: new F.ObjectField({ required: false, initial: () => ({}) })
     };
   }

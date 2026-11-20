@@ -43,8 +43,12 @@ for name in ('character','npc'):
     assert 'data-action="tab"' not in src
     assert src.count('fnri-tab-content')==5
     assert 'data-action="createItem"' in src
-    assert 'name="system.equipment.leftHand"' in src
-    assert 'name="system.equipment.rightHand"' in src
+    assert 'name="system.equipment.leftHand"' not in src
+    assert 'name="system.equipment.rightHand"' not in src
+    assert 'data-action="toggleEquipment"' in src
+    assert 'data-action="attackUnarmed"' in src
+    assert 'data-action="attackEquipped"' in src
+    assert 'data-example=' not in src
     assert 'data-row-collection="skills"' in src
     assert 'data-row-collection="resources"' in src
     assert 'data-row-field="dice"' in src
@@ -54,9 +58,7 @@ for name in ('character','npc'):
     assert 'this.skillDiceOptions' in src and 'this.specializationDiceOptions' in src
     assert 'data-row-field="kind"' in src
     assert 'data-action="addSpecialization"' in src
-    assert 'data-row-collection="equipmentSlots"' in src
-    assert 'data-action="addEquipmentSlot"' in src
-    assert 'data-action="removeEquipmentSlot"' in src
+    assert 'data-row-field="itemId"' not in src
     assert 'name="system.hp.current"' in src
     assert src.index('fnri-persistent') < src.index('fnri-tabs')
     assert src.index('name="system.hp.current"') < src.index('fnri-tabs')
@@ -75,8 +77,7 @@ for name in ('character','npc'):
     assert 'data-action="rollAbility"' in src
     assert src.count('data-fnri-section=') == 7
     assert 'name="system.wealth"' in src
-    assert 'missingEquipment.leftHand' in src
-    assert 'missingEquipment.armor' in src
+    assert 'fnri-item-equipped' in src and 'fnri-inventory-name' in src
     assert '{{#unless editable}}disabled{{/unless}}' in src
 css=(root/'styles'/'fast-nri.css').read_text()
 assert '.fnri-tab-content[hidden]' in css and 'overflow-y: auto !important' in css

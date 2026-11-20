@@ -147,33 +147,58 @@
 <li class="fnri-empty">{{localize "FASTNRI.Hints.noItems"}}</li>
 {{/each}}
 </ul></section></div>
-<div class="fnri-tab-content" data-fnri-panel="inventory" {{#unless tabs.inventory}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.equipment"}}</h3><div class="fnri-grid-3">
-    <label>{{localize "FASTNRI.Fields.leftHand"}}<select name="system.equipment.leftHand" {{#unless editable}}disabled{{/unless}}><option value="">—</option>{{#if missingEquipment.leftHand}}<option value="{{system.equipment.leftHand}}" selected>{{localize "FASTNRI.Hints.missingItem"}} ({{system.equipment.leftHand}})</option>{{/if}}{{#each handChoices}}<option value="{{this.id}}" {{#if this.selectedLeft}}selected{{/if}}>{{this.name}}</option>{{/each}}</select></label>
-    <label>{{localize "FASTNRI.Fields.rightHand"}}<select name="system.equipment.rightHand" {{#unless editable}}disabled{{/unless}}><option value="">—</option>{{#if missingEquipment.rightHand}}<option value="{{system.equipment.rightHand}}" selected>{{localize "FASTNRI.Hints.missingItem"}} ({{system.equipment.rightHand}})</option>{{/if}}{{#each handChoices}}<option value="{{this.id}}" {{#if this.selectedRight}}selected{{/if}}>{{this.name}}</option>{{/each}}</select></label>
-    <label>{{localize "FASTNRI.Fields.armorSlot"}}<select name="system.equipment.armor" {{#unless editable}}disabled{{/unless}}><option value="">—</option>{{#if missingEquipment.armor}}<option value="{{system.equipment.armor}}" selected>{{localize "FASTNRI.Hints.missingItem"}} ({{system.equipment.armor}})</option>{{/if}}{{#each armorChoices}}<option value="{{this.id}}" {{#if this.selectedArmor}}selected{{/if}}>{{this.name}}</option>{{/each}}</select></label>
-</div>
-<div class="fnri-row-head fnri-extra-slot-heading"><strong>{{localize "FASTNRI.Sections.extraEquipment"}}</strong>{{#if editable}}<button type="button" data-action="addEquipmentSlot">{{localize "FASTNRI.Actions.addEquipmentSlot"}}</button>{{/if}}</div>
-<div class="fnri-stack">{{#each extraSlotRows}}<div class="fnri-entry fnri-extra-slot-row">
-<label>{{localize "FASTNRI.Fields.slotName"}}<input type="text" data-row-collection="equipmentSlots" data-row-id="{{this.id}}" data-row-field="name" value="{{this.name}}" {{#unless @root.editable}}disabled{{/unless}}></label>
-<label>{{localize "FASTNRI.Fields.slotItem"}}<select data-row-collection="equipmentSlots" data-row-id="{{this.id}}" data-row-field="itemId" {{#unless @root.editable}}disabled{{/unless}}><option value="">—</option>{{#if this.missing}}<option value="{{this.itemId}}" selected>{{localize "FASTNRI.Hints.missingItem"}} ({{this.itemId}})</option>{{/if}}{{#each this.choices}}<option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>{{/each}}</select></label>
-{{#if @root.editable}}<button type="button" data-action="removeEquipmentSlot" data-id="{{this.id}}" title="{{localize 'FASTNRI.Actions.removeEquipmentSlot'}}"><i class="fa-solid fa-trash"></i></button>{{/if}}</div>{{/each}}</div>
-{{#if hasMissingEquipment}}<p class="fnri-warning">{{localize "FASTNRI.Hints.clearMissingEquipment"}}</p>{{/if}}<p class="fnri-muted">{{localize "FASTNRI.Hints.equipmentManual"}}</p></section><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.inventory"}}</h3><div class="fnri-row-head"><span class="fnri-muted">{{localize "FASTNRI.Hints.dropItems"}}</span>
+<div class="fnri-tab-content" data-fnri-panel="inventory" {{#unless tabs.inventory}}hidden{{/unless}}>
+<section class="fnri-panel fnri-attacks"><h3>{{localize "FASTNRI.Equipment.attacks"}}</h3>
+  <div class="fnri-attack-slots">
+  {{#each attackHands}}
+    <div class="fnri-attack-slot" {{#if this.id}}data-item-id="{{this.id}}"{{/if}}>
+      <strong class="fnri-slot-name">{{this.label}}</strong><span class="fnri-slot-occupant">{{#if this.name}}{{this.name}}{{else}}—{{/if}}</span>
+      {{#if this.canAttack}}<button type="button" data-action="attackEquipped" title="{{localize 'FASTNRI.Weapon.attack'}}"><i class="fa-solid fa-dice-d20"></i></button>{{else}}{{#if this.blocked}}<small title="{{localize 'FASTNRI.Equipment.secondHandRequired'}}"><i class="fa-solid fa-hand"></i></small>{{/if}}{{/if}}
+    </div>
+  {{/each}}
+    <div class="fnri-attack-slot fnri-unarmed-row">
+      <strong class="fnri-slot-name">{{localize "FASTNRI.Equipment.unarmedSlot"}}</strong>
+      {{#if unarmedAction.hasChoices}}
+      <details class="fnri-unarmed-picker">
+        <summary class="fnri-slot-occupant" title="{{localize 'FASTNRI.Equipment.chooseUnarmed'}}">{{unarmedAction.name}}</summary>
+        <div class="fnri-unarmed-options" role="group" aria-label="{{localize 'FASTNRI.Equipment.chooseUnarmed'}}">
+          {{#each unarmedAction.choices}}
+            <button type="button" class="fnri-unarmed-option {{#if this.selected}}fnri-unarmed-selected{{/if}}" data-action="selectUnarmedAttack" data-unarmed-choice="{{this.key}}" {{#unless @root.editable}}disabled{{/unless}} aria-pressed="{{#if this.selected}}true{{else}}false{{/if}}">
+              <span>{{this.name}}</span>{{#if this.selected}}<i class="fa-solid fa-check" aria-hidden="true"></i>{{/if}}
+            </button>
+          {{/each}}
+        </div>
+      </details>
+      {{else}}<span class="fnri-slot-occupant">{{unarmedAction.name}}</span>{{/if}}
+      <button type="button" data-action="attackUnarmed" title="{{localize 'FASTNRI.Weapon.attack'}}"><i class="fa-solid fa-dice-d20"></i></button>
+    </div>
+  {{#if hasOtherAttacks}}<div class="fnri-other-attacks"><strong>{{localize "FASTNRI.Equipment.other"}}</strong>
+    {{#each otherAttacks}}<div class="fnri-attack-slot" data-item-id="{{this.id}}"><span class="fnri-slot-occupant">{{this.name}}</span>
+      {{#if this.canAttack}}<button type="button" data-action="attackEquipped" title="{{localize 'FASTNRI.Weapon.attack'}}"><i class="fa-solid fa-dice-d20"></i></button>{{/if}}</div>{{/each}}
+  </div>{{/if}}
+  </div>
+</section>
+<section class="fnri-panel"><h3>{{localize "FASTNRI.Sections.inventory"}}</h3>
+ <div class="fnri-row-head"><span class="fnri-muted">{{localize "FASTNRI.Hints.dropItems"}}</span>
   {{#if editable}}<div class="fnri-actions">
-  <button type="button" data-action="createItem" data-type="weapon">{{localize "TYPES.Item.weapon"}}</button>
-  <button type="button" data-action="createItem" data-type="armor">{{localize "TYPES.Item.armor"}}</button>
-  <button type="button" data-action="createItem" data-type="gear">{{localize "TYPES.Item.gear"}}</button>
-  </div>{{/if}}</div><ul class="fnri-item-list">
-{{#each inventoryItems}}
-  <li data-item-id="{{this.id}}" class="fnri-item-row">
+    <button type="button" data-action="createItem" data-type="weapon">{{localize "TYPES.Item.weapon"}}</button>
+    <button type="button" data-action="createItem" data-type="armor">{{localize "TYPES.Item.armor"}}</button>
+    <button type="button" data-action="createItem" data-type="gear">{{localize "TYPES.Item.gear"}}</button>
+  </div>{{/if}}
+ </div><ul class="fnri-item-list">
+  {{#each inventoryItems}}
+  <li data-item-id="{{this.id}}" class="fnri-item-row {{#if this.isEquipped}}fnri-item-equipped{{/if}}">
     <img src="{{this.img}}" alt="">
-    <span>{{this.name}}</span>
+    <span class="fnri-inventory-name">{{this.name}}{{#if this.isEquipped}}<small class="fnri-equipped-location">{{this.equipmentLabel}}</small>{{/if}}</span>
     <small>{{this.type}}</small>
+    {{#if @root.editable}}{{#if this.canEquip}}<button type="button" class="fnri-equip-toggle" data-action="toggleEquipment" title="{{#if this.isEquipped}}{{localize 'FASTNRI.Actions.unequip'}}{{else}}{{localize 'FASTNRI.Actions.equip'}}{{/if}}">{{#if this.isEquipped}}{{localize "FASTNRI.Actions.unequip"}}{{else}}{{localize "FASTNRI.Actions.equip"}}{{/if}}</button>{{/if}}{{/if}}
     <button type="button" data-action="openItem" title="{{localize 'FASTNRI.Actions.openItem'}}"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
     {{#if @root.editable}}<button type="button" data-action="deleteItem" title="{{localize 'FASTNRI.Actions.deleteItem'}}"><i class="fa-solid fa-trash"></i></button>{{/if}}
   </li>
-{{else}}
-<li class="fnri-empty">{{localize "FASTNRI.Hints.noItems"}}</li>
-{{/each}}
-</ul></section></div>
+  {{else}}<li class="fnri-empty">{{localize "FASTNRI.Hints.noItems"}}</li>{{/each}}
+ </ul>
+{{#if hasMissingEquipment}}<div class="fnri-row-head fnri-warning"><span>{{localize "FASTNRI.Hints.clearMissingEquipment"}}</span>
+  {{#if editable}}<button type="button" data-action="cleanOrphanedEquipment">{{localize "FASTNRI.Equipment.cleanMissing"}}</button>{{/if}}</div>{{/if}}
+</section></div>
 <div class="fnri-tab-content" data-fnri-panel="description" {{#unless tabs.description}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.description"}}</h3><textarea name="system.description" rows="7" {{#unless editable}}disabled{{/unless}}>{{system.description}}</textarea></section><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.notes"}}</h3><textarea name="system.notes" rows="6" {{#unless editable}}disabled{{/unless}}>{{system.notes}}</textarea></section></div>
 </section>

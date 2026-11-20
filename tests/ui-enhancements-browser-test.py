@@ -9,6 +9,7 @@ r=Path(__file__).resolve().parents[1]
 css=(r/'styles/fast-nri.css').read_text()
 source=(r/'module/sheets/sheets.mjs').read_text().replace('export class ','class ')
 source='\n'.join(line for line in source.splitlines() if not line.startswith('import '))
+source='// Equipment/attack internals are covered by separate Node tests; these browser tests target legacy UI behavior.\nconst itemSlot=()=>null, equipmentKind=()=>null, itemGrip=()=>"1", hasFreeSecondHand=()=>true;\nconst isPhysicalWeaponCard=()=>false, isPhysicalOtherItemAttack=()=>false;\nconst resolveUnarmedAction=()=>({name:"Безоружная атака",conflict:false});\n'+source
 # Validate structural shape of both real templates.
 for actor_type in ('character','npc'):
   t=(r/'templates'/f'{actor_type}.hbs').read_text()
@@ -19,7 +20,7 @@ for actor_type in ('character','npc'):
   assert len(parsed.select('[data-fnri-skill-filter]'))==1
   assert len(parsed.select('[data-fnri-skill-entry]'))==2
   assert len(parsed.select('[data-action="rollAbility"]'))==1
-  assert [x.get('data-fnri-section') for x in parsed.select('details')]==[
+  assert [x.get('data-fnri-section') for x in parsed.select('details[data-fnri-section]')]==[
     'identity','parameters','ac','defenses','effects','resources','wealth']
   assert parsed.select('[data-fnri-panel="characteristics"]')[0].find('details')
 

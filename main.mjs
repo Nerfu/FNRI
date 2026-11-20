@@ -1,3 +1,4 @@
+import {registerWeaponChatControls} from "./module/weapon/weapon-attack.mjs";
 /**
  * Fast NRI 7.0 — Foundry VTT v14 system initialization.
  * The subtype data models and sheets are registered during the init hook.
@@ -46,7 +47,8 @@ Hooks.once("init", () => {
     label: "FASTNRI.Sheets.item"
   });
 
-  console.info("Fast NRI 7.0 | data models and sheets registered");
+  registerWeaponChatControls();
+  console.info("Fast NRI 7.0 | data models, sheets and weapon chat controls registered");
 });
 
 /**

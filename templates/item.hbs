@@ -29,11 +29,39 @@
   <section class="fnri-panel">
     <h3>{{localize "FASTNRI.Sections.properties"}}</h3>
     {{#if isWeapon}}
-      <div class="fnri-grid-3">
-        <label>{{localize "FASTNRI.Fields.hands"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.hands" value="{{system.hands}}" {{#unless editable}}disabled{{/unless}} /></label>
-        <label>{{localize "FASTNRI.Fields.reach"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.reach" value="{{system.reach}}" {{#unless editable}}disabled{{/unless}} /></label>
-        <label>{{localize "FASTNRI.Fields.range"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.range" value="{{system.range}}" {{#unless editable}}disabled{{/unless}} /></label>
+      <div class="fnri-weapon-fields fnri-grid-3">
+        <label>{{localize "FASTNRI.Weapon.level"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.level" value="{{system.level}}" {{#unless editable}}disabled{{/unless}}></label>
+        <label>{{localize "FASTNRI.Fields.category"}}<input type="text" name="system.category" value="{{system.category}}" {{#unless editable}}disabled{{/unless}}></label>
+        <label>{{localize "FASTNRI.Weapon.grip"}}<input type="text" name="system.grip" value="{{system.grip}}" placeholder="1 / 1+ / 2" {{#unless editable}}disabled{{/unless}}></label>
+        <label>{{localize "FASTNRI.Weapon.distance"}}<input type="text" name="system.distance" value="{{system.distance}}" {{#unless editable}}disabled{{/unless}}></label>
+        <label>{{localize "FASTNRI.Weapon.attackKind"}}<input type="text" name="system.attackKind" value="{{system.attackKind}}" {{#unless editable}}disabled{{/unless}}></label>
+        <label>{{localize "FASTNRI.Weapon.damageType"}}<input type="text" name="system.damageType" value="{{system.damageType}}" {{#unless editable}}disabled{{/unless}}></label>
       </div>
+      <label>{{localize "FASTNRI.Weapon.owners"}}<input type="text" name="system.proficiencyClasses" value="{{system.proficiencyClasses}}" {{#unless editable}}disabled{{/unless}}></label>
+      <label>{{localize "FASTNRI.Weapon.proficiencyMode"}}<select name="system.proficiencyMode" {{#unless editable}}disabled{{/unless}}>
+        <option value="auto" {{#if weaponAutoProficiency}}selected{{/if}}>{{localize "FASTNRI.Weapon.autoProficiency"}}</option>
+        <option value="yes" {{#if weaponYesProficiency}}selected{{/if}}>{{localize "FASTNRI.Weapon.yesProficiency"}}</option>
+        <option value="no" {{#if weaponNoProficiency}}selected{{/if}}>{{localize "FASTNRI.Weapon.noProficiency"}}</option>
+      </select></label>
+      <label>{{localize "FASTNRI.Weapon.properties"}}<input type="text" name="system.properties" value="{{system.properties}}" {{#unless editable}}disabled{{/unless}}></label>
+      <details class="fnri-weapon-legacy"><summary>{{localize "FASTNRI.Weapon.legacyFields"}}</summary>
+        <div class="fnri-grid-3">
+          <label>{{localize "FASTNRI.Fields.hands"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.hands" value="{{system.hands}}" {{#unless editable}}disabled{{/unless}}></label>
+          <label>{{localize "FASTNRI.Fields.reach"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.reach" value="{{system.reach}}" {{#unless editable}}disabled{{/unless}}></label>
+          <label>{{localize "FASTNRI.Fields.range"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.range" value="{{system.range}}" {{#unless editable}}disabled{{/unless}}></label>
+        </div>
+      </details>
+      <h3>{{localize "FASTNRI.Weapon.damageProfile"}}</h3>
+      <div class="fnri-grid-3 fnri-weapon-damage-fields">
+        <label>{{localize "FASTNRI.Fields.partial"}} (A)<input type="text" name="system.damageProfile.A" value="{{system.damageProfile.A}}" placeholder="1d6" {{#unless editable}}disabled{{/unless}}></label>
+        <label>{{localize "FASTNRI.Fields.success"}} (B)<input type="text" name="system.damageProfile.B" value="{{system.damageProfile.B}}" placeholder="1d8" {{#unless editable}}disabled{{/unless}}></label>
+        <label>{{localize "FASTNRI.Fields.great"}} (+C)<input type="text" data-dtype="Number" inputmode="decimal" name="system.damageProfile.C" value="{{system.damageProfile.C}}" placeholder="3" {{#unless editable}}disabled{{/unless}}></label>
+      </div>
+      {{#if canWeaponAttack}}<button type="button" data-action="weaponAttack"><i class="fa-solid fa-crosshairs"></i> {{localize "FASTNRI.Weapon.attack"}}</button>{{/if}}
+      {{#if weaponRuleRows.length}}<div class="fnri-weapon-property-reference"><h3>{{localize "FASTNRI.Weapon.propertyRules"}}</h3>
+        {{#each weaponRuleRows}}<details><summary>{{this.name}}</summary><p>{{this.description}}</p></details>{{/each}}
+      </div>{{/if}}
+      <p class="fnri-muted">{{localize "FASTNRI.Weapon.manualPropertyHint"}}</p>
     {{/if}}
     {{#if isArmor}}
       <div class="fnri-grid-3">
@@ -49,6 +77,26 @@
         <label>{{localize "FASTNRI.Fields.charges"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.charges" value="{{system.charges}}" {{#unless editable}}disabled{{/unless}} /></label>
       </div>
     {{/if}}
+    {{#if isGear}}
+      <details class="fnri-optional-attack"><summary>{{localize "FASTNRI.Equipment.cardOptions"}}</summary>
+        <label>{{localize "FASTNRI.Equipment.slotRule"}}<select name="system.mechanics.equipment.slot" {{#unless editable}}disabled{{/unless}}>
+          <option value="">{{localize "FASTNRI.Equipment.slotAuto"}}</option>
+          <option value="hand" {{#if gearHand}}selected{{/if}}>{{localize "FASTNRI.Equipment.slotHand"}}</option>
+          <option value="armor" {{#if gearArmor}}selected{{/if}}>{{localize "FASTNRI.Fields.armorSlot"}}</option>
+          <option value="other" {{#if gearOther}}selected{{/if}}>{{localize "FASTNRI.Equipment.other"}}</option>
+        </select></label>
+        <label>{{localize "FASTNRI.Equipment.otherAttack"}}<select name="system.mechanics.attack.kind" {{#unless editable}}disabled{{/unless}}>
+          <option value="">—</option><option value="physical" {{#if gearPhysicalAttack}}selected{{/if}}>{{localize "FASTNRI.Equipment.physicalAttack"}}</option>
+        </select></label>
+        <label>{{localize "FASTNRI.Fields.rollFormula"}}<input name="system.mechanics.attack.rollFormula" value="{{system.mechanics.attack.rollFormula}}" placeholder="1d20" {{#unless editable}}disabled{{/unless}}></label>
+        <div class="fnri-grid-3">
+          <label>A<input name="system.mechanics.attack.damageProfile.A" value="{{system.mechanics.attack.damageProfile.A}}" placeholder="1d4" {{#unless editable}}disabled{{/unless}}></label>
+          <label>B<input name="system.mechanics.attack.damageProfile.B" value="{{system.mechanics.attack.damageProfile.B}}" placeholder="1d4" {{#unless editable}}disabled{{/unless}}></label>
+          <label>+C<input type="text" data-dtype="Number" name="system.mechanics.attack.damageProfile.C" value="{{system.mechanics.attack.damageProfile.C}}" placeholder="1" {{#unless editable}}disabled{{/unless}}></label>
+        </div>
+        <label>{{localize "FASTNRI.Weapon.damageType"}}<input name="system.mechanics.attack.damageType" value="{{system.mechanics.attack.damageType}}" {{#unless editable}}disabled{{/unless}}></label>
+      </details>
+    {{/if}}
     {{#if isAbility}}
       <div class="fnri-grid-2">
         <label>{{localize "FASTNRI.Fields.category"}}<input type="text" name="system.category" value="{{system.category}}" {{#unless editable}}disabled{{/unless}} /></label>
@@ -57,6 +105,19 @@
         <label>{{localize "FASTNRI.Fields.frequency"}}<input type="text" name="system.frequency" value="{{system.frequency}}" {{#unless editable}}disabled{{/unless}} /></label>
       </div>
       <label>{{localize "FASTNRI.Fields.effect"}}<textarea name="system.effect" rows="3" {{#unless editable}}disabled{{/unless}}>{{system.effect}}</textarea></label>
+      <details class="fnri-optional-attack"><summary>{{localize "FASTNRI.Equipment.unarmedCardRule"}}</summary>
+        <label>{{localize "FASTNRI.Equipment.unarmedReplace"}}<select name="system.mechanics.unarmedAttack.mode" {{#unless editable}}disabled{{/unless}}>
+          <option value="">—</option><option value="replace" {{#if abilityReplaceUnarmed}}selected{{/if}}>{{localize "FASTNRI.Equipment.replace"}}</option><option value="option" {{#if abilityOptionUnarmed}}selected{{/if}}>{{localize "FASTNRI.Equipment.unarmedOption"}}</option>
+        </select></label>
+        <label>{{localize "FASTNRI.Fields.name"}}<input name="system.mechanics.unarmedAttack.name" value="{{system.mechanics.unarmedAttack.name}}" {{#unless editable}}disabled{{/unless}}></label>
+        <label>{{localize "FASTNRI.Fields.rollFormula"}}<input name="system.mechanics.unarmedAttack.rollFormula" value="{{system.mechanics.unarmedAttack.rollFormula}}" placeholder="1d20 + 1d8" {{#unless editable}}disabled{{/unless}}></label>
+        <div class="fnri-grid-3">
+          <label>A<input name="system.mechanics.unarmedAttack.damageProfile.A" value="{{system.mechanics.unarmedAttack.damageProfile.A}}" placeholder="1d6" {{#unless editable}}disabled{{/unless}}></label>
+          <label>B<input name="system.mechanics.unarmedAttack.damageProfile.B" value="{{system.mechanics.unarmedAttack.damageProfile.B}}" placeholder="1d8" {{#unless editable}}disabled{{/unless}}></label>
+          <label>+C<input type="text" data-dtype="Number" name="system.mechanics.unarmedAttack.damageProfile.C" value="{{system.mechanics.unarmedAttack.damageProfile.C}}" placeholder="2" {{#unless editable}}disabled{{/unless}}></label>
+        </div>
+        <label>{{localize "FASTNRI.Weapon.damageType"}}<input name="system.mechanics.unarmedAttack.damageType" value="{{system.mechanics.unarmedAttack.damageType}}" {{#unless editable}}disabled{{/unless}}></label>
+      </details>
     {{/if}}
     {{#unless isLegacy}}
       <label>{{localize "FASTNRI.Fields.tags"}}<input type="text" name="system.tags" value="{{system.tags}}" {{#unless editable}}disabled{{/unless}} /></label>

@@ -23,15 +23,15 @@ class SheetMock {
 }
 const deletes=Symbol('Foundry v14 _del');
 globalThis._del=deletes;
-globalThis.Hooks={once(name,fn){hooks.set(name,fn)}};
+globalThis.Hooks={once(name,fn){hooks.set(name,fn)},on(name,fn){hooks.set(name,fn)}};
 globalThis.CONFIG={Actor:{dataModels:{thirdPartyActor:class{}}},Item:{dataModels:{thirdPartyItem:class{}}}};
-globalThis.game={system:{id:'fast-nri-v14'},user:{isGM:false},i18n:{localize(key){return key;}}};
+globalThis.game={settings:{registerMenu(scope,key,data){registrations.push({scope,key,data})}},system:{id:'fast-nri-v14'},user:{isGM:false},i18n:{localize(key){return key;}}};
 let warnings=0,errors=0;
 globalThis.ui={notifications:{warn(){warnings++;},error(){errors++;}}};
 globalThis.foundry={
   data:{fields:{StringField:Field,NumberField:Field,SchemaField:Field,ArrayField:Field,TypedObjectField:Field,ObjectField:Field}},
   abstract:{TypeDataModel:TypeModel},utils:{randomID:()=>`testid${++nextId}`},
-  applications:{api:{HandlebarsApplicationMixin(Parent){return class extends Parent{}},DialogV2:{confirm:async()=>true}},
+  applications:{api:{HandlebarsApplicationMixin(Parent){return class extends Parent{}},ApplicationV2:SheetMock,DialogV2:{confirm:async()=>true}},
     sheets:{ActorSheetV2:SheetMock,ItemSheetV2:SheetMock},
     apps:{DocumentSheetConfig:{registerSheet(...args){registrations.push(args)},getSheetClassesForSubType(){return {sheetClasses:{},defaultClass:null}}}}},
   documents:{Actor:class{},Item:class{}}
@@ -42,7 +42,9 @@ assert.ok(hooks.has('init'));
 hooks.get('init')();
 assert.deepEqual(Object.keys(CONFIG.Actor.dataModels).sort(),['character','npc','thirdPartyActor']);
 assert.deepEqual(Object.keys(CONFIG.Item.dataModels).sort(),['ability','armor','gear','item','thirdPartyItem','weapon']);
-assert.equal(registrations.length,3);
+assert.equal(registrations.filter(x=>Array.isArray(x)).length,3);
+assert.equal(registrations.filter(x=>x.key==='importContent').length,0,'no importer registered during stage 4');
+assert.ok(hooks.has('renderChatMessageHTML'));
 for(const model of [CONFIG.Actor.dataModels.character.defineSchema(),CONFIG.Actor.dataModels.npc.defineSchema()]){
   for(const field of ['hp','ac','defenses','skills','resources','equipment','equipmentSlots','wealth'])assert.ok(model[field],field);
   assert.equal(model.skills.constructor,Field);
@@ -75,6 +77,7 @@ for(const cls of [FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet]){
 assert.equal(FastNRICharacterSheet.DEFAULT_OPTIONS.form.submitOnChange,false,'single Actor save path');
 assert.equal(FastNRIItemSheet.DEFAULT_OPTIONS.form.submitOnChange,true,'Item forms still use core submission');
 const actions=FastNRICharacterSheet.DEFAULT_OPTIONS.actions;
+assert.equal(typeof actions.createItem,'function');
 for(const a of ['fnriSwitchTab','toggleQuickHp','toggleSkillGroup','rollAbility','rollSkill','createEffect','editEffect','toggleEffect','deleteEffect','openItem','createItem','deleteItem','addSkill','addSpecialization','removeSkill','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'])assert.equal(typeof actions[a],'function',a);
 
 function actorFactory(){
@@ -90,7 +93,7 @@ function actorFactory(){
    resources:{mana:{name:'Mana',current:4,max:8}},
    equipment:{leftHand:'i1',rightHand:'',armor:''},equipmentSlots:{},wealth:''
   },
-  items:{contents:items,get(id){return items.find(x=>x.id===id)}},updates:[],
+  items:{contents:items,get(id){return items.find(x=>x.id===id)}},updates:[],lastItemRecord:null,
   async update(change){
    // Simulates a delayed server round-trip while applying independent dot-path
    // updates, as supported by the v14 Document API. Arrays are never merged.
@@ -106,7 +109,7 @@ function actorFactory(){
    return this;
   },
   async createEmbeddedDocuments(type,values){
-   assert.equal(type,'Item');const added=values.map(value=>createItem('i'+(++itemCounter),value.name,value.type));
+   assert.equal(type,'Item');this.lastItemRecord=values[0];const added=values.map(value=>createItem('i'+(++itemCounter),value.name,value.type));
    items.push(...added);return added;
   },
   async deleteEmbeddedDocuments(type,ids){
@@ -144,9 +147,10 @@ let ctx=await sheet._prepareContext({});
 assert.equal(ctx.tabs.characteristics,true);
 assert.equal(ctx.skillRows.length,2);
 assert.equal(ctx.resourceRows.length,1);
-assert.equal(ctx.handChoices.find(x=>x.id==='i1').selectedLeft,true);
-assert.equal(ctx.handChoices.length,2,'all Item types are eligible for any standard slot');
-assert.equal(ctx.armorChoices.length,2,'armor slot must not filter by type');
+assert.equal(ctx.attackHands[0].id,'i1');
+assert.equal(ctx.attackHands[1].id,'');
+assert.equal(ctx.unarmedAction.name,'Безоружная атака');
+assert.equal(ctx.inventoryItems.find(x=>x.id==='i1').isEquipped,true);
 assert.equal(ctx.skillRows[0].hasLegacyValue,true,'draft numeric values remain visible, not erased');
 assert.equal(ctx.skillRows[1].isSpecialization,true);
 
@@ -266,10 +270,25 @@ await attachControls(sheet,[slotName,slotItem]);slotName.fireChange();slotItem.f
 assert.equal(actor.system.equipmentSlots[slotId].name,'Дополнительная рука');
 assert.equal(actor.system.equipmentSlots[slotId].itemId,'i1');
 ctx=await sheet._prepareContext({});
-assert.ok(ctx.extraSlotRows.find(x=>x.id===slotId).choices.find(x=>x.id==='i1').selected);
+assert.equal(ctx.extraSlotRows.find(x=>x.id===slotId).itemId,'i1');
 await actions.removeEquipmentSlot.call(sheet,null,{dataset:{id:slotIds[1]}});
 assert.equal(Object.hasOwn(actor.system.equipmentSlots,slotIds[1]),false);
 await actions.createItem.call(sheet,null,{dataset:{type:'gear'}});
+assert.equal(actor.items.contents.length,3);
+// Actual sheet button action: gear enters dynamic other slot, then unequips.
+const gearId=actor.items.contents.at(-1).id;
+const gearButton={closest(){return {dataset:{itemId:gearId}}}};
+await actions.toggleEquipment.call(sheet,null,gearButton);
+assert.equal(actor.system.equipmentSlots[`auto_${gearId}`].itemId,gearId);
+ctx=await sheet._prepareContext({});
+assert.equal(ctx.inventoryItems.find(x=>x.id===gearId).isEquipped,true);
+await actions.toggleEquipment.call(sheet,null,gearButton);
+assert.equal(actor.system.equipmentSlots[`auto_${gearId}`].itemId,'');
+await actions.createItem.call(sheet,null,{dataset:{type:'weapon'}});
+assert.equal(actor.items.contents.length,4);
+assert.equal(actor.lastItemRecord.type,'weapon');
+assert.equal(actor.lastItemRecord.system,undefined,'no hidden test weapon defaults');
+await actor.deleteEmbeddedDocuments('Item',[actor.items.contents.at(-1).id]);
 assert.equal(actor.items.contents.length,3);
 await actions.deleteItem.call(sheet,null,{closest(){return {dataset:{itemId:'i1'}}}});
 assert.equal(actor.items.contents.length,2);
@@ -285,13 +304,9 @@ assert.equal(ctx.missingEquipment.rightHand,true);
 assert.equal(ctx.extraSlotRows.find(x=>x.id===slotId).missing,true);
 assert.equal(ctx.hasMissingEquipment,true);
 assert.equal(actor.updates.length,beforeOrphan,'context must not auto-edit actor');
-const equip=makeControl({name:'system.equipment.rightHand',value:''});
-await attachControls(sheet,[],[equip]);equip.fireChange();await sheet._flushWrites();
-assert.equal(actor.system.equipment.rightHand,'');
-assert.equal(actor.system.equipmentSlots[slotId].itemId,'removedOutside','custom orphan is never silently changed');
-const clearExtra=makeControl({dataset:{rowCollection:'equipmentSlots',rowId:slotId,rowField:'itemId'},value:''});
-await attachControls(sheet,[clearExtra]);clearExtra.fireChange();await sheet._flushWrites();
-assert.equal(actor.system.equipmentSlots[slotId].itemId,'');
+// Unknown references cannot silently be overwritten by a render.
+assert.equal(actor.system.equipment.rightHand,'removedOutside');
+assert.equal(actor.system.equipmentSlots[slotId].itemId,'removedOutside');
 
 // Failed saves must not obstruct navigation or discard unsaved input.
 let simulateSaveFailure = true;
@@ -355,7 +370,7 @@ for(const path of ['templates/character.hbs','templates/npc.hbs']){
  assert.equal(html.match(/data-action="fnriSwitchTab"/g).length,5);
  assert.equal(html.match(/data-fnri-panel=/g).length,5);
  assert.equal(html.match(/fnri-tab-content"/g).length,5);
- assert.ok(html.includes('missingEquipment.rightHand'));
+ assert.ok(html.includes('data-action="toggleEquipment"'));
  assert.ok(html.includes('name="system.wealth"'));
  assert.ok(html.includes('data-action="addSpecialization"'));
  assert.ok(html.includes('data-action="rollSkill"'));
@@ -366,8 +381,8 @@ for(const path of ['templates/character.hbs','templates/npc.hbs']){
  assert.equal((html.match(/data-fnri-section=/g)||[]).length,7);
  assert.ok(html.includes('data-action="createEffect"'));
  assert.ok(html.includes('data-row-field="dice"'));
- assert.ok(html.includes('data-action="addEquipmentSlot"'));
- assert.ok(html.includes('data-row-collection="equipmentSlots"'));
+ assert.ok(html.includes('data-action="attackUnarmed"'));
+ assert.ok(!html.includes('data-example='));
 }
 const css=readFileSync(file('styles/fast-nri.css'),'utf8');
 assert.ok(css.includes('.fnri-persistent'));

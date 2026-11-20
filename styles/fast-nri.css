@@ -213,3 +213,95 @@
   .fast-nri-v14.fast-nri-sheet .fnri-core-head { display: none; }
   .fast-nri-v14.fast-nri-sheet .fnri-summary-heading .fnri-save-indicator { font-size: .64rem; }
 }
+
+/* Standard physical weapon cards: advisory degree, never locks alternate damage rolls. */
+.fast-nri-v14.fast-nri-sheet .fnri-weapon-damage-fields { margin: 7px 0; }
+.fast-nri-v14.fast-nri-sheet .fnri-weapon-property-reference details { margin: 6px 0; }
+.fast-nri-v14.fast-nri-sheet .fnri-weapon-property-reference p { white-space: pre-line; }
+.fnri-weapon-chat-controls { margin-top: 9px; border-top: 1px solid var(--color-border-light-tertiary,#8886); padding-top: 7px; }
+.fnri-weapon-chat-label { font-size: .85rem; margin-bottom: 5px; }
+.fnri-weapon-chat-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.fnri-weapon-chat-button { flex: 1 1 30%; min-width: 90px; height: auto; padding: 6px; font-size: .79rem; white-space: normal; }
+.fnri-weapon-chat-button.fnri-weapon-suggested { border: 2px solid var(--color-level-success,#409a6a); background: rgba(64,154,106,.16); box-shadow: inset 0 0 0 1px rgba(64,154,106,.24); }
+.fnri-weapon-chat-button[data-busy="true"] { opacity: .55; cursor: wait; }
+.fnri-weapon-chat-warning { display: block; margin-top: 5px; opacity: .75; }
+
+/* Equipment controls — compact, no redundant "not equipped" status. */
+.fast-nri-v14.fast-nri-sheet .fnri-attack-slots { display: flex; flex-direction: column; gap: 6px; }
+.fast-nri-v14.fast-nri-sheet .fnri-attack-slot { display: flex; gap: 9px; align-items: center;
+  min-height: 35px; padding: 6px 9px; border: 1px solid var(--color-border-light-tertiary,#8885); border-radius: 5px; }
+.fast-nri-v14.fast-nri-sheet .fnri-attack-slot .fnri-slot-name { min-width: 120px; font-size: .83rem; }
+.fast-nri-v14.fast-nri-sheet .fnri-attack-slot .fnri-slot-occupant { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.fast-nri-v14.fast-nri-sheet .fnri-attack-slot button { width: 34px; height: 29px; flex: none; padding: 3px; }
+.fast-nri-v14.fast-nri-sheet .fnri-other-attacks > strong { display: block; margin: 8px 0 5px; font-size: .86rem; }
+.fast-nri-v14.fast-nri-sheet .fnri-other-attacks > .fnri-attack-slot { margin-top: 4px; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-row.fnri-item-equipped {
+  border: 2px solid var(--color-border-highlight,#ad935c); border-radius: 5px;
+  padding: 5px 7px; background: rgba(128,128,128,.065);
+}
+.fast-nri-v14.fast-nri-sheet .fnri-item-row.fnri-item-equipped .fnri-inventory-name { font-weight: 700; }
+.fast-nri-v14.fast-nri-sheet .fnri-equipped-location { display: block; font-size: .68rem; font-weight: 400; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-row .fnri-equip-toggle {
+  width: auto; min-width: 66px; max-width: none; padding: 2px 7px; font-size: .74rem;
+}
+@media (max-width: 490px) {
+  .fast-nri-v14.fast-nri-sheet .fnri-attack-slot .fnri-slot-name { min-width: 85px; }
+  .fast-nri-v14.fast-nri-sheet .fnri-attack-slot { gap: 5px; }
+}
+
+.fast-nri-v14.fast-nri-sheet .fnri-attack-slot[data-item-id] { border-color: var(--color-border-highlight,#ad935c); }
+.fast-nri-v14.fast-nri-sheet .fnri-attack-slot[data-item-id] .fnri-slot-occupant { font-weight: 700; }
+
+.fast-nri-v14.fast-nri-sheet .fnri-optional-attack { margin: 9px 0 3px; }
+.fast-nri-v14.fast-nri-sheet .fnri-optional-attack summary { cursor: pointer; font-weight: 600; }
+.fast-nri-v14.fast-nri-sheet .fnri-optional-attack[open] { display: grid; gap: 7px; }
+
+/* One compact equipment-like slot; active attack stays next to the roll control.
+ * The base action is always one of the selectable choices, even when a card
+ * declares a replacement. The open panel must never displace the dice button.
+ */
+.fast-nri-v14.fast-nri-sheet .fnri-attack-slot.fnri-unarmed-row {
+  display: grid;
+  grid-template-columns: minmax(85px,120px) minmax(0,1fr) 34px;
+  align-items: start;
+  border: 2px solid var(--color-border-highlight,#ad935c);
+  background: rgba(128,128,128,.065);
+}
+.fast-nri-v14.fast-nri-sheet .fnri-unarmed-row > .fnri-slot-name { padding-top: 5px; }
+.fast-nri-v14.fast-nri-sheet .fnri-unarmed-row > [data-action="attackUnarmed"] {
+  align-self: start;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-unarmed-picker {
+  flex: none; min-width: 0;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-unarmed-picker > summary {
+  display: block; cursor: pointer; overflow-wrap: anywhere; list-style: none;
+  padding: 4px 6px; border-radius: 4px; font-weight: 700;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-unarmed-picker > summary::-webkit-details-marker { display: none; }
+.fast-nri-v14.fast-nri-sheet .fnri-unarmed-picker > summary::after {
+  content: " ▾"; opacity: .7; font-size: .8em;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-unarmed-picker[open] > summary::after { content: " ▴"; }
+.fast-nri-v14.fast-nri-sheet .fnri-unarmed-options {
+  display: flex; flex-direction: column; gap: 4px; margin-top: 5px;
+  padding-top: 5px; border-top: 1px solid var(--color-border-light-tertiary,#8886);
+}
+.fast-nri-v14.fast-nri-sheet .fnri-unarmed-options .fnri-unarmed-option {
+  display: flex; justify-content: space-between; align-items: center; gap: 6px;
+  width: 100%; height: auto; min-height: 30px; flex: none;
+  text-align: left; font-size: .83rem; font-weight: 400;
+  white-space: normal; padding: 4px 7px;
+  border: 1px solid var(--color-border-light-tertiary,#8885);
+  border-radius: 4px;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-unarmed-options .fnri-unarmed-selected {
+  font-weight: 700;
+  border: 2px solid var(--color-border-highlight,#ad935c);
+  background: rgba(128,128,128,.065);
+}
+@media (max-width: 490px) {
+  .fast-nri-v14.fast-nri-sheet .fnri-attack-slot.fnri-unarmed-row {
+    grid-template-columns: minmax(80px,85px) minmax(0,1fr) 34px;
+  }
+}

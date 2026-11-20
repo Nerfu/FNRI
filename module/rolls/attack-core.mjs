@@ -1,0 +1,94 @@
+/**
+ * Fast NRI 7.0 — pure attack-degree and standard physical-profile calculations.
+ * Stage 4 draft. No Foundry document updates, rolls, chat messages, or HP writes.
+ * Every value comes from the attack/target/card; there are no built-in game defaults.
+ */
+export const ATTACK_DEGREES = Object.freeze(["failure", "partial", "success", "great"]);
+
+const finite = value => typeof value === "number" && Number.isFinite(value);
+const fail = (reason, detail = null) => ({ ok: false, reason, detail });
+const pass = result => ({ ok: true, ...result });
+const clampDegree = value => Math.max(0, Math.min(3, value));
+
+/** Compare an already evaluated attack against all three AC thresholds.
+ * naturalD20 must be the value of the attacking d20, not the total Roll result.
+ * Attacker-side degree changes occur after the base degree. Natural 1 is final.
+ * Natural 20 does NOT improve a degree: it is only a later damage multiplier.
+ */
+export function resolveAttackDegree({ total, naturalD20, ac, attackerDegreeShift = 0 } = {}) {
+  if (!finite(total)) return fail("missing-or-invalid-attack-total");
+  if (!Number.isInteger(naturalD20) || naturalD20 < 1 || naturalD20 > 20)
+    return fail("missing-or-invalid-natural-d20");
+  const thresholds = [ac?.partial, ac?.success, ac?.great];
+  if (!thresholds.every(finite)) return fail("missing-or-invalid-ac-thresholds");
+  if (!(thresholds[0] <= thresholds[1] && thresholds[1] <= thresholds[2]))
+    return fail("ac-thresholds-out-of-order");
+  if (!Number.isInteger(attackerDegreeShift)) return fail("invalid-attacker-degree-shift");
+  const baseIndex = thresholds.reduce((best, threshold, index) => total >= threshold ? index + 1 : best, 0);
+  const index = naturalD20 === 1 ? 0 : clampDegree(baseIndex + attackerDegreeShift);
+  return pass({
+    degree: ATTACK_DEGREES[index], degreeIndex: index,
+    baseDegree: ATTACK_DEGREES[naturalD20 === 1 ? 0 : baseIndex],
+    baseDegreeIndex: naturalD20 === 1 ? 0 : baseIndex,
+    naturalOne: naturalD20 === 1,
+    naturalTwenty: naturalD20 === 20,
+    // A suggested numeric factor only: actual application is after defenses,
+    // and never to periodic damage/healing or a separately resolved instance.
+    attackNaturalTwentyDamageMultiplier: naturalD20 === 20 ? 2 : 1
+  });
+}
+
+/** Directed defense lowers EFFECT degree, NOT attack degree/damage profile.
+ * Only for directed attacks against AC without the Area property.
+ * This function does not calculate any defense roll or damage removal.
+ */
+export function resolveDirectedEffectDegree({ attackDegree, successfulDefenses = 0, fullyCancelled = false } = {}) {
+  const index = ATTACK_DEGREES.indexOf(attackDegree);
+  if (index < 0) return fail("invalid-attack-degree");
+  if (!Number.isInteger(successfulDefenses) || successfulDefenses < 0)
+    return fail("invalid-defense-count");
+  const finalIndex = fullyCancelled ? 0 : clampDegree(index - successfulDefenses);
+  return pass({
+    attackDegree,
+    effectDegree: ATTACK_DEGREES[finalIndex],
+    fullyCancelled: Boolean(fullyCancelled)
+  });
+}
+
+/** Standard target physical attack, excluding attack spells and Area.
+ * A and B are SINGLE ordinary dice; C is a POSITIVE FIXED number.
+ * Special card exceptions and spells must use their own profile adapters.
+ * Parts are not rolled here: later code must retain per-die results/types.
+ */
+export function parseStandardPhysicalProfile(profile) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile))
+    return fail("missing-profile");
+  const parseDie = (value, key) => {
+    const result = /^1d([1-9]\d*)$/i.exec(String(value ?? "").trim());
+    if (!result) return fail("invalid-single-die", key);
+    const faces = Number(result[1]);
+    if (!Number.isSafeInteger(faces)) return fail("invalid-die-faces", key);
+    return pass({ part: { id: key, kind: "die", faces, formula: `1d${faces}` } });
+  };
+  const a = parseDie(profile.A, "A");
+  if (!a.ok) return a;
+  const b = parseDie(profile.B, "B");
+  if (!b.ok) return b;
+  const value = (typeof profile.C === "number") ? profile.C :
+    (/^\+?\d+(?:\.\d+)?$/.test(String(profile.C ?? "").trim())
+      ? Number(String(profile.C).trim()) : NaN);
+  if (!finite(value) || value <= 0) return fail("invalid-positive-fixed-bonus", "C");
+  return pass({ parts: [a.part, b.part, { id: "C", kind: "fixed", value, formula: String(value) }] });
+}
+
+/** Return independent damage parts for degree 0...3, preserving identities.
+ * C remains its own fixed-result damage die under Rulebook 'Кубы урона'.
+ * This produces NO roll, automatic effect or HP mutation.
+ */
+export function standardPhysicalPartsForDegree(profile, degree) {
+  const index = ATTACK_DEGREES.indexOf(degree);
+  if (index < 0) return fail("invalid-attack-degree");
+  const parsed = parseStandardPhysicalProfile(profile);
+  if (!parsed.ok) return parsed;
+  return pass({ degree, parts: parsed.parts.slice(0, index).map(part => ({ ...part })) });
+}
