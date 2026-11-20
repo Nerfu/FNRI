@@ -1,11 +1,8 @@
 name: Package and publish Foundry system
 
-# TEMPORARY: v0.1.9 explicitly user-approved publication. Restore manual mode
-# as soon as the release has been verified.
+# Explicit manual release only. A normal push to main must never create a
+# release or send CI failure notifications during code review.
 on:
-  push:
-    branches: [main]
-    paths: [system.json, .github/workflows/release.yml]
   workflow_dispatch:
     inputs:
       release_approved:
@@ -19,7 +16,7 @@ permissions:
 
 jobs:
   build-and-release:
-    if: ${{ github.event_name == 'push' || inputs.release_approved == true }}
+    if: ${{ inputs.release_approved == true }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
