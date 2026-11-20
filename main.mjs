@@ -14,20 +14,18 @@ import {
 const SYSTEM_ID = "fast-nri-v14";
 
 Hooks.once("init", () => {
-  CONFIG.Actor.dataModels = {
-    ...(CONFIG.Actor.dataModels ?? {}),
+  Object.assign(CONFIG.Actor.dataModels ??= {}, {
     character: CharacterModel,
     npc: NPCModel
-  };
-  CONFIG.Item.dataModels = {
-    ...(CONFIG.Item.dataModels ?? {}),
+  });
+  Object.assign(CONFIG.Item.dataModels ??= {}, {
     weapon: WeaponModel,
     armor: ArmorModel,
     gear: GearModel,
     ability: AbilityModel,
     // Preserve the 0.1.0 subtype; never migrate existing documents silently.
     item: LegacyItemModel
-  };
+  });
 
   const { DocumentSheetConfig } = foundry.applications.apps;
   const { Actor, Item } = foundry.documents;

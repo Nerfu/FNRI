@@ -5,7 +5,6 @@
       <label>{{localize "FASTNRI.Fields.name"}}<input type="text" name="name" value="{{item.name}}" {{#unless editable}}disabled{{/unless}} /></label>
       <div class="fnri-type">{{localize "FASTNRI.Fields.type"}}: {{item.type}}</div>
       {{#if deprecated}}<p class="fnri-deprecated">{{localize "FASTNRI.Hints.deprecated"}}</p>{{/if}}
-      {{#if isLegacy}}<p class="fnri-muted">{{localize "FASTNRI.Hints.legacy"}}</p>{{/if}}
     </div>
   </header>
   <section class="fnri-panel">
@@ -17,13 +16,12 @@
     </div>
     <label>{{localize "FASTNRI.Fields.rollFormula"}}<input type="text" name="system.rollFormula" value="{{system.rollFormula}}" placeholder="1d20 + 2d6" {{#unless editable}}disabled{{/unless}}></label>
     {{#if hasRollFormula}}<button type="button" data-action="itemRoll"><i class="fa-solid fa-dice-d20"></i> {{localize "FASTNRI.Actions.rollItem"}}</button>{{/if}}
-    <p class="fnri-muted">{{localize "FASTNRI.Hints.cardRoll"}}</p>
+    
   </section>
   <section class="fnri-panel">
     <div class="fnri-row-head"><h3>{{localize "FASTNRI.Sections.itemEffects"}}</h3>
       {{#if editable}}<button type="button" data-action="createItemEffect">{{localize "FASTNRI.Actions.createEffect"}}</button>{{/if}}
     </div>
-    <p class="fnri-muted">{{localize "FASTNRI.Hints.itemEffectTransfer"}}</p>
     <ul class="fnri-item-list">{{#each itemEffects}}
       <li class="fnri-item-row"><span>{{this.name}} {{#if this.transfer}}<small>({{localize "FASTNRI.Hints.transferEffect"}})</small>{{/if}}
         {{#if this.disabled}}<small>({{localize "FASTNRI.Hints.effectDisabled"}})</small>{{/if}}</span>
@@ -41,7 +39,6 @@
         <label>{{localize "FASTNRI.Fields.reach"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.reach" value="{{system.reach}}" {{#unless editable}}disabled{{/unless}} /></label>
         <label>{{localize "FASTNRI.Fields.range"}}<input type="text" data-dtype="Number" inputmode="decimal" class="fnri-number" name="system.range" value="{{system.range}}" {{#unless editable}}disabled{{/unless}} /></label>
       </div>
-      <p class="fnri-muted">{{localize "FASTNRI.Hints.damagePending"}}</p>
     {{/if}}
     {{#if isArmor}}
       <div class="fnri-grid-3">

@@ -24,7 +24,7 @@ class SheetMock {
 const deletes=Symbol('Foundry v14 _del');
 globalThis._del=deletes;
 globalThis.Hooks={once(name,fn){hooks.set(name,fn)}};
-globalThis.CONFIG={Actor:{dataModels:{}},Item:{dataModels:{}}};
+globalThis.CONFIG={Actor:{dataModels:{thirdPartyActor:class{}}},Item:{dataModels:{thirdPartyItem:class{}}}};
 globalThis.game={system:{id:'fast-nri-v14'},user:{isGM:false},i18n:{localize(key){return key;}}};
 let warnings=0,errors=0;
 globalThis.ui={notifications:{warn(){warnings++;},error(){errors++;}}};
@@ -40,15 +40,22 @@ globalThis.foundry={
 await import(pathToFileURL(file('main.mjs')).href);
 assert.ok(hooks.has('init'));
 hooks.get('init')();
-assert.deepEqual(Object.keys(CONFIG.Actor.dataModels).sort(),['character','npc']);
-assert.deepEqual(Object.keys(CONFIG.Item.dataModels).sort(),['ability','armor','gear','item','weapon']);
+assert.deepEqual(Object.keys(CONFIG.Actor.dataModels).sort(),['character','npc','thirdPartyActor']);
+assert.deepEqual(Object.keys(CONFIG.Item.dataModels).sort(),['ability','armor','gear','item','thirdPartyItem','weapon']);
 assert.equal(registrations.length,3);
 for(const model of [CONFIG.Actor.dataModels.character.defineSchema(),CONFIG.Actor.dataModels.npc.defineSchema()]){
   for(const field of ['hp','ac','defenses','skills','resources','equipment','equipmentSlots','wealth'])assert.ok(model[field],field);
   assert.equal(model.skills.constructor,Field);
   assert.equal(model.skills.args[0].constructor,Field,'skills value has schema');
   assert.equal(model.skills.args[1].required,false);
-  assert.deepEqual(model.skills.args[1].initial(),{});
+  const initial = model.skills.args[1].initial();
+  assert.equal(Object.keys(initial).length, 17, 'Rulebook 7.0 base catalogue is complete');
+  assert.equal(initial.core_acrobatics.name,'Акробатика');
+  assert.equal(initial.core_intimidation.name,'Запугивание');
+  assert.equal(initial.core_athletics.dice,'', 'new skills begin without an assigned cube');
+  assert.equal(initial.starter_primary.dice, '2d6');
+  assert.equal(initial.starter_secondary.dice, '2d4');
+  assert.notEqual(initial, model.skills.args[1].initial(), 'new Actors receive independent skill dictionaries');
   const checkSchema=model.skills.args[0].args[0];
   for(const key of ['name','kind','dice','modifier','value'])assert.ok(checkSchema[key],key);
   assert.equal(checkSchema.dice.constructor,Field);

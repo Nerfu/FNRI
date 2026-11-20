@@ -95,20 +95,18 @@
       "extraEquipment": "Additional slots",
       "roll": "Card roll",
       "effects": "Effects and numeric adjustments",
-      "itemEffects": "Card effects"
+      "itemEffects": "Card effects",
+      "customChecks": "Custom Skills and Specializations"
     },
     "Hints": {
       "dropItems": "Drag an item or ability from the Foundry directory or Compendium into this area.",
       "noItems": "No embedded cards yet",
-      "damagePending": "Damage profiles will be added once the current Rulebook is verified.",
-      "deprecated": "Deprecated — informational only; this card is not disabled.",
-      "legacy": "Older item subtype from starter 0.1.0. Data is preserved; no automatic conversion was performed.",
+      "deprecated": "Deprecated",
       "customSkills": "Add as many skills and specializations as needed; dice formulas are fully editable.",
       "noSkills": "No skills yet",
       "noResources": "No resources yet",
-      "equipmentManual": "Any embedded item can be assigned to any slot. Assignments grant no automatic bonuses.",
-      "confirmDelete": "Delete this embedded item from the actor? The source directory item will not be deleted.",
-      "wealthManual": "Edited manually; no currency conversion is performed.",
+      "equipmentManual": "Assign owned items to equipment slots.",
+      "confirmDelete": "Delete this owned item?",
       "missingItem": "Missing or unavailable item",
       "clearMissingEquipment": "An equipped item is missing. Select “—” or another item to clear the reference.",
       "invalidNumber": "Enter a valid number (decimal dot or comma).",
@@ -117,11 +115,8 @@
       "unsavedRoll": "A field was not saved. Correct it before rolling.",
       "invalidEffect": "Choose an attribute and enter a valid numeric adjustment.",
       "emptyRollFormula": "Enter a roll formula in the card.",
-      "nativeEffects": "Foundry applies effects; edit details in the native effect sheet.",
       "effectDisabled": "disabled",
       "noEffects": "No active effects",
-      "cardRoll": "The card owns its complete formula. No automatic resource spending or outcomes.",
-      "itemEffectTransfer": "A new effect does not transfer to the Actor until you explicitly enable transfer in the native effect editor.",
       "transferEffect": "transfers"
     },
     "Actions": {
@@ -155,6 +150,12 @@
       "gm": "GM only",
       "blind": "Blind",
       "self": "Self only"
+    },
+    "SkillGroups": {
+      "physical": "Physical and Stealth",
+      "practical": "Practical",
+      "magical": "Magical",
+      "social": "Social"
     }
   }
 }

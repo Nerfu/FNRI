@@ -1,4 +1,5 @@
 import { skillFormula, itemFormula, postRoll, resolveMessageMode } from "../rolls/checks.mjs";
+import { BASIC_SKILLS, BASIC_SKILLS_BY_ROW_ID, SKILL_GROUPS, standardSkillEntry } from "../data/skills-catalog.mjs";
 /** Fast NRI v14: stage-2 document sheets. No game-rule automation. */
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2, ItemSheetV2 } = foundry.applications.sheets;
@@ -44,6 +45,34 @@ const sortedItems = items => [...items].sort((a, b) =>
   (a.sort - b.sort) || a.name.localeCompare(b.name));
 const localized = key => game.i18n.localize("FASTNRI." + key);
 const rowsOf = object => Object.entries(object ?? {}).map(([id, values]) => ({ id, ...values }));
+
+/** Reconcile storage with prepared data. Effects may alter prepared modifiers,
+ * but editable field defaults must come from source, when it exists. Do not
+ * fall back to an empty source dictionary and accidentally hide prepared rows.
+ */
+function storedSkills(actor) {
+  const source = actor.toObject?.(true)?.system?.skills ?? {};
+  const raw = actor._source?.system?.skills ?? {};
+  const prepared = actor.system?.skills ?? {};
+  // Both are keyed records; source records override effect-adjusted prepared values.
+  return { ...prepared, ...raw, ...source };
+}
+
+function preparedSkillRow(row, actor, customEditors) {
+  return {
+    ...row,
+    effectiveModifier: actor.system.skills?.[row.id]?.modifier,
+    hasEffectiveModifier: (actor.system.skills?.[row.id]?.modifier ?? 0) !== (row.modifier ?? 0),
+    isSpecialization: row.kind === "specialization",
+    isSkill: row.kind !== "specialization",
+    skillDiceOptions: diceOptions("skill", String(row.dice ?? ""), customEditors.has(row.id)),
+    specializationDiceOptions: diceOptions("specialization", String(row.dice ?? ""), customEditors.has(row.id)),
+    hasCustomDice: customEditors.has(row.id) ||
+      (!!row.dice && !DICE_PRESETS[row.kind === "specialization" ? "specialization" : "skill"].includes(row.dice)),
+    hasLegacyValue: row.value !== null && row.value !== undefined
+  };
+}
+
 
 function numberFromInput(raw, integer = false) {
   const value = raw.trim();
@@ -164,7 +193,9 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!VALID_ROW_ID.test(id ?? "")) return;
     await this._writeQueue;
     if (this._failedFields.size) return ui.notifications?.warn(localized("Hints.unsavedRoll"));
-    const entry = this.actor.system.skills?.[id];
+    const standard = BASIC_SKILLS_BY_ROW_ID.get(id);
+    const entry = this.actor.system.skills?.[id] ?? storedSkills(this.actor)[id] ??
+      (standard ? standardSkillEntry(standard) : null);
     if (!entry) return;
     try {
       await postRoll({
@@ -195,13 +226,8 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     await this._queueWrite(async () => {
       const [effect] = await this.actor.createEmbeddedDocuments("ActiveEffect", [{
-        name: localized("Actions.createEffect"), type: "base", disabled: false,
-        // Foundry v14 ActiveEffect V2 stores changes in system.changes, not
-        // the removed v13 root changes array. Use the core initial phase so
-        // prepared Actor fields receive the modifier before checks roll.
-        system: { changes: [{
-          key: target, type: "add", value: String(numeric.value), phase: "initial"
-        }] }
+        name: localized("Actions.createEffect"), disabled: false,
+        changes: [{ key: target, type: "add", value: String(numeric.value) }]
       }]);
       if (effect) await effect.sheet?.render({ force: true });
     });
@@ -308,7 +334,8 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _removeRow(collection, id) {
     if (!this.isEditable || !(collection in ROW_FIELDS) || !VALID_ROW_ID.test(id ?? "")) return;
     await this._queueWrite(async () => {
-      if (!Object.hasOwn(this.actor.system[collection] ?? {}, id)) return;
+      const source = this.actor._source?.system?.[collection] ?? this.actor.toObject?.(true)?.system?.[collection] ?? {};
+      if (!Object.hasOwn(this.actor.system[collection] ?? {}, id) && !Object.hasOwn(source, id)) return;
       // Foundry v14's supported deletion operator (not the legacy -=key).
       await this.actor.update({ ["system." + collection + "." + id]: globalThis._del });
     });
@@ -352,7 +379,22 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     control.setCustomValidity?.("");
     const fieldKey = "system." + collection + "." + id + "." + field;
     void this._queueWrite(async () => {
-      if (!Object.hasOwn(this.actor.system[collection] ?? {}, id)) return;
+      if (!Object.hasOwn(this.actor.system[collection] ?? {}, id)) {
+        const source = this.actor._source?.system?.[collection] ?? this.actor.toObject?.(true)?.system?.[collection] ?? {};
+        if (Object.hasOwn(source, id)) {
+          // The prepared model can be temporarily incomplete after loading.
+          // Preserve and update the existing persisted row, never overwrite it.
+          return this.actor.update({ [fieldKey]: parsed.value });
+        }
+        // For pre-v0.1.9 characters, a missing standard entry is displayed
+        // virtually; the first edit creates exactly that entry, without
+        // replacing any other skill (including those on other clients).
+        const standard = collection === "skills" ? BASIC_SKILLS_BY_ROW_ID.get(id) : null;
+        if (!standard) return;
+        return this.actor.update({ ["system.skills." + id]: {
+          ...standardSkillEntry(standard), [field]: parsed.value
+        } });
+      }
       return this.actor.update({ [fieldKey]: parsed.value });
     }, fieldKey).catch(() => {});
   }
@@ -456,6 +498,17 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       missing: !!slot.itemId && !allIDs.has(slot.itemId),
       choices: items.map(item => ({ id: item.id, name: item.name, selected: item.id === slot.itemId }))
     }));
+    const completeSkills = storedSkills(actor);
+    // Diagnostics only: if source has records that the prepared model missed,
+    // show them from the source and report the mismatch once per sheet.
+    const missingPrepared = Object.keys(completeSkills).filter(id =>
+      !Object.hasOwn(actor.system.skills ?? {}, id));
+    if (missingPrepared.length && !this._reportedMissingPreparedSkills) {
+      this._reportedMissingPreparedSkills = true;
+      console.warn("Fast NRI | Actor skill data mismatch after preparation", {
+        actorId: actor.id, missingPrepared
+      });
+    }
     const tab = TAB_IDS.has(this._selectedTab) ? this._selectedTab : "overview";
     return {
       ...context,
@@ -481,22 +534,23 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
         ...["partial", "success", "great"].map(field => ({ key: "system.ac." + field, name: localized("Fields." + field) })),
         ...["awareness", "reflex", "fortitude", "will"].map(field => ({ key: "system.defenses." + field, name: localized("Fields." + field) })),
         ...(actor.type === "npc" ? [{ key: "system.attackModifier", name: localized("Fields.attackModifier") }] : []),
-        ...rowsOf(base.skills).filter(row => VALID_ROW_ID.test(row.id)).map(row => ({
+        ...rowsOf(completeSkills).filter(row => VALID_ROW_ID.test(row.id)).map(row => ({
           key: `system.skills.${row.id}.modifier`, name: (row.name || localized("Fields.skill")) + " · " + localized("Fields.checkModifier")
         }))
       ],
-      skillRows: rowsOf(base.skills).map(row => ({
-        effectiveModifier: actor.system.skills?.[row.id]?.modifier,
-        hasEffectiveModifier: (actor.system.skills?.[row.id]?.modifier ?? 0) !== (row.modifier ?? 0),
-        ...row,
-        isSpecialization: row.kind === "specialization",
-        isSkill: row.kind !== "specialization",
-        skillDiceOptions: diceOptions("skill", String(row.dice ?? ""), this._customDiceEditors.has(row.id)),
-        specializationDiceOptions: diceOptions("specialization", String(row.dice ?? ""), this._customDiceEditors.has(row.id)),
-        hasCustomDice: this._customDiceEditors.has(row.id) ||
-          (!!row.dice && !DICE_PRESETS[row.kind === "specialization" ? "specialization" : "skill"].includes(row.dice)),
-        hasLegacyValue: row.value !== null && row.value !== undefined
+      catalogGroups: SKILL_GROUPS.map(group => ({
+        id: group, name: localized("SkillGroups." + group),
+        rows: BASIC_SKILLS.filter(skill => skill.group === group).map(skill => {
+          const id = "core_" + skill.id;
+          const current = completeSkills[id] ?? standardSkillEntry(skill);
+          // Standard catalogue identity is authoritative, but the assigned
+          // formula and modifier always belong to this Actor's own record.
+          return preparedSkillRow({ ...current, name: skill.name, id,
+            description: skill.description, standard: true }, actor, this._customDiceEditors);
+        })
       })),
+      skillRows: rowsOf(completeSkills).filter(row => !BASIC_SKILLS_BY_ROW_ID.has(row.id))
+        .map(row => preparedSkillRow(row, actor, this._customDiceEditors)),
       resourceRows: rowsOf(base.resources)
     };
   }
@@ -540,8 +594,7 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (!this.isEditable) return;
     try {
       const [effect] = await this.item.createEmbeddedDocuments("ActiveEffect", [{
-        name: localized("Actions.createEffect"), type: "base", disabled: false,
-        transfer: false, system: { changes: [] }
+        name: localized("Actions.createEffect"), disabled: false, transfer: false, changes: []
       }]);
       if (effect) await effect.sheet?.render({ force: true });
     } catch (error) {

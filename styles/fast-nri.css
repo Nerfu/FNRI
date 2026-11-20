@@ -146,3 +146,15 @@
 .fast-nri-v14.fast-nri-sheet [data-fnri-dice-picker][hidden],
 .fast-nri-v14.fast-nri-sheet [data-fnri-custom-dice][hidden] { display: none !important; }
 .fast-nri-v14.fast-nri-sheet .fnri-custom-dice:not([hidden]) { margin-top: 4px; }
+
+/* Verified Rulebook catalogue: available separately from user-made checks. */
+.fast-nri-v14.fast-nri-sheet .fnri-skill-group-heading { font-size: .87rem; font-weight: 600; margin: 12px 0 6px; border-bottom: 1px solid var(--color-border-light-tertiary, #8886); padding-bottom: 3px; }
+.fast-nri-v14.fast-nri-sheet .fnri-skill-group-heading:first-child { margin-top: 5px; }
+.fast-nri-v14.fast-nri-sheet .fnri-core-skill-row { grid-template-columns: minmax(120px,1.3fr) minmax(120px,1fr) minmax(76px,.55fr) 35px; }
+.fast-nri-v14.fast-nri-sheet .fnri-core-skill-name { align-self: center; font-size: .85rem; overflow-wrap: anywhere; }
+.fast-nri-v14.fast-nri-sheet .fnri-custom-heading { margin-top: 17px; }
+@media (max-width: 550px) { 
+ .fast-nri-v14.fast-nri-sheet .fnri-core-skill-row { grid-template-columns: minmax(95px,1fr) minmax(105px,1fr) 35px; }
+ .fast-nri-v14.fast-nri-sheet .fnri-core-skill-row > label:nth-child(3) { grid-column: 1 / 3; grid-row: 2; }
+ .fast-nri-v14.fast-nri-sheet .fnri-core-skill-row > button { grid-column: 3; grid-row: 1; }
+}
