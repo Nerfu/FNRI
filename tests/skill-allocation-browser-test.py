@@ -40,7 +40,7 @@ with sync_playwright() as p:
    window.choose=()=>{window.pending=sheetActions.chooseTradition.call(sheet);};
   }''')
   page.evaluate('choose()')
-  page.get_by_role('button',name='Мистика').click()
+  page.get_by_role('button',name='Мистицизм').click()
   page.evaluate('pending')
   assert page.evaluate('raw.classTradition')=='mysticism'
   assert page.evaluate('actor.system.skills.core_mysticism.dice')=='1d10'

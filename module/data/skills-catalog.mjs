@@ -1,4 +1,4 @@
-/** Verified Basic Skills from Fast NRI Rulebook 7.0.
+/** Basic Skills for Fast NRI 7.0 (0.2.0.2 development catalogue).
  * Temporary built-in catalogue until selectable external content JSON exists.
  * A catalogue entry is a template; an Actor owns its own copied skill record.
  */
@@ -25,20 +25,8 @@ export const BASIC_SKILLS = Object.freeze(
   {
     "id": "sleight_of_hand",
     "name": "Ловкость рук",
-    "group": "physical",
+    "group": "practical",
     "description": "Карманные кражи, замки, ловушки, тонкая работа пальцами и незаметные манипуляции с небольшими предметами."
-  },
-  {
-    "id": "survival",
-    "name": "Выживание",
-    "group": "practical",
-    "description": "Ориентирование, чтение следов, поиск пути и припасов, устройство лагеря, знание погоды и безопасное путешествие по дикой местности."
-  },
-  {
-    "id": "medicine",
-    "name": "Медицина",
-    "group": "practical",
-    "description": "Диагностика ран и болезней, Первая помощь, уход за пострадавшими и иные медицинские действия, предусмотренные конкретными правилами."
   },
   {
     "id": "craft",
@@ -47,28 +35,46 @@ export const BASIC_SKILLS = Object.freeze(
     "description": "Изготовление, ремонт и оценка предметов, работа с инструментами, механизмами, материалами и техническими устройствами."
   },
   {
+    "id": "medicine",
+    "name": "Медицина",
+    "group": "practical",
+    "description": "Диагностика ран и болезней, Первая помощь, уход за пострадавшими и иные медицинские действия, предусмотренные конкретными правилами."
+  },
+  {
+    "id": "survival",
+    "name": "Выживание",
+    "group": "field",
+    "description": "Ориентирование, чтение следов, поиск пути и припасов, устройство лагеря, знание погоды и безопасное путешествие по дикой местности."
+  },
+  {
+    "id": "perception",
+    "name": "Восприятие",
+    "group": "field",
+    "description": "Замечать признаки присутствия, скрытые детали и угрозы, наблюдать за окружением."
+  },
+  {
     "id": "nature",
     "name": "Природа",
-    "group": "magical",
+    "group": "field",
     "description": "Стихии и природные явления, интуитивная связь с живым миром, животные и растения, природные духи и манипуляции жизненной силой."
-  },
-  {
-    "id": "religion",
-    "name": "Религия",
-    "group": "magical",
-    "description": "Боги и покровители, священные обряды, культы, благословения и проклятия, души, посмертие, небесные и нечестивые существа."
-  },
-  {
-    "id": "mysticism",
-    "name": "Мистика",
-    "group": "magical",
-    "description": "Непознанное и оккультное, сны и видения, чуждые сущности, эмоции, память, восприятие и манипуляции сознанием."
   },
   {
     "id": "arcana",
     "name": "Аркана",
     "group": "magical",
     "description": "Магические формулы и руны, устройство заклинаний и артефактов, управление энергией, температурой и материей."
+  },
+  {
+    "id": "mysticism",
+    "name": "Мистицизм",
+    "group": "magical",
+    "description": "Непознанное и оккультное, сны и видения, чуждые сущности, эмоции, память, восприятие и манипуляции сознанием."
+  },
+  {
+    "id": "religion",
+    "name": "Религия",
+    "group": "magical",
+    "description": "Боги и покровители, священные обряды, культы, благословения и проклятия, души, посмертие, небесные и нечестивые существа."
   },
   {
     "id": "society",
@@ -96,7 +102,7 @@ export const BASIC_SKILLS = Object.freeze(
   }
 ].map(skill => Object.freeze(skill)));
 
-export const SKILL_GROUPS = Object.freeze(["physical", "practical", "magical", "social"]);
+export const SKILL_GROUPS = Object.freeze(["physical", "practical", "field", "magical", "social"]);
 export const BASIC_SKILLS_BY_ROW_ID = new Map(BASIC_SKILLS.map(skill => [`core_${skill.id}`, skill]));
 
 export function standardSkillEntry(skill) {

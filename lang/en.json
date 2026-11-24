@@ -383,8 +383,9 @@
       "journal": "Journal"
     },
     "SkillGroups": {
-      "physical": "Physical and Stealth",
+      "physical": "Physical",
       "practical": "Practical",
+      "field": "Field",
       "magical": "Magical",
       "social": "Social"
     },
