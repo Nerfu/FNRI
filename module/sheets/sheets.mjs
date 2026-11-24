@@ -53,7 +53,7 @@ const ACTOR_PARTIALS = Object.fromEntries(['actor-actions', 'actor-standard-acti
   .map(id => [`fnri-${id}`, `systems/${SYSTEM_ID}/templates/${id}.hbs`]));
 const ITEM_TYPES = new Set(["weapon", "armor", "gear", "ability"]);
 const ROW_FIELDS = {
-  skills: new Set(["name", "kind", "dice", "modifier", "value"]),
+  skills: new Set(["name", "kind", "group", "dice", "modifier", "value"]),
   resources: new Set(["name", "current", "max"]),
   equipmentSlots: new Set(["name", "itemId"])
 };
@@ -67,7 +67,7 @@ const VALID_ROW_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const DICE_CUSTOM = "__custom__"; // UI-only sentinel; never persisted to Actor data.
 const DICE_PRESETS = Object.freeze({
   skill: ["1d4", "1d6", "1d8", "1d10", "1d12"],
-  specialization: ["2d6", "2d4"]
+  specialization: ["1d6", "1d4", "1d8", "1d10", "1d12"]
 });
 
 function diceOptions(kind, current, customEditing = false) {
@@ -78,8 +78,7 @@ function diceOptions(kind, current, customEditing = false) {
     (available.includes(current) ? current : (current ? DICE_CUSTOM : ""));
   const result = [{ value: "", label: localized("Fields.noDice"), selected: selected === "" }];
   for (const value of available) {
-    const label = kind === "skill" ? value.slice(1) :
-      localized(value === "2d6" ? "Fields.primarySpecialization" : "Fields.secondarySpecialization");
+    const label = value.slice(1);
     result.push({ value, label, selected: selected === value });
   }
   result.push({ value: DICE_CUSTOM, label: localized("Fields.customDice"), selected: selected === DICE_CUSTOM });

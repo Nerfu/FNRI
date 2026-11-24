@@ -112,7 +112,7 @@ function customRows(raw, kind) {
         <option value="skill"${kind === 'skill' ? ' selected' : ''}>${esc(loc('Fields.skill'))}</option>
         <option value="specialization"${kind === 'specialization' ? ' selected' : ''}>${esc(loc('Fields.specialization'))}</option>
       </select>
-      ${customDiceButtons(id, kind === 'specialization' ? ['2d6', '2d4'] : faces.map(face => '1d' + face), skill.dice)}
+      ${customDiceButtons(id, faces.map(face => '1d' + face), skill.dice)}
       ${input(id, 'dice', skill.dice, loc('Fields.dice'))}
       ${input(id, 'modifier', skill.modifier, loc('Fields.checkModifier'))}
       ${button('remove', '×', `data-id="${esc(id)}" aria-label="${esc(loc('Actions.removeSkill'))}"`)}

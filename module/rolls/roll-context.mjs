@@ -1,3 +1,4 @@
+import {specializationEntries,preparedSpecializationEntry} from '../data/specializations.mjs';
 import {cardContributionEntry,buildRollContributionCatalog,ruleComponents,nonStackingSelections,roleContributionEntry} from './roll-contributions.mjs';
 import {weaponTraitEntry,weaponTraitOptions} from '../equipment/weapon-traits.mjs';
 import {abilityAccountingStatus,finishCardAccounting} from '../data/ability-accounting.mjs';
@@ -259,8 +260,12 @@ function sourceComponent(entry, part, i, j) {
 }
 
 export function renderRollPreparation(effects, {label='',formula='',spatialInfo=null} = {}) {
-  const groups=new Map(),hindrances=new Map(),other=[];
+  const groups=new Map(),hindrances=new Map(),other=[],specializations=[];
   for(const [i,entry] of effects.entries())for(const [j,part] of entry.parts.entries()){
+    if(entry.sourceType==='specialization') {
+      specializations.push(sourceComponent(entry,part,i,j));
+      continue;
+    }
     const group=part.nonStackingGroup;
     if(group==='hindrance' && part.kind==='modifier'){
       const penalty=Number(part.value);
@@ -308,7 +313,7 @@ export function renderRollPreparation(effects, {label='',formula='',spatialInfo=
       `Строй: ${safe(spatialInfo.formation.formation)}`+
       `${spatialInfo.formation.surrounded?' · Цель окружена':''}`+
       `${spatialInfo.formation.uncertain?' · Стороны неизвестны':''}</small></div>` : '')+
-    `<div class="fnri-preroll-effects">${penaltyGroup}${otherGroups}${rows}</div>`+
+    `<div class="fnri-preroll-effects">${specializations.length?`<div class="fnri-preroll-entry fnri-preroll-group"><strong class="fnri-preroll-source">${safe(pr('specializations'))}</strong>${specializations.join('')}</div>`:''}${penaltyGroup}${otherGroups}${rows}</div>`+
     `<div class="fnri-preroll-manual"><div class="fnri-preroll-manual-head">`+
       `<strong>${safe(pr('extra'))}</strong>`+
       `<button type="button" data-fnri-add-manual>+ ${safe(pr('add'))}</button></div>`+
@@ -351,6 +356,7 @@ export async function computeRollPreview({actor=null, available=[], selected=ava
   const rollActor = await actorWithoutEffects(actor, excluded, partial);
   const base = formulaForActor ? String(formulaForActor(rollActor) ?? '') : String(formula ?? '');
   selected=selected.flatMap(entry=>{
+    if(entry.specializationId)return [preparedSpecializationEntry(entry,rollActor)].filter(row=>selectedRollParts(row).length);
     if(!entry.combatMasterItem)return [entry];
     const step=combatDieStep(rollActor,base);
     return step?[{...entry,parts:entry.parts.map(part=>({...part,...step}))}]:[];
@@ -607,7 +613,8 @@ export async function prepareRoll({actor = null, kind, skillId = null, defenseSt
     String(attackProperties??'').toLowerCase().includes('area');
   const isAttack=kind==='attack';
   const directed=isAttack && !area;
-  const available = [...applicableRollContributions(actor,{kind,skillId,defenseStat,formula,sourceItem,weaponItem,attackKind,usesCombatDie}),
+  const available = [...(kind==='skill' ? specializationEntries(actor,skillId) : []),
+    ...applicableRollContributions(actor,{kind,skillId,defenseStat,formula,sourceItem,weaponItem,attackKind,usesCombatDie}),
     ...(Array.isArray(prerollEntries) ? prerollEntries : []),
     ...(directed && Array.isArray(extraEntries) ? extraEntries : []),
     ...(directed ? targetHindranceEntries({attacker:actor,target:targetActor,targetToken,area}) : []),
@@ -622,7 +629,7 @@ export async function prepareRoll({actor = null, kind, skillId = null, defenseSt
   return { actor: rollActor, expression, selected,
     hindrance:hindranceSummary(selected),
     manual,contributions:buildRollContributionCatalog({actor,sourceItem,formula,
-      available:available.map(entry=>entry.combatMasterItem?(selected.find(row=>row.uuid===entry.uuid)??entry):entry),selected,manual}),
+      available:available.map(entry=>entry.combatMasterItem||entry.specializationId?(selected.find(row=>row.uuid===entry.uuid)??entry):entry),selected,manual}),
     snapshot:[...selected.map(x=>({uuid:x.uuid,name:x.name,sourceType:x.sourceType??'effect',native:x.native,
       nativeChanges:selectedRollParts(x).filter(p=>p.kind==='native'),
       components:selectedRollParts(x).map(({id,kind,key,value,type,from,to,nonStackingGroup})=>

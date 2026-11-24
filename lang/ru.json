@@ -102,8 +102,8 @@
       "effective": "Итог",
       "noDice": "— Без куба —",
       "customDice": "Своя формула…",
-      "primarySpecialization": "Основная — 2d6",
-      "secondarySpecialization": "Дополнительная — 2d4",
+      "primarySpecialization": "Основная — 1d6",
+      "secondarySpecialization": "Дополнительная — 1d4",
       "acShort": "КЗ",
       "skillFilter": "Показать",
       "skillAll": "Все",
@@ -689,6 +689,7 @@
       "FormulaPartialFailure": "Некоторые формулы эффекта не рассчитаны; их предыдущие значения сохранены. Откройте редактор эффекта."
     },
     "Preroll": {
+      "specializations": "Специализации",
       "title": "Подготовка броска",
       "total": "Итоговая формула",
       "extra": "Дополнительные компоненты",

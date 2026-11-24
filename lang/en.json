@@ -102,8 +102,8 @@
       "effective": "Effective",
       "noDice": "— No dice —",
       "customDice": "Custom formula…",
-      "primarySpecialization": "Primary — 2d6",
-      "secondarySpecialization": "Secondary — 2d4",
+      "primarySpecialization": "Primary — 1d6",
+      "secondarySpecialization": "Secondary — 1d4",
       "acShort": "AC",
       "skillFilter": "Show",
       "skillAll": "All",
@@ -689,6 +689,7 @@
       "FormulaPartialFailure": "Some effect formulas could not be evaluated; previous values were preserved. Open the effect editor."
     },
     "Preroll": {
+      "specializations": "Specializations",
       "title": "Prepare roll",
       "total": "Final formula",
       "extra": "Additional components",

@@ -112,7 +112,7 @@ export function standardSkillEntry(skill) {
 export function initialSkillEntries() {
   return {
     ...Object.fromEntries(BASIC_SKILLS.map(skill => [`core_${skill.id}`, standardSkillEntry(skill)])),
-    starter_primary: { name: "", kind: "specialization", catalogId: "", dice: "2d6", modifier: null, value: null },
-    starter_secondary: { name: "", kind: "specialization", catalogId: "", dice: "2d4", modifier: null, value: null }
+    starter_primary: { name: "", kind: "specialization", catalogId: "", dice: "1d6", modifier: null, value: null },
+    starter_secondary: { name: "", kind: "specialization", catalogId: "", dice: "1d4", modifier: null, value: null }
   };
 }

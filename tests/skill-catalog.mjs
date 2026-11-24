@@ -39,4 +39,6 @@ assert.equal(BASIC_SKILLS_BY_ROW_ID.get('core_perception').name, 'Восприя
 const entries = initialSkillEntries();
 assert.equal(Object.keys(entries).filter(id => id.startsWith('core_')).length, 16);
 for (const skill of BASIC_SKILLS) assert.equal(entries['core_' + skill.id].catalogId, skill.id);
+assert.equal(entries.starter_primary.dice, '1d6');
+assert.equal(entries.starter_secondary.dice, '1d4');
 console.log('PASS: five skill groups, 16 skills and stable catalogue IDs');
