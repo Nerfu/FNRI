@@ -708,45 +708,16 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fnri-button-choices > button { width: 100%; height: auto; min-height: 30px; white-space: normal; text-align: left; justify-content: flex-start; }
 .fnri-button-choices > button[aria-pressed="true"] { outline: 2px solid var(--color-warm-2, #b98538); outline-offset: -2px; font-weight: bold; }
 
-/* PC editor: persistent quick controls and independent skill window. */
+/* PC editor: persistent quick controls. */
 .fast-nri-v14.fast-nri-sheet .fnri-character-edit { width:auto; flex:0 0 auto; font-size:.78rem; }
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs label { display:flex; flex-direction:row; align-items:center; gap:5px; justify-content:center; }
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs input { width:72px; min-width:0; text-align:center; }
-.fnri-skill-editor { display: grid; gap: 9px; min-width: 0; }
-.fnri-skill-edit-body { display: grid; gap: 9px; min-width: 0; max-height: 60vh; overflow: auto; padding-inline-end: 3px; }
-.fnri-skill-editor h3 { margin: 0; }
-.fnri-skill-edit-toolbar, .fnri-skill-edit-option {
-  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-}
-.fnri-skill-edit-toolbar > button { margin-inline-start: auto; }
-.fnri-skill-edit-pool, .fnri-skill-edit-dice { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
-.fnri-skill-edit-pool > span { padding: 2px 5px; border: 1px solid var(--color-border-light-tertiary, #8886); border-radius: 4px; }
-.fnri-skill-upgrades { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 6px; }
-.fnri-skill-upgrade { display: grid; gap: 3px; min-width: 0; }
-.fnri-skill-editor :is(.fnri-skill-edit-row, .fnri-skill-edit-head) {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 8.5rem) 3.25rem; gap: 6px; align-items: center;
-}
-.fnri-skill-edit-row { padding: 4px 0; border-block-end: 1px solid var(--color-border-light-tertiary, #8886); }
-.fnri-skill-edit-head { font-size: .75rem; opacity: .8; }
-.fnri-skill-edit-row select { text-overflow: ellipsis; }
-.fnri-skill-edit-group h3 { padding-bottom: 3px; }
-.fnri-skill-edit-row small { display: block; font-size: .75rem; overflow-wrap: anywhere; }
-.fnri-skill-edit-dice button { flex: 1 1 auto; padding: 0 3px; margin: 0; }
-.fnri-skill-edit-dice button[aria-pressed="true"] { background: var(--color-warm-2, #9a762c); color: white; }
-.fnri-skill-edit-formula { grid-column: 1 / -1; display: grid; gap: 3px; font-size: .85rem; }
-.fnri-skill-edit-custom-group { display: grid; gap: 5px; }
-.fnri-skill-edit-custom-group > button { justify-self: start; }
-.fnri-skill-editor .fnri-skill-edit-custom {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) 3.5rem 3.25rem 1.7rem;
-  gap: 4px; align-items: center;
-}
-.fnri-skill-editor input, .fnri-skill-editor select { min-width: 0; max-width: 100%; }
-@media (max-width: 520px) {
-  .fnri-skill-editor :is(.fnri-skill-edit-row, .fnri-skill-edit-head) { grid-template-columns: minmax(0, 1fr) minmax(0, 7rem) 2.5rem; }
-  .fnri-skill-editor .fnri-skill-edit-custom { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 2.5rem; }
-}
-
+/* Inline skill allocation, within the sheet's existing scroll container. */
+.fnri-skill-edit-toolbar,.fnri-skill-edit-option {display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0;}
+.fnri-skill-edit-toolbar > button {margin-inline-start:auto;}
+.fnri-skill-edit-pool {display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.fnri-skill-edit-pool > span {padding:5px 9px;font-size:1.05rem;font-weight:600;border:1px solid var(--color-border-light-tertiary,#8886);border-radius:4px;}
 /* Local configuration lock: keep the geometry; no alternate sheet layout. */
 .fast-nri-v14.fast-nri-actor .fnri-config-locked input[data-fnri-lock-disabled],
 .fast-nri-v14.fast-nri-actor.fnri-config-locked input[data-fnri-lock-disabled] { opacity: 1; background: transparent; box-shadow: none; }
@@ -758,12 +729,21 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fnri-skill-distribution > h4 { margin: 8px 0 3px; font-size: .85rem; }
 .fnri-skill-distribution > ul { margin: 0 0 6px; padding-inline-start: 18px; }
 
-/* Compact grouped specialization rows, one die control per row. */
-.fnri-skill-editor .fnri-group-specializations { margin-top: 8px; padding: 6px 0 2px 9px; border-inline-start: 1px solid var(--color-border-light-tertiary,#8886); }
-.fnri-skill-editor .fnri-group-specializations h4 { margin: 0; font-size: .82rem; opacity: .85; }
-.fnri-skill-editor .fnri-skill-edit-custom-compact { grid-template-columns: minmax(0,1fr) minmax(0,7rem) 2.5rem 1.75rem; align-items: start; }
-.fnri-skill-editor .fnri-skill-custom-identity { display: grid; min-width: 0; gap: 3px; }
-.fnri-skill-editor .fnri-skill-edit-pool > span { font-size: 1.05rem; font-weight: 600; padding: 5px 9px; }
-.fnri-skill-editor .fnri-skill-distribution-warnings > small { display: block; }
-
+/* One row, with a compact read view and controls sharing the same cells. */
+.fast-nri-sheet .fnri-skill-read-only {display:none;}
+.fast-nri-sheet.fnri-config-locked .fnri-skill-read-only {display:revert;}
+.fast-nri-sheet.fnri-config-locked .fnri-skill-edit-only {display:none!important;}
+.fast-nri-sheet [data-fnri-panel="skills"] .fnri-skill-cell {min-width:0;overflow-wrap:anywhere;}
+.fast-nri-sheet [data-fnri-panel="skills"] .fnri-skill-cell input,.fast-nri-sheet [data-fnri-panel="skills"] .fnri-skill-cell select {min-width:0;width:100%;font-size:.83rem;text-overflow:ellipsis;}
+.fast-nri-sheet .fnri-core-skill-name small {display:block;font-size:.72rem;overflow-wrap:anywhere;}
+.fast-nri-sheet [data-fnri-panel="skills"] .fnri-skill-row > button {grid-column:4;grid-row:1;justify-self:end;}
+.fast-nri-sheet .fnri-skill-row-actions {display:flex;gap:3px;justify-content:flex-end;}
+.fast-nri-sheet .fnri-skill-row-actions button {width:29px;height:27px;padding:0;}
+.fast-nri-sheet .fnri-skill-distribution-warnings > small {display:block;}
+.fast-nri-sheet .fnri-group-specializations-list:empty {display:none;}
+.fast-nri-sheet.fnri-config-locked .fnri-group-specializations-list:not(:has([data-fnri-skill-entry])) {display:none;}
+.fast-nri-v14.fast-nri-sheet .fnri-skill-group-toggle {padding:3px 6px;font-size:.82rem;}
 .fast-nri-v14.fast-nri-sheet .fnri-group-specializations-list { display: grid; gap: 4px; margin-top: 5px; padding-inline-start: 8px; border-inline-start: 1px solid var(--color-border-light-tertiary,#8886); }
+
+.fast-nri-v14.fast-nri-sheet [data-fnri-panel="skills"] :is(.fnri-skill-row,.fnri-skill-column-head) {grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.65fr) 64px;gap:5px;}
+.fast-nri-sheet [data-fnri-panel="skills"] [hidden] {display:none!important;}

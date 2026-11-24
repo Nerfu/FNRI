@@ -166,7 +166,8 @@
 {{> fnri-actor-short-rest}}
 </div>
 {{> fnri-actor-actions}}
-<div class="fnri-tab-content" data-fnri-panel="skills" {{#unless tabs.skills}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.skills"}}</h3><div class="fnri-row-head"><label class="fnri-skill-filter">{{localize "FASTNRI.Fields.skillFilter"}}<select data-fnri-skill-filter><option value="all" {{#unless skillFilterAssigned}}selected{{/unless}}>{{localize "FASTNRI.Fields.skillAll"}}</option><option value="assigned" {{#if skillFilterAssigned}}selected{{/if}}>{{localize "FASTNRI.Fields.skillAssigned"}}</option></select></label>{{#if editable}}<button type="button" data-action="openSkillEditor">{{localize "FASTNRI.CharacterEditor.skills"}}</button>{{/if}}</div>
+<div class="fnri-tab-content" data-fnri-panel="skills" {{#unless tabs.skills}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.skills"}}</h3><div class="fnri-row-head"><label class="fnri-skill-filter fnri-skill-read-only">{{localize "FASTNRI.Fields.skillFilter"}}<select data-fnri-skill-filter><option value="all" {{#unless skillFilterAssigned}}selected{{/unless}}>{{localize "FASTNRI.Fields.skillAll"}}</option><option value="assigned" {{#if skillFilterAssigned}}selected{{/if}}>{{localize "FASTNRI.Fields.skillAssigned"}}</option></select></label></div>{{#if skillAllocation}}<div class="fnri-skill-edit-toolbar" data-fnri-lock-section>{{#if skillAllocation.showPool}}<strong>{{localize "FASTNRI.SkillAllocation.free"}}</strong><div class="fnri-skill-edit-pool" role="status">{{#each skillAllocation.free}}<span>d{{this.face}} × {{this.count}}</span>{{/each}}</div>{{/if}}<button type="button" data-action="resetSkillDice">{{localize "FASTNRI.SkillAllocation.reset"}}</button></div>{{/if}}
+  {{#if hasTradition}}<div class="fnri-skill-edit-option" data-fnri-lock-section>{{localize "FASTNRI.SkillAllocation.traditionLabel"}} <button type="button" data-action="chooseTradition">{{#if traditionName}}{{traditionName}}{{else}}{{localize "FASTNRI.CharacterChoice.choose"}}{{/if}}</button></div>{{/if}}
 <div class="fnri-core-skills">
  {{#each catalogGroups}}
  <div class="fnri-skill-group">
@@ -177,8 +178,8 @@
  {{#each this.rows}}
  {{> fnri-actor-core-skill}}
  {{/each}}
- {{#if this.specializations}}<div class="fnri-group-specializations-list"><small>{{localize "FASTNRI.Fields.specialization"}}</small>
- {{#each this.specializations}}{{> fnri-actor-custom-skill}}{{/each}}</div>{{/if}}
+ <div class="fnri-group-specializations-list">{{#if this.specializations}}<small>{{localize "FASTNRI.Fields.specialization"}}</small>{{/if}}
+ {{#each this.specializations}}{{> fnri-actor-custom-skill}}{{/each}}{{#if @root.editable}}<button type="button" data-action="addSpecialization" data-group="{{this.id}}">{{localize "FASTNRI.Actions.addSpecialization"}}</button>{{/if}}</div>
  </div>
  </div></div>
  {{/each}}
@@ -186,10 +187,13 @@
  <div class="fnri-skill-group fnri-custom-group">
  <button type="button" class="fnri-skill-group-toggle" data-action="toggleSkillGroup" data-group="custom" aria-expanded="{{#if customGroupExpanded}}true{{else}}false{{/if}}">{{localize "FASTNRI.Sections.customChecks"}}</button>
  <div data-fnri-skill-group-content="custom" {{#unless customGroupExpanded}}hidden{{/unless}}>
- <div class="fnri-skill-column-head fnri-custom-head" aria-hidden="true"><span>{{localize "FASTNRI.Fields.name"}}</span><span>{{localize "FASTNRI.Fields.checkKind"}}</span><span>{{localize "FASTNRI.Fields.dice"}}</span><span>{{localize "FASTNRI.Fields.checkModifier"}}</span><span></span><span></span></div>
+ <div class="fnri-skill-column-head fnri-custom-head" aria-hidden="true"><span>{{localize "FASTNRI.Fields.name"}}</span><span>{{localize "FASTNRI.Fields.dice"}}</span><span>{{localize "FASTNRI.Fields.checkModifier"}}</span><span></span></div>
  <div class="fnri-stack">{{#each skillRows}}
 {{> fnri-actor-custom-skill}}
-{{/each}}</div></div></div></section></div>
+{{/each}}{{#if editable}}<button type="button" data-action="addSkill">{{localize "FASTNRI.Actions.addSkill"}}</button>{{/if}}</div></div></div>{{#if skillAllocation}}<details class="fnri-skill-distribution" data-fnri-lock-section data-allocation-complete="{{skillAllocation.complete}}" {{#unless skillAllocation.complete}}open{{/unless}}><summary>{{localize "FASTNRI.SkillAllocation.distributionSummary"}}</summary>
+  {{#if skillAllocation.sources}}<h4>{{localize "FASTNRI.SkillAllocation.distributionDice"}}</h4><ul>{{#each skillAllocation.sources}}<li>{{this}}</li>{{/each}}</ul>{{/if}}
+  {{#if skillAllocation.upgrades}}<h4>{{localize "FASTNRI.SkillAllocation.distributionUpgrades"}}</h4><ul>{{#each skillAllocation.upgrades}}<li>{{this}}</li>{{/each}}</ul>{{/if}}
+  {{#if skillAllocation.warnings}}<h4>{{localize "FASTNRI.SkillAllocation.distributionDeviations"}}</h4><div class="fnri-skill-distribution-warnings">{{#each skillAllocation.warnings}}<small class="fnri-racial-warning">{{this}}</small>{{/each}}</div>{{/if}}</details>{{/if}}</section></div>
 <div class="fnri-tab-content" data-fnri-panel="abilities" {{#unless tabs.abilities}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.abilities"}}</h3><div class="fnri-row-head"><p class="fnri-muted">{{localize "FASTNRI.Hints.dropItems"}}</p>
 {{#if editable}}<button type="button" data-action="createItem" data-type="ability">{{localize "FASTNRI.Actions.createAbility"}}</button>{{/if}}</div><ul class="fnri-item-list">
 {{#if invocation}}

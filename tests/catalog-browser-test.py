@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
 for name in ('character','npc'):
     template=expand_actor_template(root,f'{name}.hbs')
-    for required in ('{{#each catalogGroups}}','{{#each this.rows}}','fnri-core-skill-name','data-fnri-dice-picker="skill"','data-row-field="modifier"','{{#each skillRows}}',('data-action="openSkillEditor"' if name=='character' else 'data-action="addSpecialization"')):
+    for required in ('{{#each catalogGroups}}','{{#each this.rows}}','fnri-core-skill-name','data-fnri-dice-picker="skill"','data-row-field="modifier"','{{#each skillRows}}','data-action="addSpecialization"'):
         assert required in template, (name,required)
 
 html='''<div id="sheet"><div id="skills">
@@ -58,8 +58,8 @@ with sync_playwright() as p:
           const ctx=await window.sheet._prepareContext({});
           return {count:ctx.catalogGroups.flatMap(x=>x.rows).length,custom:ctx.skillRows[0].name};
         }''')
-        assert result=={'count':15,'custom':'Свой'},result
+        assert result=={'count':16,'custom':'Свой'},result
         page.close()
     finally:
         browser.close()
-print('PASS: Chromium 15 Rulebook skills, source/prepared discrepancy, addressable dice/modifier edits, custom skill preserved')
+print('PASS: Chromium 16 Rulebook skills, source/prepared discrepancy, addressable dice/modifier edits, custom skill preserved')

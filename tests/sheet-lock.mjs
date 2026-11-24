@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {configurationControl,applySheetLock} from '../module/sheets/sheet-lock.mjs';
 const field=name=>({name,dataset:{},disabled:false});
 const action=action=>({dataset:{action},disabled:false});
-const current=field('system.hp.current'), max=field('system.hp.max'), roll=action('rollSkill'), skill=action('openSkillEditor'), equip=action('toggleEquipment'), resource=action('adjustResource');
+const current=field('system.hp.current'), max=field('system.hp.max'), roll=action('rollSkill'), skill=action('resetSkillDice'), equip=action('toggleEquipment'), resource=action('adjustResource');
 const readonly=field('system.speed');readonly.disabled=true;
 const add=action('addSkill'), addSpec=action('addSpecialization'), remove=action('removeSkill');
 const editorRemove={dataset:{skillAction:'remove'},disabled:false}, editorAdd={dataset:{skillAction:'addSpecialization'},disabled:false};

@@ -913,8 +913,6 @@
     "CharacterEditor": {
       "edit": "Edit character",
       "exit": "Exit editor",
-      "skills": "Edit skills",
-      "done": "Done",
       "base": "Base value",
       "potionBase": "Base potion limit",
       "sources": "Dice sources",

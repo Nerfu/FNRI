@@ -398,7 +398,7 @@ for(const path of ['templates/character.hbs','templates/npc.hbs']){
  assert.equal(html.match(/fnri-tab-content"/g).length,path.includes("character")?7:6);
  assert.ok(html.includes('data-action="toggleEquipment"'));
  assert.ok(html.includes('name="system.wealth"'));
- assert.ok(html.includes(path.includes('character')?'data-action="openSkillEditor"':'data-action="addSpecialization"'));
+ assert.ok(html.includes('data-action="addSpecialization"') && !html.includes('data-action="openSkillEditor"'));
  assert.ok(html.includes('data-action="rollSkill"'));
  assert.ok(html.includes('data-action="rollAbility"'));
  assert.ok(html.includes(path.includes('character')?'data-fnri-hp-math':'data-fnri-quick-hp'));
@@ -406,7 +406,7 @@ for(const path of ['templates/character.hbs','templates/npc.hbs']){
  assert.ok(html.includes('data-fnri-skill-filter'));
  assert.equal((html.match(/data-fnri-section=/g)||[]).length,7);
  assert.ok(html.includes('data-action="createEffect"'));
- assert.ok(path.includes('character')?html.includes('data-action="openSkillEditor"'):html.includes('data-row-field="dice"'));
+ assert.ok(html.includes('data-row-field="dice"'));
  assert.ok(html.includes('data-action="attackUnarmed"'));
  assert.ok(!html.includes('data-example='));
 }

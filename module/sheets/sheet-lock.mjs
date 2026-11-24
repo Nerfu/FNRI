@@ -1,7 +1,7 @@
 /** Local sheet protection, not a permission check or a game-rule restriction. */
 const CONFIG_ACTIONS = new Set([
   'chooseIdentity','chooseTradition','editRacialProperties','changeRacialSubproperty',
-  'openSkillEditor','resetSkillDice','addSkill','addSpecialization','removeSkill',
+  'resetSkillDice','addSkill','addSpecialization','removeSkill',
   'addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'
 ]);
 const SKILL_LIST_ACTIONS = new Set(['addSkill','addSpecialization','removeSkill','removeSpecialization']);

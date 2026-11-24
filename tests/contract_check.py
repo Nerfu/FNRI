@@ -63,20 +63,19 @@ for name in ('character','npc'):
     if name=='npc':
         assert 'data-row-collection="skills"' in custom
         assert 'data-row-field="dice"' in custom
-        assert 'data-fnri-dice-picker="skill"' in custom
-        assert 'data-fnri-dice-picker="specialization"' in custom
+        assert 'data-fnri-single-dice' in custom and 'data-fnri-dice-picker="{{this.diceKind}}"' in custom
         assert 'data-fnri-custom-dice' in custom
-        assert 'this.skillDiceOptions' in custom and 'this.specializationDiceOptions' in custom
+        assert 'this.diceOptions' in custom
         assert 'data-row-field="kind"' in custom
         assert 'data-action="addSpecialization"' in src
     else:
-        assert 'data-action="openSkillEditor"' in src and 'data-action="toggleCharacterEditor"' not in src
+        assert 'data-action="openSkillEditor"' not in src and 'data-action="toggleCharacterEditor"' not in src
         assert src.count("data-fnri-hp-math")==2
         assert 'data-resource="hpCurrent"' not in src and 'data-resource="hpTemp"' not in src
         assert 'data-fnri-dice-picker' not in src
         assert 'characterEditing' not in src
         editor=(root/'module/sheets/skill-editor.mjs').read_text()
-        assert 'DialogV2.wait' in editor and "button('reset'" in editor and "button('addSpecialization'" in editor
+        assert 'DialogV2.wait' not in editor and 'skillPoolControl' in editor and 'data-action="resetSkillDice"' in src and 'data-action="addSpecialization"' in src
     assert 'data-row-field="itemId"' not in src
     assert 'name="system.hp.current"' in src
     assert src.index('fnri-persistent') < src.index('fnri-tabs')

@@ -8,33 +8,19 @@ from browser_test_helpers import load_real_sheet
 from playwright.sync_api import sync_playwright
 
 root = Path(__file__).resolve().parents[1]
-for name in ('npc',):
-    template = (root / 'templates' / f'{name}.hbs').read_text()
-    for required in (
-        'data-fnri-dice-picker="skill"',
-        'data-fnri-dice-picker="specialization"',
-        'this.skillDiceOptions',
-        'this.specializationDiceOptions',
-        'data-fnri-custom-dice',
-        'data-row-field="kind"',
-        'data-row-field="dice"',
-    ):
-        assert required in template, (name, required)
+template=(root/'templates'/'actor-custom-skill.hbs').read_text()
+for required in ('data-fnri-single-dice','this.diceOptions','data-fnri-custom-dice','data-row-field="kind"','data-row-field="dice"'):
+    assert required in template,required
 
 html = '''<section id="sheet">
   <select data-row-collection="skills" data-row-id="s1" data-row-field="kind">
     <option value="skill" selected>Навык</option>
     <option value="specialization">Специализация</option>
   </select>
-  <select data-fnri-dice-picker="skill" data-row-id="s1">
+  <select data-fnri-dice-picker="skill" data-fnri-single-dice data-row-id="s1">
     <option value="">—</option><option value="1d4">d4</option>
     <option value="1d6">d6</option><option value="1d8" selected>d8</option>
     <option value="1d10">d10</option><option value="1d12">d12</option>
-    <option value="__custom__">Своя формула</option>
-  </select>
-  <select data-fnri-dice-picker="specialization" data-row-id="s1" hidden>
-    <option value="">—</option><option value="2d6">Основная — 2d6</option>
-    <option value="2d4">Дополнительная — 2d4</option>
     <option value="__custom__">Своя формула</option>
   </select>
   <input data-fnri-custom-dice data-row-collection="skills" data-row-id="s1"
@@ -50,7 +36,7 @@ class FakeActorSheetV2 {
 }
 window.foundry={applications:{api:{HandlebarsApplicationMixin:Parent=>Parent,DialogV2:{}},
   sheets:{ActorSheetV2:FakeActorSheetV2,ItemSheetV2:class{}}}};
-window.actor={type:"character",items:{contents:[]},system:{skills:{s1:{name:'Навык',kind:'skill',dice:'1d8',modifier:null,value:null}}},
+window.actor={type:"npc",items:{contents:[]},system:{skills:{s1:{name:'Навык',kind:'skill',dice:'1d8',modifier:null,value:null}}},
   async update(change){
     for (const [key,value] of Object.entries(change)) {
       const bits=key.split('.');let obj=this;
@@ -78,17 +64,17 @@ with sync_playwright() as p:
         page.wait_for_function("window.actor.system.skills.s1.kind === 'specialization'")
         assert page.locator(special).is_visible()
         assert not page.locator(skill).is_visible()
-        assert page.locator(custom).is_visible()
-        assert page.locator(custom).input_value() == '1d12'
+        assert not page.locator(custom).is_visible()
+        assert page.locator(special).input_value() == '1d12'
         assert page.evaluate('window.actor.system.skills.s1.dice') == '1d12'
-        page.locator(special).select_option('2d4')
-        page.wait_for_function("window.actor.system.skills.s1.dice === '2d4'")
+        page.locator(special).select_option('1d4')
+        page.wait_for_function("window.actor.system.skills.s1.dice === '1d4'")
         assert not page.locator(custom).is_visible()
         page.locator(special).select_option('__custom__')
         page.wait_for_function("window.actor.system.skills.s1.dice === ''")
         assert page.locator(custom).is_visible()
         assert page.locator(custom).input_value() == ''
-        # The empty formula already means a 1d20 check, with no old 2d4.
+        # The empty formula already means a 1d20 check, with no old 1d4.
         assert page.evaluate("window.sheet._customDiceEditors.has('s1')")
         # Document re-render must not hide the blank custom editor.
         result = page.evaluate('''async () => {

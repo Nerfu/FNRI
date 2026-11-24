@@ -1,7 +1,8 @@
 import {configurationControl,applySheetLock} from './sheet-lock.mjs';
 import { currentMessageMode } from '../data/chat-visibility.mjs';
 import {resolveSkillAllocation,skillDieEditPatch,skillAllocationPatch,planSkillUpgrade,skillPoolEditPatch,skillFormulaOverridePatch,resetSkillAssignmentsPatch} from "../data/skill-allocation.mjs";
-import {openSkillEditor,skillUpgradeCandidates} from "./skill-editor.mjs";
+import {skillPoolControl,skillDistributionView,skillUpgradeCandidates} from "./skill-editor.mjs";
+import {summaryOpenAfterRefresh} from "./skill-allocation-display.mjs";
 import {classAbilityCard,missingClassAbilityRows,useClassAbilityCard} from "./class-abilities.mjs";
 import {chooseCharacterOption} from "./character-choice.mjs";
 import {classSelectionUpdate,classNames,classDefinition,prepareClassBaseStats,DOUBLE_INVOCATION_ID} from "../data/classes.mjs";
@@ -178,13 +179,17 @@ function storedSkills(actor) {
 function preparedSkillRow(row, actor, customEditors) {
   return {
     ...row,
-    hasDice: !!String(row.dice ?? "").trim(),
-    effectiveModifier: actor.system.skills?.[row.id]?.modifier,
+    effectiveDice: actor.system.skills?.[row.id]?.dice ?? row.dice,
+    hasEffectiveDice: (actor.system.skills?.[row.id]?.dice ?? row.dice) !== row.dice,
+    effectiveModifier: actor.system.skills?.[row.id]?.modifier ?? row.modifier ?? 0,
+    hasDice: !!String(actor.system.skills?.[row.id]?.dice ?? row.dice ?? "").trim(),
     hasEffectiveModifier: (actor.system.skills?.[row.id]?.modifier ?? 0) !== (row.modifier ?? 0),
     isSpecialization: row.kind === "specialization",
     specializationGroups: SKILL_GROUPS.map(group=>({id:group,name:localized("SkillGroups."+group),selected:row.group===group})),
     hasSkillGroup: SKILL_GROUPS.includes(row.group),
     isSkill: row.kind !== "specialization",
+    diceKind: row.kind === "specialization" ? "specialization" : "skill",
+    diceOptions: diceOptions(row.kind === "specialization" ? "specialization" : "skill", String(row.dice ?? ""), customEditors.has(row.id)),
     skillDiceOptions: diceOptions("skill", String(row.dice ?? ""), customEditors.has(row.id)),
     specializationDiceOptions: diceOptions("specialization", String(row.dice ?? ""), customEditors.has(row.id)),
     hasCustomDice: customEditors.has(row.id) ||
@@ -312,7 +317,8 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     this._tabFlagQueue = Promise.resolve();
     this._quickHpOpen = false;
     this._configurationLocked = true;
-    this._skillEditorOpen = false;
+    this._skillFormulaEditors = new Set();
+    this._skillSummaryState = null;
     this._restPending = false;
     this._skillsFilter = "all";
     this._groupState = new Map();
@@ -337,7 +343,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   _applyConfigurationLock() {
     applySheetLock(this.element, this.configurationLocked || !this.isEditable);
-    this._syncSkillEditorLock?.();
+    this._applySkillFilter();
     const button=this.element?.querySelector?.('[data-action="toggleSheetLock"]');
     if (!button) return;
     const label=localized(this.configurationLocked?'SheetLock.unlock':'SheetLock.lock');
@@ -707,7 +713,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   _applySkillFilter() {
     for (const row of this.element?.querySelectorAll?.("[data-fnri-skill-entry]") ?? []) {
-      row.hidden = this._skillsFilter === "assigned" && row.dataset.fnriDiceAssigned !== "true";
+      row.hidden = (this.configurationLocked || !this.isEditable) && this._skillsFilter === "assigned" && row.dataset.fnriDiceAssigned !== "true";
     }
   }
 
@@ -999,8 +1005,9 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async addSkill() {
     await this._addRow("skills", { name: "", kind: "skill", dice: "", modifier: null, value: null });
   }
-  static async addSpecialization() {
-    await this._addRow("skills", { name: "", kind: "specialization", dice: "", modifier: null, value: null });
+  static async addSpecialization(_event, button) {
+    const group=button?.dataset?.group;
+    await this._addRow("skills", { name: "", kind: "specialization", group:SKILL_GROUPS.includes(group)?group:"", dice: "", modifier: null, value: null });
   }
   static async removeSkill(_event, button) {
     await this._removeRow("skills", button.dataset.id);
@@ -1129,6 +1136,13 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       (DICE_PRESETS[activeKind].includes(current) ? current : (current ? DICE_CUSTOM : ""));
     for (const picker of root.querySelectorAll("[data-fnri-dice-picker]")) {
       if (picker.dataset.rowId !== id) continue;
+      if(picker.dataset.fnriSingleDice!==undefined){
+        picker.dataset.fnriDicePicker=activeKind;
+        picker.replaceChildren(...diceOptions(activeKind,current,this._customDiceEditors.has(id)).map(entry=>{
+          const option=document.createElement('option');option.value=entry.value;option.textContent=entry.label;option.selected=entry.selected;return option;
+        }));
+        continue;
+      }
       picker.hidden = picker.dataset.fnriDicePicker !== activeKind;
       if (!picker.hidden) picker.value = selected;
     }
@@ -1190,6 +1204,73 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     this._updateSaveIndicator();
     this._applyConfigurationLock();
+    const summary=root.querySelector?.('[data-allocation-complete]');
+    if(summary){
+      const complete=summary.dataset.allocationComplete==='true';
+      const prior=this._skillSummaryState;
+      const warnings=[...summary.querySelectorAll('.fnri-skill-distribution-warnings small')].map(el=>el.textContent);
+      const newWarning=prior&&warnings.some(w=>!prior.warnings?.includes(w));
+      summary.open=newWarning||(!prior?!complete:summaryOpenAfterRefresh(prior.complete,prior.open,complete));
+      this._skillSummaryState={complete,open:summary.open,warnings};
+      summary.addEventListener('toggle',()=>{if(summary.isConnected)this._skillSummaryState={complete,open:summary.open,warnings};});
+    }
+    // Restore focus and scroll on a normal Actor document re-render, not a separate window.
+    const view=this._skillViewSnapshot;
+    this._skillViewSnapshot=null;
+    if(view && this._selectedTab==='skills'){
+      const panel=root.querySelector?.('[data-fnri-panel="skills"]');
+      const next=view.key&&[...(panel?.querySelectorAll('input,select,button')??[])].find(el=>this._skillFocusKey(el)===view.key);
+      if(next&&!next.disabled){
+        if(view.draft && next.value!==view.value){
+          next.value=view.value;
+          // A restored text draft is a DOM value, not a new persisted edit.
+          // On a later blur, save it once if the browser did not emit change.
+          let changed=false;
+          next.addEventListener('change',()=>{changed=true;},{once:true});
+          next.addEventListener('blur',()=>{
+            if(changed||next.value===next.defaultValue||!next.isConnected||!this.isEditable||this.configurationLocked)return;
+            if(next.dataset.skillFormula)this._setSkillFormulaOverride(next.dataset.skillFormula,next.value).catch(()=>{});
+            else if(next.dataset.rowCollection==='skills')this._saveRowControl(next);
+          },{once:true});
+        }
+        next.focus?.({preventScroll:true});
+      }
+      const scroll=root.querySelector?.('.window-content');
+      if(scroll){
+        const anchor=view.anchor&&[...(panel?.querySelectorAll('[data-fnri-skill-entry]')??[])].find(row=>row.dataset.skillRow===view.anchor&&!row.hidden);
+        if(anchor)scroll.scrollTop+=anchor.getBoundingClientRect().top-scroll.getBoundingClientRect().top-view.offset;
+        else scroll.scrollTop=view.scroll;
+      }
+    }
+    for(const picker of root.querySelectorAll('[data-skill-die]')){
+      picker.addEventListener('change',event=>{
+        event.stopPropagation();
+        if(!this.isEditable||this.configurationLocked)return;
+        const skill=picker.dataset.skillDie, previous=picker.options[0].dataset.assignedDie||null, command=picker.value;
+        picker.value='';
+        const field=picker.closest('[data-fnri-skill-entry]')?.querySelector('[data-skill-formula]');
+        if(command==='manual'){
+          if(!field)return;
+          const show=field.hidden;
+          field.hidden=!show;
+          if(show){this._skillFormulaEditors.add(skill);field.focus?.();}else this._skillFormulaEditors.delete(skill);
+          return;
+        }
+        let operation;
+        if(command==='use-assigned') {this._skillFormulaEditors.delete(skill);operation=this._setSkillFormulaOverride(skill,null);}
+        else if(command.startsWith('upgrade:')||command.startsWith('remove-upgrade:')){
+          const [action,upgradeId,dieId]=command.split(':');operation=this._applySkillUpgrade(upgradeId,action==='upgrade'?dieId:null,skill,dieId);
+        }else if(command==='release'||command.startsWith('assign:')){
+          const [,dieId,from]=command.split(':');operation=this._editSkillPool(skill,{dieId:dieId||null,from:from||null,previous});
+        }
+        operation?.catch(()=>{});
+      });
+    }
+    for(const field of root.querySelectorAll('[data-skill-formula]'))field.addEventListener('change',event=>{
+      event.stopPropagation();
+      const save=()=>{if(this.isEditable&&!this.configurationLocked)this._setSkillFormulaOverride(field.dataset.skillFormula,field.value).catch(()=>{});};
+      if(this._skillViewSnapshot?.source===field)queueMicrotask(()=>{if(field.isConnected)save();});else save();
+    });
     const filter = root.querySelector?.("[data-fnri-skill-filter]");
     if (filter) {
       filter.value = this._skillsFilter;
@@ -1211,7 +1292,8 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
         if (control.dataset.rowCollection === "skills" && control.dataset.rowField === "kind") {
           this._syncDicePickers(control.dataset.rowId, control.value);
         }
-        this._saveRowControl(control);
+        if(this._skillViewSnapshot?.source===control)queueMicrotask(()=>{if(control.isConnected)this._saveRowControl(control);});
+        else this._saveRowControl(control);
       });
     }
     for (const picker of root.querySelectorAll("[data-fnri-dice-picker]")) {
@@ -1223,13 +1305,11 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
           .find(control => control.dataset.rowId === id);
         if (!input || !VALID_ROW_ID.test(id ?? "")) return;
         if (picker.value === DICE_CUSTOM) {
-          // Choosing "Custom formula" starts with an EMPTY formula, not the
-          // preceding preset. Until a new formula is entered, Skill Check is
-          // 1d20 (+ modifier). Persist the clearing immediately.
+          // PC retains its existing formula while opening the editor; NPC
+          // keeps the previously approved explicit empty custom formula.
           this._customDiceEditors.add(id);
-          input.value = "";
           input.hidden = false;
-          this._saveRowControl(input);
+          if(this.actor.type!=="character"){input.value="";this._saveRowControl(input);}
           input.focus?.();
           return; // Never persist the UI-only sentinel.
         }
@@ -1282,7 +1362,23 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   }
 
+  _skillFocusKey(el) {
+    const d=el?.dataset??{};
+    return JSON.stringify([el?.tagName,d.rowId,d.rowField,d.fnriDicePicker,d.skillDie,d.skillFormula,d.action,d.id,d.group]);
+  }
+
   async _prepareContext(options) {
+    const panel=this.element?.querySelector?.('[data-fnri-panel="skills"]');
+    if(panel&&!panel.hidden){
+      const active=globalThis.document?.activeElement;
+      const focused=active&&panel.contains(active)?active:null;
+      const scroll=this.element.querySelector('.window-content');
+      const top=scroll?.getBoundingClientRect?.().top??0;
+      const anchor=[...panel.querySelectorAll('[data-fnri-skill-entry]')].find(row=>!row.hidden&&row.getClientRects().length&&row.getBoundingClientRect().bottom>top);
+      this._skillViewSnapshot={key:focused?this._skillFocusKey(focused):null,scroll:scroll?.scrollTop??0,
+        source:focused,anchor:anchor?.dataset.skillRow,offset:anchor?anchor.getBoundingClientRect().top-top:0,
+        draft:focused?.tagName==='INPUT'&&focused.value!==focused.defaultValue,value:focused?.value};
+    }
     await foundry.applications.handlebars.loadTemplates(ACTOR_PARTIALS);
     const context = await super._prepareContext(options);
     const actor = this.actor;
@@ -1446,7 +1542,6 @@ export class FastNRICharacterSheet extends ActorBase {
   static PARTS = { main: { root: true, template: "systems/fast-nri-v14/templates/character.hbs" } };
   static DEFAULT_OPTIONS = {
     actions: {
-      openSkillEditor: FastNRICharacterSheet.openSkillEditor,
       editRacialProperties: FastNRICharacterSheet.editRacialProperties,
       chooseIdentity: FastNRICharacterSheet.chooseIdentity,
       chooseTradition: FastNRICharacterSheet.chooseTradition,
@@ -1473,7 +1568,11 @@ export class FastNRICharacterSheet extends ActorBase {
       ...row, isRacialProperty: Boolean(racialPropertyRule(row.item)),
       classAbility: ownedClassAbilities.has(row.item.getFlag(SYSTEM_ID, 'contentId'))
     }));
-    const playSkill=row=>{const dice=this.actor.system.skills?.[row.id]?.dice??row.dice;return {...row,dice,hasDice:!!String(dice??'').trim()};};
+    const playSkill=row=>{
+      const skill=BASIC_SKILLS_BY_ROW_ID.get(row.id);
+      const pool=skill&&allocation.active?skillPoolControl(skill,allocation):null;
+      return {...row,pool,formulaOpen:skill&&this._skillFormulaEditors.has(skill.id)};
+    };
     return {...context, system:base,
       pcSkillView:true, rawHp:raw.hp, basePotionMax:raw.potionsBaseMax??3,
       effectiveDiffs:{speed:base.speed!==this.actor.system.speed, ...Object.fromEntries(["hp","ac","defenses"].map(group=>[group,Object.fromEntries(Object.keys(base[group]??{}).map(key=>[key,base[group][key]!==this.actor.system[group]?.[key]]))]))},
@@ -1483,11 +1582,7 @@ export class FastNRICharacterSheet extends ActorBase {
       additionalRacialProperties,
       showAdditionalRacialProperties: race.races.length > 0 || additionalRacialProperties.length > 0,
       racialChoiceWarning: raceWarning || null,
-      skillAllocation:allocation.active?{
-        free: [4,6,8,10,12].map(size=>({size,count:allocation.free.filter(d=>d.face===size).length})).filter(d=>d.count),
-        warnings:allocation.warnings.map(w=>({text:[localized('SkillAllocation.'+w.code),w.skill?skillName(w.skill):'',w.expected!==undefined?`(${w.expected||'—'} → ${w.actual||'—'})`:''].filter(Boolean).join(' ')})),
-        upgrades:allocation.upgrades.map(u=>({...u,selected:u.target?(allocation.dice.find(d=>d.id===u.target)?.skill?skillName(allocation.dice.find(d=>d.id===u.target).skill):localized('SkillAllocation.freeDie')):''}))
-      }:null,
+      skillAllocation:allocation.active?skillDistributionView(allocation):null,
       hasTradition:!!rule?.traditions,
       traditionName:skillName(this.actor.system.classTradition)||'', 
       standardArmor:classDefinition(this.actor.system)?.armorName??"",
@@ -1495,21 +1590,6 @@ export class FastNRICharacterSheet extends ActorBase {
       invocation: context.invocation ?? (rule?.abilityIds?.includes(DOUBLE_INVOCATION_ID) ? sheetAction('invocation') : null),
       abilityItems: [...abilityItems.filter(row => row.classAbility), ...missingAbilities,
         ...abilityItems.filter(row => !row.classAbility)]};
-  }
-
-  static async openSkillEditor() {
-    if(!this.isEditable||this.configurationLocked||this._skillEditorOpen||!await this._flushWrites())return;
-    this._skillEditorOpen=true;
-    try {await openSkillEditor(this,{
-      chooseTradition:()=>FastNRICharacterSheet.chooseTradition.call(this),
-      upgrade:(id,die,skill,expected)=>this._applySkillUpgrade(id,die,skill,expected),
-      assign:(id,choice)=>this._editSkillPool(id,choice),
-      manual:(id,value)=>this._setSkillFormulaOverride(id,value),
-      reset:()=>FastNRICharacterSheet.resetSkillDice.call(this),
-      add:(kind,group)=>this._addRow('skills',{name:'',kind,group:SKILL_GROUPS.includes(group)?group:'',dice:'',modifier:null,value:null}),
-      remove:id=>this._removeRow('skills',id),
-      save:control=>this._saveRowControl(control)
-    });} finally {this._skillEditorOpen=false;}
   }
 
   static async chooseIdentity(_event,button) {
