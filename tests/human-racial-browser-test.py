@@ -17,7 +17,7 @@ with sync_playwright() as p:
     try:
         page=browser.new_page()
         page.set_content('<script type="importmap">'+json.dumps({'imports':imports})+'</script><form id="preroll"></form>')
-        page.add_style_tag(content=(root/'styles/fast-nri.css').read_text())
+        page.add_style_tag(content=(root/'styles/fast-nri.css').read_text() + "\n#preroll { width: 328px }")
         from playwright.sync_api import expect
         page.evaluate('''async () => {
           const S='fast-nri-v14';
@@ -27,6 +27,7 @@ with sync_playwright() as p:
           const master=mk('master','Мастер боя',{races:['human']},'fnri7.rulebook.racial.master-boia');
           const innate=mk('innate','Умелый',{innateOnly:true},'fnri7.rulebook.racial.umelyi');
           const wrong=mk('wrong','Драконье свойство',{races:['draconic']},'custom.wrong');
+          wrong.system.description='Проверка описания. '+ 'ДлиннаяСтрока'.repeat(80);
           const own=[master,innate,mk('a','A',{universal:true},'custom.a'),mk('b','B',{universal:true},'custom.b')];
           const actor={id:'Hero',type:'character',items:{contents:own,get(id){return own.find(i=>i.id===id)}},system:{race:'Человек',combatDie:'d10'},effects:{contents:[]},uuid:'Actor.Hero',name:'Hero',flags:{[S]:{}},getFlag(s,k){return this.flags[s]?.[k]}};
           globalThis.game={user:{flags:{},getFlag(s,k){return this.flags[k]},async setFlag(s,k,v){this.flags[k]=v}},i18n:{localize:k=>({ 'FASTNRI.GameReroll.exhausted':'Нет оставшихся применений','FASTNRI.AbilityChat.dailyRemaining':'Осталось в день: {remaining}','FASTNRI.RacialProperties.wrongRace':'Чужая раса','FASTNRI.RacialProperties.limitReached':'Превышен предел'}[k]??k),lang:'ru'},packs:{get:()=>({getDocuments:async()=>[master,innate,wrong]})}};
@@ -53,10 +54,23 @@ with sync_playwright() as p:
         expect(row).to_have_count(0)
         toggle=page.locator('[data-racial-show-all]');expect(toggle).not_to_be_checked();toggle.check()
         expect(row).to_contain_text('Чужая раса');expect(row).to_contain_text('Превышен предел')
-        row.locator('button').click();expect(page.locator('[data-racial-add]')).to_be_enabled();page.locator('[data-racial-add]').click()
-        expect(page.locator('[data-racial-owned]')).to_contain_text('Драконье свойство')
-        expect(page.locator('[data-racial-count]')).to_contain_text('4 / 3');expect(page.locator('[data-racial-over]')).to_be_visible()
-        page.locator('[data-racial-remove="innate"]').click();expect(page.locator('[data-racial-owned]')).not_to_contain_text('Умелый')
+        row.locator("summary").click()
+        page.wait_for_function("""() => {
+          const list = document.querySelector('[data-racial-options]');
+          return list.scrollWidth === list.clientWidth;
+        }""")
+        row.locator("button").click()
+        expect(row.locator("button")).to_have_attribute("aria-pressed", "true")
+        expect(page.locator('[data-racial-count]')).to_contain_text('4 / 3')
+        expect(page.locator('[data-racial-status]')).to_contain_text('limitExceeded')
+        row.locator("button").click()
+        expect(row.locator("button")).to_have_attribute("aria-pressed", "false")
+        expect(page.locator('[data-racial-count]')).to_contain_text('3 / 3')
+        expect(page.locator('[data-racial-status]')).to_be_hidden()
+        page.get_by_role("button", name="Мастер боя").click()
+        expect(page.locator('[data-racial-status]')).to_contain_text('limitMissing')
+        page.get_by_role("button", name="Умелый").click()
+        expect(page.get_by_role("button", name="Умелый")).to_have_attribute("aria-pressed", "false")
         page.evaluate('openRaces()');expect(toggle).to_be_checked()
         page.evaluate("""async()=>{
           const {registerFreeHp}=await import('fnri/module/damage/free-hp.mjs');

@@ -1,4 +1,4 @@
-import {canReadChatContent,chatAudience} from '../data/chat-visibility.mjs';
+import {canReadChatContent,chatAudience,currentMessageMode} from '../data/chat-visibility.mjs';
 import {createPrivateAreaSourceMessage} from '../data/private-area-source.mjs';
 import {parseAreaDamageProfile} from '../damage/area-damage-profile.mjs';
 import {captureAreaOutcomeInstructions} from '../equipment/area-outcome-snapshot.mjs';
@@ -188,7 +188,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       : resolveCheckDegree({...rollResult,difficulty:target.difficulty})
     : null;
   const suggestion = degree?.ok && degree.degree !== 'failure' ? degree.degree : null;
-  const mode = audienceMessage ? (audienceMessage.blind ? 'blind' : (audienceMessage.whisper?.length ? 'gm' : 'public')) : game.settings.get('core','messageMode');
+  const mode = audienceMessage ? (audienceMessage.blind ? 'blind' : (audienceMessage.whisper?.length ? 'gm' : 'public')) : currentMessageMode();
   const areaAudience=areaDeclared ? chatAudience(audienceMessage ?? ChatMessage.applyMode({},mode)) : null;
   const privateAreaSource=areaDeclared && redactActorSourceForAudience(actor,areaAudience);
   const hideSource=privateAreaSource || (!areaDeclared && !!actor && actor.hasPlayerOwner!==true &&

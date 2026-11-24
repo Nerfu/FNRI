@@ -12,6 +12,12 @@ const def = (name,hp,combatDie,speed,armorId,acBonus,protection,mandatorySkills,
   defenses:Object.freeze(Object.fromEntries(defenses.map((k,i)=>[k,protection[i]]))),
   mandatorySkills:Object.freeze(mandatorySkills), ...extra
 });
+const warlockAbility = id => `fnri7.rulebook.ability.warlock.${id}`;
+export const WARLOCK_SPELL_IDS = Object.freeze(
+  ['eldritch-blast', 'blade', 'shadow-shield', 'projection', 'drain', 'black-needles'].map(warlockAbility)
+);
+export const DOUBLE_INVOCATION_ID = warlockAbility('double-invocation');
+
 export const CLASSES = Object.freeze({
   defender:def('Защитник',21,'d6',6,'plate',3,[10,8,14,10],['athletics']),
   warrior:def('Воин',21,'d10',7,'mail',3,[10,10,10,10],['athletics']),
@@ -22,7 +28,8 @@ export const CLASSES = Object.freeze({
   druid:def('Друид',19,'d8',7,'leather',3,[12,8,12,12],['nature'],{resource:resource('life','Жизненная сила',5,5)}),
   bard:def('Бард',18,'d8',8,'padded',2,[10,10,10,12],['mysticism'],{resource:resource('rhythm','Ритм',0,3)}),
   warlock:def('Колдун',19,'d6',6,'none',3,[10,10,10,12],[],{
-    traditions:Object.freeze(['arcana','mysticism','nature','religion']),resource:resource('magic','Магическая сила',4,4)}),
+    traditions:Object.freeze(['arcana','mysticism','nature','religion']),resource:resource('magic','Магическая сила',4,4),
+    abilityIds:Object.freeze([DOUBLE_INVOCATION_ID, ...WARLOCK_SPELL_IDS])}),
   fighter:def('Боец',22,'d8',7,'none',4,[12,12,12,12],['athletics','acrobatics'])
 });
 const normalize=v=>String(v??'').trim().toLocaleLowerCase('ru');

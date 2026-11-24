@@ -34,6 +34,9 @@ with sync_playwright() as p:
    raw.skills.starter_primary.name='Лес';
    window.reprepare=()=>{actor.system=structuredClone(raw);actor.system.parent=actor;prepareSkillAllocation(actor.system);};
    window.result=()=>resolveSkillAllocation(raw,actor.items.contents);reprepare();
+   actor.items.contents.push({id:'advanced',name:'Продвинутый',type:'ability',system:{mechanics:{
+     racialProperty:{races:['human']},skillDice:{upgrades:[6,8]}}}});
+
    window.choose=()=>{window.pending=sheetActions.chooseTradition.call(sheet);};
   }''')
   page.evaluate('choose()')
@@ -54,8 +57,22 @@ with sync_playwright() as p:
   page.evaluate('()=>{window.editorPending=sheetActions.openSkillEditor.call(sheet);}')
   editor=page.locator('[data-skill-editor]')
   editor.wait_for()
+  page.add_style_tag(content=(root/'styles/fast-nri.css').read_text())
   assert editor.locator('.fnri-skill-edit-row').count()==15
+  assert editor.locator('.fnri-skill-edit-group').count()==4
+  assert not editor.locator('.fnri-skill-edit-formula').first.is_visible()
+  editor.locator('[data-skill-manual]').check()
+  assert editor.locator('.fnri-skill-edit-formula').first.is_visible()
+  editor.locator('[data-skill-manual]').uncheck()
   editor.locator('[data-skill-action="die"][data-id="core_medicine"][data-die="1d6"]').click()
+  page.wait_for_function("actor.system.skills.core_medicine.dice==='1d6'")
+  upgrade = editor.locator('[data-skill-upgrade]').first
+  assert "d6 → d8" in upgrade.locator('..').inner_text()
+  target = upgrade.locator('option').filter(has_text='Медицина').get_attribute('value')
+  upgrade.select_option(target)
+  page.wait_for_function("actor.system.skills.core_medicine.dice==='1d8'")
+  assert upgrade.input_value() == target
+  upgrade.select_option('')
   page.wait_for_function("actor.system.skills.core_medicine.dice==='1d6'")
   editor.locator('[data-skill-action="die"][data-id="core_medicine"][data-die="1d6"]').click()
   page.wait_for_function("actor.system.skills.core_medicine.dice==='' ")

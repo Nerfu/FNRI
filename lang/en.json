@@ -741,6 +741,8 @@
     },
     "RacialProperties": {
       "title": "Ancestry traits",
+      "additional": "Additional Ancestry Properties",
+      "limitMissing": "More ancestry properties can be selected",
       "edit": "Edit",
       "owned": "Selected traits",
       "remove": "Remove ancestry trait",
@@ -762,8 +764,8 @@
       "racialAllowInnateRemoval": "Allow removal of innate traits",
       "racialAllowInnateRemovalHint": "Innate traits are still granted automatically when selecting an ancestry.",
       "showAll": "Show all racial properties",
-      "selectedCount": "Selected properties",
-      "limitExceeded": "Racial property limit exceeded"
+      "selectedCount": "Selected",
+      "limitExceeded": "Extra ancestry properties selected"
     },
     "AbilityChat": {
       "toChat": "Post to chat",
@@ -866,11 +868,14 @@
       "traditionLabel": "Magical tradition",
       "tradition": "Choose a magical tradition",
       "free": "Free dice",
-      "reset": "Clear all dice",
+      "reset": "Reset allocation",
       "restricted": "Die assigned outside its allowed skills:",
       "invalidUpgrade": "Invalid die upgrade",
       "mandatoryOverride": "Mandatory die changed:",
       "manualOverride": "Manual deviation from dice pool:",
+      "manualDie": "Die outside the available pool. Manual assignment.",
+      "unassignedUpgrade": "No upgrade",
+      "warnings": "Allocation notes",
       "freeDie": "Unassigned die"
     },
     "CharacterEditor": {
@@ -881,6 +886,7 @@
       "base": "Base value",
       "potionBase": "Base potion limit",
       "sources": "Dice sources",
+      "manualFormulas": "Show manual formulas",
       "custom": "Custom formula"
     }
   }

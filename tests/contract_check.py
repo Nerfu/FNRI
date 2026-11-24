@@ -74,7 +74,7 @@ for name in ('character','npc'):
         assert 'data-fnri-dice-picker' not in src
         assert '{{#if characterEditing}}' in src
         editor=(root/'module/sheets/skill-editor.mjs').read_text()
-        assert 'DialogV2.wait' in editor and "btn('reset'" in editor and "btn('addSpecialization'" in editor
+        assert 'DialogV2.wait' in editor and "button('reset'" in editor and "button('addSpecialization'" in editor
     assert 'data-row-field="itemId"' not in src
     assert 'name="system.hp.current"' in src
     assert src.index('fnri-persistent') < src.index('fnri-tabs')
@@ -109,7 +109,9 @@ assert 'new F.ArrayField' not in models
 sheets=(root/'module'/'sheets'/'sheets.mjs').read_text()
 assert 'submitOnChange: false' in sheets
 assert 'data-fnri-message-mode' not in sheets
-assert 'game.settings.get("core", "messageMode")' in sheets
+visibility=(root/'module'/'data'/'chat-visibility.mjs').read_text()
+assert "get?.('core', 'messageMode')" in visibility
+assert 'const audience = actionAudience()' in sheets
 assert 'globalThis._del' in sheets
 assert 'NUMERIC_ROW_FIELDS' in sheets
 assert 'rollAbility: ActorBase.rollAbility' in sheets

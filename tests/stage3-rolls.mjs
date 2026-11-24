@@ -61,6 +61,12 @@ await assert.rejects(()=>postRoll({formula:'INVALID',label:'x'}),/invalid-formul
 await assert.rejects(()=>postRoll({formula:'',label:'x'}),/empty-formula/);
 assert.equal(sent.length,4,'failed formulas do not create any chat message');
 
+for (const [configured, mode] of [['public','public'],['gm','gm'],['blindroll','blind'],['self','self'],['ic','ic']]) {
+  game.settings = {get: (_scope, key) => key === 'messageMode' ? configured : undefined};
+  await postRoll({formula:'1d8', label:'Uses chat mode'});
+  assert.equal(sent.at(-1).opts.messageMode, mode);
+}
+
 const root=join(dirname(fileURLToPath(import.meta.url)),'..');
 const read=path=>readFileSync(join(root,path),'utf8');
 for(const file of ['templates/character.hbs','templates/npc.hbs']){

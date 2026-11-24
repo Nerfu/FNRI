@@ -13,7 +13,7 @@ import {applyHp} from '../damage/hp-actions.mjs';
 import {abilityTempHpExpiry} from './temporary-hp-cast.mjs';
 import {canReadChatContent} from '../data/chat-visibility.mjs';
 import {createPrivateAreaSourceMessage,privateAreaSourceFor} from '../data/private-area-source.mjs';
-import {declareAction,actionText} from '../rolls/action-declaration.mjs';
+import {declareAction,actionText,actionAudience} from '../rolls/action-declaration.mjs';
 import {cardRollKind} from '../rolls/roll-contributions.mjs';
 import {postRoll,itemFormula} from '../rolls/checks.mjs';
 import {redactActorSourceForAudience} from '../rolls/roll-context.mjs';
@@ -56,13 +56,6 @@ export function abilityExecutions(item) {
 
 export function abilityExecution(item,id){return abilityExecutions(item).find(e=>e.id===id)??null;}
 
-function initialAudience(){
-  const configured=game.settings.get('core','messageMode');
-  const mode=({publicroll:'public',gmroll:'gm',blindroll:'blind',selfroll:'self'})[configured]??configured;
-  // v14 native ChatMessage.applyMode, not an approximation of whisper rules.
-  const data=ChatMessage.applyMode({},['public','gm','blind','self'].includes(mode)?mode:'public');
-  return {whisper:[...(data.whisper??[])],blind:!!data.blind};
-}
 function inheritingAudience(message){return {whisper:[...(message.whisper??[])],blind:!!message.blind};}
 
 function costMessages(actor,item,execution){
@@ -94,14 +87,6 @@ function warnAtPublication(actor,item,executions) {
 export async function publishAbility(item) {
   if(!ownerAbility(item) || !isActorOwner(item.parent))return null;
   const actor=item.parent;
-  const audience=initialAudience();
-  const executions=abilityExecutions(item);
-  const privateSource=redactActorSourceForAudience(actor,audience) && executions.some(execution=>{
-    if(execution.type!=='attack')return false;
-    const rule={...item.system.mechanics.attack,...execution.attack};
-    const weapon=rule.kind==='physical' ? resolveAbilityWeapon(item,actor) : null;
-    return isAreaAttack([rule.properties,weapon&&effectiveWeaponProperties(weapon.system)].filter(Boolean).join(', '));
-  });
   const raw=String(item.system?.description || item.system?.effect || item.system?.notes || '').trim();
   // Use Foundry's native enrichment for rich descriptions, UUID links and
   // secret blocks; a plain escaped fallback is used if the API is unavailable.
@@ -110,6 +95,14 @@ export async function publishAbility(item) {
       esc(raw).replace(/\r?\n/g,'<br>');
   const description=raw ? `<div class="fnri-ability-description">${enriched}</div>` :
     `<p>${esc(text('noDescription'))}</p>`;
+  const audience=actionAudience();
+  const executions=abilityExecutions(item);
+  const privateSource=redactActorSourceForAudience(actor,audience) && executions.some(execution=>{
+    if(execution.type!=='attack')return false;
+    const rule={...item.system.mechanics.attack,...execution.attack};
+    const weapon=rule.kind==='physical' ? resolveAbilityWeapon(item,actor) : null;
+    return isAreaAttack([rule.properties,weapon&&effectiveWeaponProperties(weapon.system)].filter(Boolean).join(', '));
+  });
   const data={
     speaker:privateSource?{alias:'Fast NRI'}:ChatMessage.getSpeaker({actor}),
     content:`<article class="fnri-ability-publication"><strong>${esc(item.name)}</strong>${description}</article>`,

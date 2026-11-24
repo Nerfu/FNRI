@@ -1,3 +1,4 @@
+import { DOUBLE_INVOCATION_ID, WARLOCK_SPELL_IDS } from '../data/classes.mjs';
 import { standardAction } from '../rolls/standard-actions.mjs';
 
 const GROUPS = [
@@ -28,7 +29,7 @@ export function isFirearm(item) {
     /^(огнестрельное оружие|firearms?)$/i.test(String(item.system.category ?? '').trim());
 }
 export const isInvocationSpell = item => item.type === 'ability' && (
-  item.system.mechanics?.invocation === true || /^fnri7\.rulebook\.ability\.warlock\.(blade|eldritch-blast|shadow-shield|projection|drain|black-needles)$/.test(contentId(item) ?? '')
+  item.system.mechanics?.invocation === true || WARLOCK_SPELL_IDS.includes(contentId(item))
 );
 
 export function sheetAction(id) {
@@ -68,7 +69,7 @@ export function shortRestActions(actor) {
 
 export function extraAbilityActions(items) {
   const double = items.find(item => item.type === 'ability' && (item.system.mechanics?.doubleInvocation === true ||
-    contentId(item) === 'fnri7.rulebook.ability.warlock.double-invocation'));
+    contentId(item) === DOUBLE_INVOCATION_ID));
   return [
     ...(items.some(isInvocationSpell) || double ? [sheetAction('invocation')] : []),
     ...(double ? [{...sheetAction('doubleInvocation'), itemId: double.id}] : [])
