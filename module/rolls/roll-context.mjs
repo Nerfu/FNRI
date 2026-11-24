@@ -263,7 +263,9 @@ export function renderRollPreparation(effects, {label='',formula='',spatialInfo=
   const groups=new Map(),hindrances=new Map(),other=[],specializations=[];
   for(const [i,entry] of effects.entries())for(const [j,part] of entry.parts.entries()){
     if(entry.sourceType==='specialization') {
-      specializations.push(sourceComponent(entry,part,i,j));
+      const group = entry.group ? game.i18n.localize(`FASTNRI.SkillGroups.${entry.group}`) : '';
+      const label = group && group !== `FASTNRI.SkillGroups.${entry.group}` ? `${entry.name} · ${group}` : entry.name;
+      specializations.push(sourceComponent(entry,{...part,label},i,j));
       continue;
     }
     const group=part.nonStackingGroup;
@@ -313,7 +315,7 @@ export function renderRollPreparation(effects, {label='',formula='',spatialInfo=
       `Строй: ${safe(spatialInfo.formation.formation)}`+
       `${spatialInfo.formation.surrounded?' · Цель окружена':''}`+
       `${spatialInfo.formation.uncertain?' · Стороны неизвестны':''}</small></div>` : '')+
-    `<div class="fnri-preroll-effects">${specializations.length?`<div class="fnri-preroll-entry fnri-preroll-group"><strong class="fnri-preroll-source">${safe(pr('specializations'))}</strong>${specializations.join('')}</div>`:''}${penaltyGroup}${otherGroups}${rows}</div>`+
+    `<div class="fnri-preroll-effects">${specializations.length?`<div class="fnri-preroll-entry fnri-preroll-group"><strong class="fnri-preroll-source">${safe(pr('specializations'))}</strong>${specializations.join('')}${specializations.length>1?`<small class="fnri-preroll-group-note">${safe(pr('multipleSpecializations'))}</small>`:''}</div>`:''}${penaltyGroup}${otherGroups}${rows}</div>`+
     `<div class="fnri-preroll-manual"><div class="fnri-preroll-manual-head">`+
       `<strong>${safe(pr('extra'))}</strong>`+
       `<button type="button" data-fnri-add-manual>+ ${safe(pr('add'))}</button></div>`+

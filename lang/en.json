@@ -689,6 +689,7 @@
       "FormulaPartialFailure": "Some effect formulas could not be evaluated; previous values were preserved. Open the effect editor."
     },
     "Preroll": {
+      "multipleSpecializations": "Multiple specializations require the GM's agreement.",
       "specializations": "Specializations",
       "title": "Prepare roll",
       "total": "Final formula",
