@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {racialState,racialAddWarnings,registerRacialSettings} from '../module/data/racial-properties.mjs';
-import {syncInnateProperties,registerRacialPropertyLifecycle} from '../module/sheets/racial-property-lifecycle.mjs';
+import {syncInnateProperties,registerRacialPropertyLifecycle,rememberInnateRemoval,forgetInnateRemoval} from '../module/sheets/racial-property-lifecycle.mjs';
 import {addRacialProperty} from '../module/sheets/racial-property-picker.mjs';
 import {applicableRollContributions,prepareRoll,finalizeRollEffects} from '../module/rolls/roll-context.mjs';
 import {abilityAccountingStatus,restActor} from '../module/data/ability-accounting.mjs';
@@ -32,8 +32,12 @@ world.racialAllowExcess=true;
 const wrongOwned=await addRacialProperty(actor,wrong,null);assert.ok(actor.items.has(wrongOwned.id));assert.equal(racialState(actor).used,5);
 const innate=actor.items.contents.find(i=>i.name==='Умелый');await actor.deleteEmbeddedDocuments('Item',[innate.id]);assert.ok(actor.items.has(innate.id));
 world.racialAllowInnateRemoval=true;await actor.deleteEmbeddedDocuments('Item',[innate.id]);assert.ok(!actor.items.has(innate.id));
+await rememberInnateRemoval(actor,innate);world.racialAllowInnateRemoval=false;
+await syncInnateProperties(actor);assert.ok(!actor.items.contents.some(i=>i.getFlag(S,'contentId')===innate.getFlag(S,'contentId')));
+const restored=await addRacialProperty(actor,card('racial.umelyi'),null);assert.ok(restored);await forgetInnateRemoval(actor,restored);
+assert.deepEqual(actor.getFlag(S,'suppressedInnateProperties'),[]);
 await actor.deleteEmbeddedDocuments('Item',[half.id]);await syncInnateProperties(actor,false);assert.deepEqual(racialState(actor).races,['human']);assert.ok(!actor.items.contents.some(i=>i.name==='Эльфийское проворство'));assert.ok(actor.items.has(wrongOwned.id));
-// An out-of-race or over-limit direct creation receives a warning, never a veto.
+// The explicit excess setting allows this out-of-race or over-limit direct creation.
 assert.notEqual(hooks.preCreateItem({...wrong,parent:actor}),false);
 const attackParams=()=>({actor,kind:'attack',usesCombatDie:true,formula:`1d20 + 1${actor.system.combatDie}`});
 const entry=()=>applicableRollContributions(actor,attackParams()).find(e=>e.combatMasterItem);

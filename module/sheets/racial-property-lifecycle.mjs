@@ -8,6 +8,35 @@ import {racialCatalog, addRacialProperty, chooseRacialSubproperty} from "./racia
 
 const automatic = item => item.getFlag(RACIAL_SYSTEM_ID, "automaticRacialProperty") === true;
 const openChoices = new WeakSet();
+// An explicit permitted removal must survive unrelated ancestry syncs.
+// This is composition state, not a journal or accounting event.
+const suppressedKey='suppressedInnateProperties';
+function suppressedInnates(actor) {
+  const value=actor.getFlag?.(RACIAL_SYSTEM_ID,suppressedKey);
+  return new Set(Array.isArray(value)?value.filter(id=>typeof id==='string'):[]);
+}
+async function writeSuppressed(actor, previous, next) {
+  if (previous.size===next.size&&[...previous].every(id=>next.has(id))) return;
+  await actor.update({[`flags.${RACIAL_SYSTEM_ID}.${suppressedKey}`]:[...next]});
+}
+export async function rememberInnateRemoval(actor,item) {
+  const id=racialContentId(item);
+  if (!racialPropertyRule(item)||!id||!racialState(actor).innate.has(id)) return;
+  return queueActorWrite(actor,async()=>{
+    if (!racialState(actor).innate.has(id)||actor.items.contents.some(owned=>racialPropertyRule(owned)&&racialContentId(owned)===id)) return;
+    const previous=suppressedInnates(actor);
+    await writeSuppressed(actor,previous,new Set([...previous,id]));
+  });
+}
+export async function forgetInnateRemoval(actor,item) {
+  const id=racialContentId(item);
+  if (!racialPropertyRule(item)||!id||!suppressedInnates(actor).has(id)) return;
+  return queueActorWrite(actor,async()=>{
+    const previous=suppressedInnates(actor),next=new Set(previous);
+    next.delete(id);
+    await writeSuppressed(actor,previous,next);
+  });
+}
 
 function reportError(error) {
   console.warn("Fast NRI | racial properties", error);
@@ -38,10 +67,13 @@ export async function syncInnateProperties(actor, grant = true) {
     let state = racialState(actor);
     const obsolete = actor.items.contents.filter(item => automatic(item) && !state.innate.has(racialContentId(item)));
     if (obsolete.length) await actor.deleteEmbeddedDocuments("Item", obsolete.map(item => item.id), {fnriAncestrySync: true});
-    if (!grant) return [];
     state = racialState(actor);
     const existing = new Set(actor.items.contents.filter(racialPropertyRule).map(racialContentId));
-    const missing = new Set([...state.innate].filter(id => !existing.has(id)));
+    const previous=suppressedInnates(actor);
+    const suppressed=new Set([...previous].filter(id=>state.innate.has(id)&&!existing.has(id)));
+    await writeSuppressed(actor,previous,suppressed);
+    if (!grant) return [];
+    const missing = new Set([...state.innate].filter(id => !existing.has(id)&&!suppressed.has(id)));
     if (missing.size) {
       for (const card of await racialCatalog()) {
         const id = racialContentId(card);
@@ -98,7 +130,9 @@ export function registerRacialPropertyLifecycle() {
 
   Hooks.on("createItem", (item, options, userId) => {
     const actor = item.parent;
-    if (!shouldSync(actor, userId) || options.fnriPicker || !racialPropertyRule(item)) return;
+    if (!shouldSync(actor, userId) || !racialPropertyRule(item)) return;
+    void forgetInnateRemoval(actor,item).catch(reportError);
+    if (options.fnriPicker) return;
     if (changesAncestry(item) && selectedRacialPropertyChoice(racialPropertyRule(item))) reconcile(actor);
     if (!selectedRacialPropertyChoice(racialPropertyRule(item)))
       void editRacialSubproperty(item).catch(reportError);
@@ -111,8 +145,13 @@ export function registerRacialPropertyLifecycle() {
   });
 
   Hooks.on("deleteItem", (item, options, userId) => {
-    if (shouldSync(item.parent, userId) && !options.fnriAncestrySync && changesAncestry(item))
-      reconcile(item.parent, false);
+    if (!shouldSync(item.parent,userId)||!racialPropertyRule(item)) return;
+    // Schedule the state write immediately, before a subsequent ancestry
+    // reconciliation on the same client. No hook waits on its own queue.
+    const recorded=rememberInnateRemoval(item.parent,item);
+    void recorded.catch(reportError);
+    if (!options.fnriAncestrySync && changesAncestry(item))
+      void recorded.then(()=>reconcile(item.parent,false)).catch(reportError);
   });
 }
 

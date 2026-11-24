@@ -30,7 +30,7 @@ with sync_playwright() as p:
           wrong.system.description='Проверка описания. '+ 'ДлиннаяСтрока'.repeat(80);
           const own=[master,innate,mk('a','A',{universal:true},'custom.a'),mk('b','B',{universal:true},'custom.b')];
           const actor={id:'Hero',type:'character',items:{contents:own,get(id){return own.find(i=>i.id===id)}},system:{race:'Человек',combatDie:'d10'},effects:{contents:[]},uuid:'Actor.Hero',name:'Hero',flags:{[S]:{}},getFlag(s,k){return this.flags[s]?.[k]}};
-          window.racialWorld={};globalThis.game={settings:{get:(_s,k)=>window.racialWorld[k]??false},user:{flags:{},getFlag(s,k){return this.flags[k]},async setFlag(s,k,v){this.flags[k]=v}},i18n:{localize:k=>({ 'FASTNRI.GameReroll.exhausted':'Нет оставшихся применений','FASTNRI.AbilityChat.dailyRemaining':'Осталось в день: {remaining}','FASTNRI.RacialProperties.wrongRace':'Чужая раса','FASTNRI.RacialProperties.limitReached':'Превышен предел'}[k]??k),lang:'ru'},packs:{get:()=>({getDocuments:async()=>[master,innate,wrong]})}};
+          window.racialWorld={};globalThis.game={settings:{get:(_s,k)=>window.racialWorld[k]??false},user:{flags:{},getFlag(s,k){return this.flags[k]},async setFlag(s,k,v){this.flags[k]=v}},i18n:{localize:k=>({ 'FASTNRI.GameReroll.exhausted':'Нет оставшихся применений','FASTNRI.AbilityChat.dailyRemaining':'Осталось в день: {remaining}','FASTNRI.RacialProperties.wrongRace':'Чужая раса','FASTNRI.RacialProperties.limitReached':'Превышен предел','FASTNRI.RacialProperties.limitMissingOne':'Осталось выбрать {remaining} свойство','FASTNRI.RacialProperties.limitMissingFew':'Осталось выбрать {remaining} свойства','FASTNRI.RacialProperties.limitMissingMany':'Осталось выбрать {remaining} свойств'}[k]??k),lang:'ru'},packs:{get:()=>({getDocuments:async()=>[master,innate,wrong]})}};
           window.foundry={applications:{api:{DialogV2:{wait:cfg=>{
             const form=document.querySelector('#preroll');form.innerHTML=cfg.content;
             cfg.render({}, {element:form});
@@ -72,7 +72,7 @@ with sync_playwright() as p:
         expect(page.locator('[data-racial-count]')).to_contain_text('3 / 3')
         expect(page.locator('[data-racial-status]')).to_be_hidden()
         page.get_by_role("button", name="Мастер боя").click()
-        expect(page.locator('[data-racial-status]')).to_contain_text('limitMissing')
+        expect(page.locator('[data-racial-status]')).to_have_text('Осталось выбрать 1 свойство')
         expect(page.get_by_role("button", name="Умелый")).to_be_disabled()
         page.evaluate("racialWorld.racialAllowInnateRemoval=true;openRaces()")
         page.get_by_role("button", name="Умелый").click()
