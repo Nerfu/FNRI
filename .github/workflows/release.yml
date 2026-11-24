@@ -1,122 +1,13 @@
-name: Package and publish Foundry system
-
-# The audited release candidate is prepared off main. Promote main only
-# after GitHub serves the ZIP referenced by the candidate manifest.
+name: Verify Fast NRI racial composition (no publication)
 on:
   create:
-  workflow_dispatch:
-    inputs:
-      release_approved:
-        description: 'User explicitly approved this release'
-        required: true
-        type: boolean
-        default: false
-
 permissions:
-  contents: write
-
-concurrency:
-  group: fnri-publish
-  cancel-in-progress: false
-
+  contents: read
 jobs:
-  build-and-release:
-    if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.release_approved == true && startsWith(github.ref, 'refs/heads/release/v')) ||
-      (github.event_name == 'create' && github.event.ref_type == 'branch' && startsWith(github.event.ref, 'release/v'))
+  regression:
+    if: github.event.ref_type == 'branch' && github.event.ref == 'checks/racial-composition-0.2.0.3'
     runs-on: ubuntu-latest
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Verify release candidate and its main ancestry
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          version="$(python3 -c 'import json; print(json.load(open("system.json"))["version"])')"
-          tag="v${version}"
-          if [[ "$GITHUB_REF" != "refs/heads/release/${tag}" ]]; then
-            echo "::error::Release branch must be release/${tag}"
-            exit 1
-          fi
-          git fetch origin main
-          if ! git merge-base --is-ancestor FETCH_HEAD "$GITHUB_SHA"; then
-            echo "::error::Release candidate must fast-forward main"
-            exit 1
-          fi
-          if git show-ref --verify --quiet "refs/tags/${tag}" ||
-             gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Tag or release ${tag} already exists"
-            exit 1
-          fi
-      - name: Run the same test gate as local pre-release
-        shell: bash
+      - uses: actions/checkout@v4
+      - name: Verify release gate
         run: bash tests/release-gate.sh
-      - name: Compile native system compendiums
-        shell: bash
-        run: |
-          npm install --no-audit --no-fund
-          npm run build:packs
-      - name: Validate manifest and package compiled system compendiums
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import json
-          import pathlib
-          import zipfile
-
-          root = pathlib.Path('.')
-          manifest = json.loads((root / 'system.json').read_text(encoding='utf-8'))
-          assert manifest['id'] == 'fast-nri-v14'
-          assert manifest['download'].endswith(f"/v{manifest['version']}/fast-nri-v14.zip")
-          files = [pathlib.Path('system.json')]
-          files += [pathlib.Path(p) for p in manifest['esmodules']]
-          files += [pathlib.Path(p) for p in manifest['styles']]
-          files += [pathlib.Path(lang['path']) for lang in manifest['languages']]
-          for pack in manifest['packs']:
-              assert pack['type'] in ('Item','Actor') and pack['system'] == manifest['id']
-              assert pack['path'] == 'packs/' + pack['name']
-              entries = [p for p in pathlib.Path(pack['path']).rglob('*') if p.is_file()]
-              assert entries, f"No built files in {pack['path']}"
-              files += entries
-          for folder in ('module','templates'):
-              files += [p for p in pathlib.Path(folder).rglob('*') if p.is_file()]
-          files = sorted(set(files))
-          assert all(p.is_file() and '..' not in p.parts for p in files)
-          pathlib.Path('dist').mkdir(exist_ok=True)
-          with zipfile.ZipFile('dist/fast-nri-v14.zip','w',zipfile.ZIP_DEFLATED) as z:
-              for p in files:
-                  z.write(p,'fast-nri-v14/'+p.as_posix())
-          with zipfile.ZipFile('dist/fast-nri-v14.zip') as z:
-              assert z.testzip() is None
-          print(f"Packaged {len(files)} runtime files")
-          PY
-          sha256sum dist/fast-nri-v14.zip
-      - name: Publish and verify the ZIP before advancing main
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="$(python3 -c 'import json;print(json.load(open("system.json"))["version"])')"
-          tag="v${version}"
-          git fetch origin main
-          git merge-base --is-ancestor FETCH_HEAD "$GITHUB_SHA"
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Release already exists; refusing to replace it."
-            exit 1
-          fi
-          gh release create "$tag" dist/fast-nri-v14.zip \
-            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Fast NRI 7.0 — $tag (Foundry 14)" \
-            --notes 'Предварительная сборка для Foundry VTT 14. Контрольный контент: Человек, Драконообразный, Колдун, Наследник. Миграции старых данных нет; рекомендуется чистый тестовый мир. Аудит состояний, поля и полная игровая приёмка перенесены на 0.2.1. Подробности в CHANGELOG.' \
-            --prerelease
-          verify_dir="$(mktemp -d)"
-          gh release download "$tag" --pattern fast-nri-v14.zip --dir "$verify_dir" --repo "$GITHUB_REPOSITORY"
-          cmp dist/fast-nri-v14.zip "$verify_dir/fast-nri-v14.zip"
-          git fetch origin "refs/tags/${tag}"
-          [[ "$(git rev-parse 'FETCH_HEAD^{commit}')" == "$GITHUB_SHA" ]]
-          git push origin "${GITHUB_SHA}:refs/heads/main"
