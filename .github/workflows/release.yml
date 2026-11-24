@@ -1,65 +1,47 @@
-name: Package and publish Foundry system
-
-# The audited release candidate is prepared off main. Promote main only
-# after GitHub serves the ZIP referenced by the candidate manifest.
+name: Verify the Fast NRI skill editor
 on:
   create:
-  workflow_dispatch:
-    inputs:
-      release_approved:
-        description: 'User explicitly approved this release'
-        required: true
-        type: boolean
-        default: false
-
 permissions:
-  contents: write
-
-concurrency:
-  group: fnri-publish
-  cancel-in-progress: false
-
+  contents: read
 jobs:
-  build-and-release:
-    if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.release_approved == true && startsWith(github.ref, 'refs/heads/release/v')) ||
-      (github.event_name == 'create' && github.event.ref_type == 'branch' && startsWith(github.event.ref, 'release/v'))
+  regression:
+    if: github.event.ref_type == 'branch' && github.event.ref == 'checks/skill-pool-editor'
     runs-on: ubuntu-latest
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
-      - name: Verify release candidate and its main ancestry
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify release gate
+        run: bash tests/release-gate.sh
+      - name: Compile and verify LevelDB compendiums
+        run: |
+          npm install --no-save --no-audit --no-fund handlebars
+          npm run build:packs
+      - name: Run browser tests
         run: |
           set -euo pipefail
-          version="$(python3 -c 'import json; print(json.load(open("system.json"))["version"])')"
-          tag="v${version}"
-          if [[ "$GITHUB_REF" != "refs/heads/release/${tag}" ]]; then
-            echo "::error::Release branch must be release/${tag}"
-            exit 1
+          python -m pip install playwright beautifulsoup4
+          if [[ ! -x /usr/bin/chromium ]]; then
+            if command -v google-chrome; then
+              sudo ln -s "$(command -v google-chrome)" /usr/bin/chromium
+            else
+              python -m playwright install --with-deps chromium
+              browser="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
+              sudo ln -s "$browser" /usr/bin/chromium
+            fi
           fi
-          git fetch origin main
-          if ! git merge-base --is-ancestor FETCH_HEAD "$GITHUB_SHA"; then
-            echo "::error::Release candidate must fast-forward main"
-            exit 1
-          fi
-          if git show-ref --verify --quiet "refs/tags/${tag}" ||
-             gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Tag or release ${tag} already exists"
-            exit 1
-          fi
-      - name: Run the same test gate as local pre-release
-        shell: bash
-        run: bash tests/release-gate.sh
-      - name: Compile native system compendiums
-        shell: bash
-        run: |
-          npm install --no-audit --no-fund
-          npm run build:packs
+          failed=0
+          for file in tests/skill-allocation-browser-test.py tests/*browser-test.py; do
+            if [[ "$file" == tests/skill-allocation-browser-test.py && "${checked_skill:-}" == 1 ]]; then continue; fi
+            if [[ "$file" == tests/skill-allocation-browser-test.py ]]; then checked_skill=1; fi
+            printf '\n== %s ==\n' "$file"
+            python "$file" || failed=1
+          done
+          exit "$failed"
       - name: Validate manifest and package compiled system compendiums
         shell: bash
         run: |
@@ -95,28 +77,9 @@ jobs:
           print(f"Packaged {len(files)} runtime files")
           PY
           sha256sum dist/fast-nri-v14.zip
-      - name: Publish and verify the ZIP before advancing main
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="$(python3 -c 'import json;print(json.load(open("system.json"))["version"])')"
-          tag="v${version}"
-          git fetch origin main
-          git merge-base --is-ancestor FETCH_HEAD "$GITHUB_SHA"
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Release already exists; refusing to replace it."
-            exit 1
-          fi
-          gh release create "$tag" dist/fast-nri-v14.zip \
-            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Fast NRI 7.0 — $tag (Foundry 14)" \
-            --notes 'Предварительная сборка для Foundry VTT 14. Контрольный контент: Человек, Драконообразный, Колдун, Наследник. Миграции старых данных нет; рекомендуется чистый тестовый мир. Аудит состояний, поля и полная игровая приёмка перенесены на 0.2.1. Подробности в CHANGELOG.' \
-            --prerelease
-          verify_dir="$(mktemp -d)"
-          gh release download "$tag" --pattern fast-nri-v14.zip --dir "$verify_dir" --repo "$GITHUB_REPOSITORY"
-          cmp dist/fast-nri-v14.zip "$verify_dir/fast-nri-v14.zip"
-          git fetch origin "refs/tags/${tag}"
-          [[ "$(git rev-parse 'FETCH_HEAD^{commit}')" == "$GITHUB_SHA" ]]
-          git push origin "${GITHUB_SHA}:refs/heads/main"
+      - name: Upload the test installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-nri-skill-editor-test
+          path: dist/fast-nri-v14.zip
+          if-no-files-found: error
