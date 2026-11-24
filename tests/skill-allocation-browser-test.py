@@ -39,7 +39,7 @@ with sync_playwright() as p:
 
    window.choose=()=>{window.pending=sheetActions.chooseTradition.call(sheet);};
   }''')
-  page.evaluate('sheet._configurationLocked=false; choose()')
+  page.evaluate('choose()')
   page.get_by_role('button',name='Мистицизм').click()
   page.evaluate('pending')
   assert page.evaluate('raw.classTradition')=='mysticism'

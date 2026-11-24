@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {skillRowUpgradeChoices} from '../module/sheets/skill-editor.mjs';
+const d6={id:'a',size:6,face:6,skill:'medicine'},other={id:'b',size:6,face:6,skill:'stealth'},d8={id:'c',size:8,face:8};
+const u={id:'up',size:6,target:null};
+const state={dice:[d6,other,d8],upgrades:[u]};
+assert.equal(skillRowUpgradeChoices(state,d6)[0].action,'upgrade');
+assert.deepEqual(skillRowUpgradeChoices(state,d8),[]);
+u.target=d6.id;
+assert.equal(skillRowUpgradeChoices(state,d6)[0].action,'remove-upgrade');
+assert.equal(skillRowUpgradeChoices(state,other)[0].action,'upgrade');
+state.upgrades.push({id:'another',size:6,target:other.id});
+assert.deepEqual(skillRowUpgradeChoices(state,d6).map(x=>x.action),['remove-upgrade']);
+assert.deepEqual(skillRowUpgradeChoices(state,null),[]);
+console.log('PASS: skill row upgrade choices and transfer');

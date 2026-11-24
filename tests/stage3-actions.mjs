@@ -107,8 +107,9 @@ const baseSystem={skills:{sample:{...entry,modifier:1}},defenses:{...actor.syste
 actor.toObject=source=>{assert.equal(source,true);return {system:baseSystem};};
 entry.modifier=3;
 const playContext=await sheet._prepareContext({});
-assert.equal(playContext.system.defenses.will,9);
-sheet._characterEditing=true;
+assert.equal(playContext.system.defenses.will,7);
+assert.equal(playContext.effectiveSystem.defenses.will,9);
+sheet._configurationLocked=false;
 const context=await sheet._prepareContext({});
 assert.equal(context.system.defenses.will,7,'form field must use source, not AE-adjusted value');
 assert.equal(context.effectiveSystem.defenses.will,9,'display uses prepared Actor');
@@ -132,8 +133,8 @@ assert.equal(context.skillRows[0].modifier,1,'skill edit field shows original nu
 assert.equal(context.skillRows[0].effectiveModifier,3,'display/roll use prepared modifier');
 assert.equal(context.skillRows[0].hasEffectiveModifier,true);
 
-assert.equal(context.skillRows[0].specializationDiceOptions.find(x=>x.selected).value,'2d6');
-assert.equal(context.skillRows[0].specializationDiceOptions.find(x=>x.value==='2d4').selected,false);
+assert.equal(context.skillRows[0].specializationDiceOptions.find(x=>x.selected).value,'__custom__','stored formulas are not migrated');
+assert.equal(context.skillRows[0].specializationDiceOptions.find(x=>x.value==='1d4').selected,false);
 // Existing custom dice must stay visible and unchanged; a preset is not a migration.
 baseSystem.skills.sample.dice='3d8 + 1d6';
 const customContext=await sheet._prepareContext({});

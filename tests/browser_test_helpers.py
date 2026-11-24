@@ -10,7 +10,7 @@ def expand_actor_template(root, filename):
         source='<section class="fnri-body fnri-actor-body">'+source.split(marker,1)[1]
     def partial(match):
         name=match.group(1)
-        assert name in {'actor-actions','actor-core-skill','actor-standard-action','actor-short-rest'}
+        assert name in {'actor-actions','actor-core-skill','actor-custom-skill','actor-standard-action','actor-short-rest'}
         return re.sub(r'\{\{> fnri-([\w-]+)\}\}',partial,(root/'templates'/f'{name}.hbs').read_text())
     return re.sub(r'\{\{> fnri-([\w-]+)\}\}',partial,source)
 
@@ -42,6 +42,8 @@ def load_real_sheet(page, root, markup, shim, after=''):
         window.FastNRICharacterSheet=FastNRICharacterSheet;
         window.sheetActions=sheetOptions(FastNRICharacterSheet).actions;
         window.sheet=new FastNRICharacterSheet({actor:window.actor});
+        // Editing tests explicitly unlock the local configuration guard.
+        window.sheet._configurationLocked=false;
         await window.sheet._onRender({},{});
     }''')
     if after:
