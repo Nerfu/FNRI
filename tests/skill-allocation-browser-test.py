@@ -39,7 +39,7 @@ with sync_playwright() as p:
 
    window.choose=()=>{window.pending=sheetActions.chooseTradition.call(sheet);};
   }''')
-  page.evaluate('choose()')
+  page.evaluate('sheet._configurationLocked=false; choose()')
   page.get_by_role('button',name='Мистицизм').click()
   page.evaluate('pending')
   assert page.evaluate('raw.classTradition')=='mysticism'
@@ -63,8 +63,8 @@ with sync_playwright() as p:
   medicine = editor.locator('[data-skill-die="medicine"]')
   stealth = editor.locator('[data-skill-die="stealth"]')
   mysticism = editor.locator('[data-skill-die="mysticism"]')
-  assert editor.locator('[data-skill-die]').count()==15
-  assert editor.locator('.fnri-skill-edit-group').count()==4
+  assert editor.locator('[data-skill-die]').count()==16
+  assert editor.locator('.fnri-skill-edit-group').count()==5
   assert editor.locator('[data-skill-custom="specialization"]').locator('[data-row-id="starter_primary"]').count() > 0
   expect(pool).to_contain_text("d6 × 2")
   # Clear the legacy hand-entered override, then take one particular free die.
@@ -78,10 +78,10 @@ with sync_playwright() as p:
   assert mysticism.locator('option[value^="assign:"]').count() == 0
   assert mysticism.locator('option[value="release"]').count() == 0
 
-  upgrade = editor.locator('[data-skill-upgrade]').first
-  assert "d6 → d8" in upgrade.locator('..').inner_text()
-  target = upgrade.locator('option').filter(has_text='Медицина').get_attribute('value')
-  upgrade.select_option(target)
+  upgrade = medicine.locator('option[value^="upgrade:"]').first
+  assert "d6 → d8" in upgrade.inner_text()
+  target = upgrade.get_attribute('value').split(':')[-1]
+  medicine.select_option(upgrade.get_attribute('value'))
   page.wait_for_function("actor.system.skills.core_medicine.dice==='1d8'")
   assert "d6 → d8" in medicine.locator('..').inner_text()
   move = stealth.locator('option[value$=":medicine"]').first
@@ -89,7 +89,7 @@ with sync_playwright() as p:
   stealth.select_option(move.get_attribute('value'))
   page.wait_for_function("actor.system.skills.core_stealth.dice==='1d8' && actor.system.skills.core_medicine.dice===''")
   assert "d6 → d8" in stealth.locator('..').inner_text()
-  assert upgrade.input_value() == target
+  assert page.evaluate('result().upgrades.some(u=>u.target==='+repr(target)+')')
   stealth.select_option('release')
   page.wait_for_function("actor.system.skills.core_stealth.dice===''")
   expect(pool).to_contain_text("d8 × 2")

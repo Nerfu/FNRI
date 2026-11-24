@@ -20,34 +20,37 @@ const input = (id, key, value, label) =>
 const option = (value, label) => `<option value="${esc(value)}">${esc(label)}</option>`;
 const poolOption = die => `assign:${die.id}:${die.skill ?? ''}`;
 
-function customDiceButtons(id, dice, formula) {
-  return `<div class="fnri-skill-edit-dice">${dice.map(die => button('die', die.replace(/^1d/, 'd'),
-    `data-id="${esc(id)}" data-die="${die}" aria-pressed="${formula === die}"`)).join('')}</div>`;
-}
-
 export function skillUpgradeCandidates(allocation, upgrade) {
   return allocation.dice.filter(die =>
     die.size === upgrade.size && !allocation.upgrades.some(other => other.id !== upgrade.id && other.target === die.id));
 }
 
-function upgradeOptions(allocation, upgrade) {
-  const next = faces[faces.indexOf(upgrade.size) + 1];
-  const direction = `d${upgrade.size} → d${next}`;
-  const options = skillUpgradeCandidates(allocation, upgrade).sort((a, b) => a.id.localeCompare(b.id));
-  return `<label class="fnri-skill-upgrade"><span>${esc(upgrade.source)} · <strong>${direction}</strong></span>
-    <select data-skill-upgrade="${esc(upgrade.id)}">
-      ${option('', skillText('unassignedUpgrade'))}
-      ${options.map((die, index) => {
-        const label = die.skill ? skillName(die.skill) : `${skillText('freeDie')} ${index + 1}`;
-        return `<option value="${esc(die.id)}"${die.id === upgrade.target ? ' selected' : ''}>${esc(label)} · ${esc(die.source)}</option>`;
-      }).join('')}
-    </select></label>`;
+/** One selector per basic skill. An upgrade follows its actual die ID. */
+export function skillRowUpgradeChoices(allocation, die) {
+  if (!die) return [];
+  return allocation.upgrades.flatMap(upgrade => {
+    if (upgrade.target===die.id) return [{upgrade, action:'remove-upgrade'}];
+    if (!skillUpgradeCandidates(allocation, upgrade).some(candidate=>candidate.id===die.id)) return [];
+    return [{upgrade,action:'upgrade'}];
+  });
+}
+
+function rowUpgradeOptions(allocation, die) {
+  const choices=skillRowUpgradeChoices(allocation,die);
+  return choices.map(({upgrade,action})=>{
+    const next=faces[faces.indexOf(upgrade.size)+1];
+    const target=allocation.dice.find(row=>row.id===upgrade.target);
+    const label=action==='remove-upgrade'
+      ? skillText('removeUpgrade')+' · '+upgrade.source
+      : skillText('applyUpgrade')+` d${upgrade.size} → d${next} · ${upgrade.source}`+
+        (target ? ` (${skillText('move')} · ${target.skill?skillName(target.skill):skillText('freeDie')})` : '');
+    return option(`${action}:${upgrade.id}:${die.id}`,label);
+  }).join('');
 }
 
 function skillDieLabel(die, skill) {
   const pieces = [`d${die.face}`, die.source];
   if (die.face !== die.size) pieces.push(`d${die.size} → d${die.face}`);
-  if (die.allowed && !die.allowed.includes(skill)) pieces.push(skillText('outsideSkillList'));
   return pieces.join(' · ');
 }
 
@@ -65,8 +68,7 @@ function poolChoices(allocation, skill) {
     option(poolOption(die), skillDieLabel(die, skill) + (count > 1 ? ` × ${count}` : '')));
   const transfer = allocation.dice.filter(die => die.skill && die.skill !== skill && canMoveSkillDie(die))
     .map(die => option(poolOption(die), `d${die.face} · ${skillName(die.skill)} → ${skillText('move')}` +
-      (die.face !== die.size ? ` · d${die.size} → d${die.face}` : '') +
-      (die.allowed && !die.allowed.includes(skill) ? ` · ${skillText('outsideSkillList')}` : '')));
+      (die.face !== die.size ? ` · d${die.size} → d${die.face}` : '')));
   return [
     free.length && `<optgroup label="${esc(skillText('free'))}">${free.join('')}</optgroup>`,
     transfer.length && `<optgroup label="${esc(skillText('transfer'))}">${transfer.join('')}</optgroup>`
@@ -93,6 +95,7 @@ function skillRow(skill, allocation, raw, openFormula) {
       <option value="" data-assigned-die="${esc(row.die)}">${esc(label)}</option>
       ${editableAssignment ? poolChoices(allocation, skill.id) : ''}
       ${canMoveSkillDie(die) ? option('release', skillText('release')) : ''}
+      ${rowUpgradeOptions(allocation, die)}
       ${option('manual', loc('CharacterEditor.custom') + '…')}
       ${manual ? option('use-assigned', skillText('useAssigned')) : ''}
     </select>
@@ -104,21 +107,30 @@ function skillRow(skill, allocation, raw, openFormula) {
   </div>`;
 }
 
-function customRows(raw, kind) {
+function customRows(raw, kind, group=null, openFormula=null) {
   return Object.entries(raw.skills ?? {})
     .filter(([id, skill]) => !BASIC_SKILLS_BY_ROW_ID.has(id) &&
-      (skill.kind === 'specialization') === (kind === 'specialization'))
-    .map(([id, skill]) => `<div class="fnri-skill-edit-custom">
-      ${input(id, 'name', skill.name, loc('Fields.name'))}
-      <select ${field(id, 'kind')} aria-label="${esc(loc('Fields.checkKind'))}">
-        <option value="skill"${kind === 'skill' ? ' selected' : ''}>${esc(loc('Fields.skill'))}</option>
-        <option value="specialization"${kind === 'specialization' ? ' selected' : ''}>${esc(loc('Fields.specialization'))}</option>
-      </select>
-      ${customDiceButtons(id, faces.map(face => '1d' + face), skill.dice)}
-      ${input(id, 'dice', skill.dice, loc('Fields.dice'))}
-      ${input(id, 'modifier', skill.modifier, loc('Fields.checkModifier'))}
-      ${button('remove', '×', `data-id="${esc(id)}" aria-label="${esc(loc('Actions.removeSkill'))}"`)}
-    </div>`).join('');
+      (skill.kind === 'specialization') === (kind === 'specialization') &&
+      (kind !== 'specialization' || (SKILL_GROUPS.includes(skill.group)?skill.group:'') === (group??'')))
+    .map(([id, skill]) => {
+      const formula=String(skill.dice??'');
+      const groupPicker=kind==='specialization'?`<select ${field(id,'group')} aria-label="${esc(loc('SkillAllocation.specializationGroup'))}">
+        <option value=""${!SKILL_GROUPS.includes(skill.group)?' selected':''}>${esc(skillText('noGroup'))}</option>
+        ${SKILL_GROUPS.map(g=>`<option value="${esc(g)}"${skill.group===g?' selected':''}>${esc(loc('SkillGroups.'+g))}</option>`).join('')}
+      </select>`:'';
+      return `<div class="fnri-skill-edit-custom fnri-skill-edit-custom-compact">
+        <div class="fnri-skill-custom-identity">${input(id,'name',skill.name,loc('Fields.name'))}${groupPicker}</div>
+        <select data-skill-custom-die="${esc(id)}" aria-label="${esc(loc('Fields.dice'))}">
+          ${option('',formula.replace(/^1(d\d+)$/,'$1')||'—')}
+          ${faces.map(face=>option('1d'+face,'d'+face)).join('')}
+          ${option('clear',loc('Fields.noDice'))}
+          ${option('manual',loc('CharacterEditor.custom')+'…')}
+        </select>
+        ${input(id,'modifier',skill.modifier,loc('Fields.checkModifier'))}
+        ${button('remove','×',`data-id="${esc(id)}" aria-label="${esc(loc('Actions.removeSkill'))}"`)}
+        ${openFormula===id?`<label class="fnri-skill-edit-formula"><span>${esc(loc('CharacterEditor.custom'))}</span>${input(id,'dice',formula,loc('Fields.dice'))}</label>`:''}
+      </div>`;
+    }).join('');
 }
 
 export function skillEditorMarkup(actor, openFormula = null) {
@@ -146,22 +158,25 @@ export function skillEditorMarkup(actor, openFormula = null) {
   const groups = SKILL_GROUPS.map(group => `<section class="fnri-skill-edit-group">
     <h3>${esc(loc('SkillGroups.' + group))}</h3>
     ${BASIC_SKILLS.filter(skill => skill.group === group).map(skill =>
-      skillRow(skill, allocation, raw, openFormula)).join('')}</section>`).join('');
+      skillRow(skill, allocation, raw, openFormula)).join('')}
+    <div class="fnri-skill-edit-custom-group fnri-group-specializations" data-skill-custom="specialization">
+      <h4>${esc(skillText('specializations'))}</h4>
+      ${customRows(raw,'specialization',group,openFormula)}
+      ${button('addSpecialization',loc('Actions.addSpecialization'),`data-group="${esc(group)}"`)}
+    </div></section>`).join('');
 
   return `<div class="fnri-skill-edit-toolbar" data-fnri-lock-section>${showPool ? `<strong>${esc(skillText('free'))}</strong>
     <div class="fnri-skill-edit-pool" role="status">${pool}</div>` : ''}${button('reset',skillText('reset'))}</div>
     <div class="fnri-skill-edit-body">
       ${rule?.traditions ? `<div class="fnri-skill-edit-option">${esc(skillText('traditionLabel'))}
         ${button('tradition', skillName(raw.classTradition) || loc('CharacterChoice.choose'))}</div>` : ''}
-      ${allocation.upgrades.length ? `<div class="fnri-skill-upgrades" data-fnri-lock-section>${allocation.upgrades.map(upgrade => upgradeOptions(allocation, upgrade)).join('')}</div>` : ''}
       <div class="fnri-skill-edit-head" aria-hidden="true"><span>${esc(loc('Fields.skill'))}</span><span>${esc(loc('Fields.dice'))}</span><span>${esc(skillText('modifierShort'))}</span></div>
       ${groups}
-      <section class="fnri-skill-edit-custom-group" data-skill-custom="specialization">
-        <h3>${esc(skillText('specializations'))}</h3>${customRows(raw, 'specialization')}
-        ${button('addSpecialization',loc('Actions.addSpecialization'))}
-      </section>
+      ${Object.values(raw.skills??{}).some(row=>row.kind==='specialization'&&!SKILL_GROUPS.includes(row.group))?`<section class="fnri-skill-edit-custom-group" data-skill-custom="specialization">
+        <h3>${esc(skillText('unassignedSpecializations'))}</h3>${customRows(raw,'specialization','',openFormula)}
+      </section>`:''}
       <section class="fnri-skill-edit-custom-group" data-skill-custom="skill">
-        <h3>${esc(skillText('customSkills'))}</h3>${customRows(raw, 'skill')}
+        <h3>${esc(skillText('customSkills'))}</h3>${customRows(raw, 'skill',null,openFormula)}
         ${button('addSkill',loc('Actions.addSkill'))}
       </section>
       ${sources || upgrades || warnings ? `<details class="fnri-skill-distribution" data-fnri-lock-section data-skill-disclosure="sources" data-allocation-complete="${complete}"${complete ? '' : ' open'}>
@@ -195,7 +210,7 @@ export async function openSkillEditor(sheet, actions) {
       function refresh() {
         if (!root.isConnected) return;
         const focused = document.activeElement;
-        const fields = '[data-row-field],[data-skill-action],[data-skill-upgrade],[data-skill-die],[data-skill-formula]';
+        const fields = '[data-row-field],[data-skill-action],[data-skill-die],[data-skill-custom-die],[data-skill-formula]';
         const key = element => JSON.stringify(element.dataset);
         const focusKey = root.contains(focused) ? key(focused) : null;
         const expanded = [...root.querySelectorAll('details[open]')].map(detail => detail.dataset.skillDisclosure);
@@ -252,6 +267,9 @@ export async function openSkillEditor(sheet, actions) {
           } else if (command === 'use-assigned') {
             if (openFormula === skillDie) openFormula = null;
             run(() => actions.manual(skillDie, null));
+          } else if (command.startsWith('upgrade:') || command.startsWith('remove-upgrade:')) {
+            const [action,upgradeId,dieId]=command.split(':');
+            run(()=>actions.upgrade(upgradeId,action==='upgrade'?dieId:null,skillDie,dieId));
           } else if (command === 'release' || command.startsWith('assign:')) {
             const [, dieId, from] = command.split(':');
             run(() => actions.assign(skillDie, {dieId: dieId || null, from: from || null, previous}));
@@ -260,35 +278,38 @@ export async function openSkillEditor(sheet, actions) {
           const {skillFormula} = target.dataset;
           const value = target.value;
           run(() => actions.manual(skillFormula, value));
-        } else if (target.matches('[data-skill-upgrade]')) {
-          const {skillUpgrade} = target.dataset;
-          const value = target.value;
-          run(() => actions.upgrade(skillUpgrade, value || null));
+        } else if (target.matches('[data-skill-custom-die]')) {
+          const id=target.dataset.skillCustomDie, command=target.value;
+          target.value='';
+          if(command==='manual'){
+            openFormula=openFormula===id?null:id;
+            refresh();
+            if(openFormula) root.querySelector(`[data-row-id="${id}"][data-row-field="dice"]`)?.focus();
+          }else if(command){
+            const control=document.createElement('input');
+            Object.assign(control.dataset,{rowCollection:'skills',rowId:id,rowField:'dice'});
+            control.value=command==='clear'?'':command;
+            if(openFormula===id)openFormula=null;
+            run(()=>actions.save(control));
+          }
         } else if (target.matches('[data-row-field]')) {
           event.stopPropagation();
           const control = target.cloneNode();
           control.value = target.value;
-          run(() => actions.save(control), ['dice', 'kind', 'name'].includes(target.dataset.rowField));
+          run(() => actions.save(control), ['dice', 'kind', 'name','group'].includes(target.dataset.rowField));
         }
       });
       root.addEventListener('click', event => {
         const pressed = event.target.closest('[data-skill-action]');
         if (!pressed || !sheet.isEditable || sheet.configurationLocked) return;
         event.preventDefault();
-        const {skillAction, id, die} = pressed.dataset;
+        const {skillAction, id, group} = pressed.dataset;
         const commands = {
-          die: () => {
-            const current = rawSystem(sheet.actor).skills?.[id]?.dice;
-            const control = document.createElement('input');
-            Object.assign(control.dataset, {rowCollection: 'skills', rowId: id, rowField: 'dice'});
-            control.value = current === die ? '' : die;
-            return actions.save(control);
-          },
           reset: actions.reset,
           tradition: actions.chooseTradition,
           remove: () => actions.remove(id),
           addSkill: () => actions.add('skill'),
-          addSpecialization: () => actions.add('specialization')
+          addSpecialization: () => actions.add('specialization',group)
         };
         if (Object.hasOwn(commands, skillAction)) run(commands[skillAction]);
       });

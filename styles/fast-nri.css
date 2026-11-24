@@ -757,3 +757,11 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fnri-skill-distribution > summary { cursor: pointer; font-weight: 600; }
 .fnri-skill-distribution > h4 { margin: 8px 0 3px; font-size: .85rem; }
 .fnri-skill-distribution > ul { margin: 0 0 6px; padding-inline-start: 18px; }
+
+/* Compact grouped specialization rows, one die control per row. */
+.fnri-skill-editor .fnri-group-specializations { margin-top: 8px; padding: 6px 0 2px 9px; border-inline-start: 1px solid var(--color-border-light-tertiary,#8886); }
+.fnri-skill-editor .fnri-group-specializations h4 { margin: 0; font-size: .82rem; opacity: .85; }
+.fnri-skill-editor .fnri-skill-edit-custom-compact { grid-template-columns: minmax(0,1fr) minmax(0,7rem) 2.5rem 1.75rem; align-items: start; }
+.fnri-skill-editor .fnri-skill-custom-identity { display: grid; min-width: 0; gap: 3px; }
+.fnri-skill-editor .fnri-skill-edit-pool > span { font-size: 1.05rem; font-weight: 600; padding: 5px 9px; }
+.fnri-skill-editor .fnri-skill-distribution-warnings > small { display: block; }

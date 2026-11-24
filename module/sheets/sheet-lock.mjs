@@ -12,7 +12,7 @@ export function hideWhenLocked(control) {
 const LIVE_FIELDS = new Set(['system.hp.current','system.hp.temp','system.potionsUsed','system.wealth','system.notes']);
 export function configurationControl(control) {
   const d=control?.dataset??{};
-  if (CONFIG_ACTIONS.has(d.action) || hideWhenLocked(control) || d.skillAction!==undefined || d.skillDie!==undefined || d.skillUpgrade!==undefined || d.skillFormula!==undefined) return true;
+  if (CONFIG_ACTIONS.has(d.action) || hideWhenLocked(control) || d.skillAction!==undefined || d.skillDie!==undefined || d.skillCustomDie!==undefined || d.skillUpgrade!==undefined || d.skillFormula!==undefined) return true;
   if (d.action==='createItem') return d.type==='ability';
   if (d.action==='deleteItem') return Boolean(control.closest?.('[data-fnri-panel="abilities"]'));
   if (d.fnriDicePicker!==undefined || d.fnriCustomDice!==undefined) return true;

@@ -872,6 +872,11 @@
     },
     "SkillAllocation": {
       "distributionDeviations": "Отклонения от распределения",
+      "applyUpgrade": "Повысить",
+      "removeUpgrade": "Отменить повышение",
+      "specializationGroup": "Группа специализации",
+      "noGroup": "Без группы",
+      "unassignedSpecializations": "Специализации без группы",
       "distributionSummary": "Сводка распределения",
       "distributionDice": "Кубы и их источники",
       "distributionUpgrades": "Повышения кубов",

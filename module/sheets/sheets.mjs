@@ -1499,11 +1499,11 @@ export class FastNRICharacterSheet extends ActorBase {
     this._skillEditorOpen=true;
     try {await openSkillEditor(this,{
       chooseTradition:()=>FastNRICharacterSheet.chooseTradition.call(this),
-      upgrade:(id,die)=>this._applySkillUpgrade(id,die),
+      upgrade:(id,die,skill,expected)=>this._applySkillUpgrade(id,die,skill,expected),
       assign:(id,choice)=>this._editSkillPool(id,choice),
       manual:(id,value)=>this._setSkillFormulaOverride(id,value),
       reset:()=>FastNRICharacterSheet.resetSkillDice.call(this),
-      add:kind=>this._addRow('skills',{name:'',kind,dice:'',modifier:null,value:null}),
+      add:(kind,group)=>this._addRow('skills',{name:'',kind,group:SKILL_GROUPS.includes(group)?group:'',dice:'',modifier:null,value:null}),
       remove:id=>this._removeRow('skills',id),
       save:control=>this._saveRowControl(control)
     });} finally {this._skillEditorOpen=false;}
@@ -1559,12 +1559,14 @@ export class FastNRICharacterSheet extends ActorBase {
     });
   }
 
-  async _applySkillUpgrade(upgradeId, dieId) {
+  async _applySkillUpgrade(upgradeId, dieId, skill, expected) {
     if (!this.isEditable || this.configurationLocked) return;
     return this._queueWrite(() => {
       const live = this.actor.toObject?.(true)?.system ?? this.actor.system;
       const allocation = resolveSkillAllocation(live, this.actor.items?.contents ?? []);
       const upgrade = allocation.upgrades.find(entry => entry.id === upgradeId);
+      if (skill && allocation.rows[skill]?.die !== expected) return;
+      if (!dieId && expected && upgrade?.target !== expected) return;
       if (!upgrade || dieId && !skillUpgradeCandidates(allocation, upgrade).some(die => die.id === dieId)) return;
       const patch = skillAllocationPatch(live, planSkillUpgrade(live, upgradeId, dieId));
       if (Object.keys(patch).length) return this.actor.update(patch);

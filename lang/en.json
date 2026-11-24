@@ -870,6 +870,11 @@
     },
     "SkillAllocation": {
       "distributionDeviations": "Allocation deviations",
+      "applyUpgrade": "Upgrade",
+      "removeUpgrade": "Remove upgrade",
+      "specializationGroup": "Specialization group",
+      "noGroup": "No group",
+      "unassignedSpecializations": "Ungrouped specializations",
       "distributionSummary": "Allocation summary",
       "distributionDice": "Dice and their sources",
       "distributionUpgrades": "Die upgrades",
