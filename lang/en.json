@@ -13,7 +13,10 @@
     }
   },
   "FASTNRI": {
-    "SheetLock": {"lock": "Lock configuration", "unlock": "Unlock configuration"},
+    "SheetLock": {
+      "lock": "Lock configuration",
+      "unlock": "Unlock configuration"
+    },
     "CharacterChoice": {
       "choose": "Choose",
       "clear": "Clear selection",
@@ -759,17 +762,22 @@
       "addConfirm": "Add",
       "duplicate": "The character already has this ancestry trait.",
       "wrongRace": "This trait is outside the character’s ancestries.",
-      "limitReached": "This exceeds the recommended ancestry trait count.",
+      "limitReached": "The additional ancestry trait limit has been reached.",
       "innateLocked": "This innate trait is protected by the world settings.",
       "racialAncestryFilter": "Restrict traits by ancestry",
       "racialAncestryFilterHint": "Offers universal traits and traits from the character’s ancestries.",
       "racialChoiceLimit": "Limit selected ancestry traits",
       "racialChoiceLimitHint": "Uses the primary ancestry’s selection limit. Innate traits do not count.",
-      "racialAllowInnateRemoval": "Allow removal of innate traits",
+      "racialAllowInnateRemoval": "Allow removal of innate ancestry traits",
       "racialAllowInnateRemovalHint": "Innate traits are still granted automatically when selecting an ancestry.",
       "showAll": "Show all racial properties",
       "selectedCount": "Selected",
-      "limitExceeded": "Extra ancestry properties selected"
+      "limitExceeded": "Extra ancestry properties selected",
+      "limitMissingOne": "Select {remaining} more property",
+      "limitMissingFew": "Select {remaining} more properties",
+      "limitMissingMany": "Select {remaining} more properties",
+      "racialAllowExcess": "Allow additional ancestry traits beyond the limit",
+      "racialAllowExcessHint": "Allows selecting more additional traits than the normal limit."
     },
     "AbilityChat": {
       "toChat": "Post to chat",

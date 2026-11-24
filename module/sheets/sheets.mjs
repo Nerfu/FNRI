@@ -32,7 +32,7 @@ import { resolveUnarmedAction, sendUnarmedAttack, availableUnarmedActions, UNARM
 import { BASIC_SKILLS, BASIC_SKILLS_BY_ROW_ID, SKILL_GROUPS, standardSkillEntry } from "../data/skills-catalog.mjs";
 import { BASE_SELF_DEFENSE } from "../data/core-actions.mjs";
 import {compactPhysicalProfile,attackCardDetails} from "./attack-preview.mjs";
-import {racialPropertyRows,racialChoiceWarning,openRacialPropertyEditor,chooseRacialSubproperty,addRacialProperty} from "./racial-property-picker.mjs";
+import {racialPropertyRows,racialChoiceStatus,openRacialPropertyEditor,chooseRacialSubproperty,addRacialProperty} from "./racial-property-picker.mjs";
 import {racialRaceNames,racialLabel,racialPropertyRule,changesAncestry,racialState} from "../data/racial-properties.mjs";
 import {editRacialSubproperty,syncInnateProperties} from "./racial-property-lifecycle.mjs";
 import {normalizeAttackKind,effectiveWeaponProperties,hasComputedReach,explicitInterventionFromCard} from "../rolls/attack-properties.mjs";
@@ -1466,7 +1466,7 @@ export class FastNRICharacterSheet extends ActorBase {
     const race = racialState(this.actor);
     const racialProperties = racialPropertyRows(this.actor, race);
     const additionalRacialProperties = racialProperties.filter(row => !row.innate);
-    const raceWarning = racialChoiceWarning(race);
+    const raceWarning = racialChoiceStatus(race);
     const missingAbilities = await missingClassAbilityRows(this.actor);
     const ownedClassAbilities = new Set(rule?.abilityIds);
     const abilityItems = context.abilityItems.map(row => ({
@@ -1482,7 +1482,7 @@ export class FastNRICharacterSheet extends ActorBase {
       innateRacialProperties: racialProperties.filter(row => row.innate),
       additionalRacialProperties,
       showAdditionalRacialProperties: race.races.length > 0 || additionalRacialProperties.length > 0,
-      racialChoiceWarning: raceWarning ? `FASTNRI.RacialProperties.${raceWarning}` : null,
+      racialChoiceWarning: raceWarning || null,
       skillAllocation:allocation.active?{
         free: [4,6,8,10,12].map(size=>({size,count:allocation.free.filter(d=>d.face===size).length})).filter(d=>d.count),
         warnings:allocation.warnings.map(w=>({text:[localized('SkillAllocation.'+w.code),w.skill?skillName(w.skill):'',w.expected!==undefined?`(${w.expected||'—'} → ${w.actual||'—'})`:''].filter(Boolean).join(' ')})),
@@ -1590,7 +1590,7 @@ export class FastNRICharacterSheet extends ActorBase {
         const item = this.actor.items.get(id);
         if (!racialPropertyRule(item)) return;
         const sync = changesAncestry(item);
-        const deleted = await this._deleteOwnedItem(id, {confirm: false, fnriAncestrySync: sync});
+        const deleted = await this._deleteOwnedItem(id, {confirm: false, fnriPicker: true, fnriAncestrySync: sync});
         if (deleted && sync) await syncInnateProperties(this.actor, false);
       }});
     } catch (error) {

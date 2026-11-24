@@ -32,7 +32,7 @@ import {registerDamageRecovery,ensureDamageRecovery} from './module/abilities/da
 import {registerWeaponChatControls} from "./module/weapon/weapon-attack.mjs";
 import {registerClassLifecycle} from './module/data/class-lifecycle.mjs';
 import {registerRacialSettings} from "./module/data/racial-properties.mjs";
-import {registerRacialPropertyLifecycle} from "./module/sheets/racial-property-lifecycle.mjs";
+import {registerRacialPropertyLifecycle,racialItemDocumentClass} from "./module/sheets/racial-property-lifecycle.mjs";
 /**
  * Fast NRI 7.0 — Foundry VTT v14 system initialization.
  * The subtype data models and sheets are registered during the init hook.
@@ -53,6 +53,7 @@ Hooks.once("init", () => {
   registerCheckLinks();
   registerRacialSettings();
   registerRacialPropertyLifecycle();
+  CONFIG.Item.documentClass = racialItemDocumentClass(CONFIG.Item.documentClass ?? foundry.documents.Item);
   registerClassLifecycle();
   // Foundry native _onEndTurn executes only on designated GM.
   CONFIG.Combat.documentClass = FastNRICombat;

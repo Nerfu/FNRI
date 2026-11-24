@@ -1,6 +1,6 @@
 import {
   RACIAL_SYSTEM_ID, racialLabel as label, racialContentId, racialPropertyRule,
-  racialPropertyChoices, selectedRacialPropertyChoice, racialState, racialAddWarnings
+  racialPropertyChoices, selectedRacialPropertyChoice, racialState, racialAddWarnings, racialPermissions, racialAddBlock, racialRemoveBlock
 } from "../data/racial-properties.mjs";
 
 const esc = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -23,8 +23,16 @@ function sameProperty(actor, item) {
 }
 
 export function racialChoiceWarning(state) {
-  if (state.max === null || state.used === state.max) return "";
-  return state.used < state.max ? "limitMissing" : "limitExceeded";
+  return state.max !== null && state.used < state.max ? "limitMissing" : "";
+}
+
+export function racialChoiceStatus(state) {
+  const key = racialChoiceWarning(state);
+  if (!key) return "";
+  const remaining=state.max-state.used;
+  const form=remaining%100>=11&&remaining%100<=14?'Many':remaining%10===1?'One':remaining%10>=2&&remaining%10<=4?'Few':'Many';
+  const template=label(game.i18n.lang==='ru'?'limitMissing'+form:remaining===1?'limitMissingOne':'limitMissingMany');
+  return template.replace('{remaining}',String(remaining));
 }
 
 export function racialPropertyRows(actor, state = racialState(actor)) {
@@ -80,6 +88,7 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
 
       function refresh(focusKey) {
         const state = racialState(actor);
+        const permissions = racialPermissions();
         const query = normalizeSearch(search.value);
         const owned = actor.items.contents.filter(racialPropertyRule);
         const keyOf = item => racialContentId(item) || item.id;
@@ -93,22 +102,22 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
           if ((!ownedItem && !showAll.checked && warnings.includes("wrongRace")) ||
               !normalizeSearch(item.name).includes(query)) return [];
           const choice = ownedItem ? selectedRacialPropertyChoice(racialPropertyRule(item)) : null;
-          return [{item, ownedItem, warnings, choice, key: keyOf(item)}];
+          const blocked = ownedItem ? racialRemoveBlock(actor,item,permissions) : racialAddBlock(actor,item,permissions);
+          return [{item, ownedItem, blocked, choice, key: keyOf(item)}];
         });
-        const warning = racialChoiceWarning(state);
+        const message = racialChoiceStatus(state);
         count.textContent = `${label("selectedCount")} ${state.used} / ${state.max ?? "—"}`;
-        status.textContent = warning ? label(warning) : "";
-        status.hidden = !warning;
+        status.textContent = message;
+        status.hidden = !message;
         const expanded = new Set([...list.querySelectorAll("details[open]")].map(node => node.dataset.card));
         const scroll = list.scrollTop;
-        list.innerHTML = visible.map(({item, ownedItem, warnings, choice, key}, index) => {
+        list.innerHTML = visible.map(({item, ownedItem, blocked, choice, key}, index) => {
           const description = item.system.description || item.system.effect || item.system.notes;
           const name = choice ? `${item.name} · ${choice.label}` : item.name;
           return `<div class="fnri-racial-option">
-            <button type="button" class="fnri-racial-pick" data-racial-index="${index}" aria-pressed="${ownedItem}">
+            <button type="button" class="fnri-racial-pick" data-racial-index="${index}" aria-pressed="${ownedItem}"${blocked ? ' disabled' : ''}>
               <span class="fnri-racial-mark" aria-hidden="true">${ownedItem ? "✓" : "+"}</span><span>${esc(name)}</span>
             </button>
-            ${warnings.map(warning => `<small class="fnri-racial-warning">${esc(label(warning))}</small>`).join("")}
             ${description ? `<details class="fnri-racial-info" data-card="${esc(key)}"${expanded.has(key) ? " open" : ""}>
               <summary aria-label="${esc(label("description"))}" title="${esc(label("description"))}">?</summary>
               <div class="fnri-racial-description">${esc(description)}</div></details>` : ""}
@@ -118,7 +127,8 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
         list.scrollTop = scroll;
         if (focusKey != null) {
           const index = visible.findIndex(row => row.key === focusKey);
-          (list.querySelector(`[data-racial-index="${index}"]`) ?? search).focus({preventScroll: true});
+          const next=list.querySelector(`[data-racial-index="${index}"]`);
+          (next && !next.disabled ? next : search).focus({preventScroll: true});
         }
       }
 
@@ -133,7 +143,9 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
       list.addEventListener("click", async event => {
         const button = event.target.closest("[data-racial-index]");
         const row = button && visible[button.dataset.racialIndex];
-        if (!row || mutating) return;
+        if (!row || mutating || button.disabled) return;
+        const blocked = row.ownedItem ? racialRemoveBlock(actor,row.item) : racialAddBlock(actor,row.item);
+        if (blocked) { refresh(row.key); return; }
         mutating = true;
         list.setAttribute("aria-busy", "true");
         try {
@@ -184,6 +196,7 @@ export async function chooseRacialSubproperty(item) {
 export async function addRacialProperty(actor, card, selection, {automatic = false} = {}) {
   const existing = sameProperty(actor, card);
   if (racialPropertyRule(existing)) return existing;
+  if (racialAddBlock(actor,card)) return null;
   const rule = foundry.utils.deepClone(racialPropertyRule(card));
   if (selection) rule.selection = selection;
   if (existing) {

@@ -1,7 +1,8 @@
 import {queueActorWrite} from "../data/ability-accounting.mjs";
 import {
   RACIAL_SYSTEM_ID, racialLabel, racialContentId, racialState, racialPropertyRule,
-  racialPropertyChoices, selectedRacialPropertyChoice, racialAddWarnings, changesAncestry
+  racialPropertyChoices, selectedRacialPropertyChoice, racialAddWarnings, changesAncestry,
+  racialAddBlock, racialRemoveBlock, racialCreationPlan
 } from "../data/racial-properties.mjs";
 import {racialCatalog, addRacialProperty, chooseRacialSubproperty} from "./racial-property-picker.mjs";
 
@@ -66,9 +67,24 @@ export function registerRacialPropertyLifecycle() {
   const shouldSync = (actor, userId) => actor?.type === "character" && actor.isOwner && game.user.id === userId;
   const reconcile = (actor, grant = true) => { void syncInnateProperties(actor, grant).catch(reportError); };
 
-  Hooks.on("preCreateItem", item => {
-    for (const warning of racialAddWarnings(item.parent, item))
+  Hooks.on("preCreateItem", (item, _data, options = {}) => {
+    const blocked = racialAddBlock(item.parent,item);
+    if (blocked) {
+      if (!options.fnriPicker) ui.notifications?.warn(racialLabel(blocked));
+      return false;
+    }
+    if (!options.fnriPicker) for (const warning of racialAddWarnings(item.parent,item).filter(key=>key!=='limitReached'))
       ui.notifications?.warn(racialLabel(warning));
+  });
+
+  Hooks.on("preDeleteItem", (item, options = {}) => {
+    // No generic bypass flag: obsolete automatic properties are no longer
+    // innate in the new ancestry, so normal synchronization is permitted.
+    const blocked = racialRemoveBlock(item.parent,item);
+    if (blocked) {
+      if (!options.fnriPicker) ui.notifications?.warn(racialLabel(blocked));
+      return false;
+    }
   });
 
   Hooks.on("createActor", (actor, _options, userId) => {
@@ -98,4 +114,20 @@ export function registerRacialPropertyLifecycle() {
     if (shouldSync(item.parent, userId) && !options.fnriAncestrySync && changesAncestry(item))
       reconcile(item.parent, false);
   });
+}
+
+/** Foundry v14 preflight runs once for the complete pending creation batch.
+ * The single-Item hook alone cannot see other pending Items. Keep unrelated
+ * Items and cancel only the prohibited additions. */
+export function racialItemDocumentClass(Base) {
+  return class FastNRIRacialItem extends Base {
+    static async _preCreateOperation(documents, operation, user) {
+      if (await super._preCreateOperation(documents,operation,user) === false) return false;
+      const {allowed,blocked}=racialCreationPlan(documents);
+      if (!blocked.length) return;
+      documents.splice(0,documents.length,...allowed);
+      if (!operation.fnriPicker) ui.notifications?.warn(racialLabel('limitReached'));
+      if (!documents.length) return false;
+    }
+  };
 }

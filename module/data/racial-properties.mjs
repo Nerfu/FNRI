@@ -54,24 +54,31 @@ export const racialContentId = item => item?.getFlag?.(RACIAL_SYSTEM_ID, "conten
 export const racialLabel = key => game.i18n.localize(`FASTNRI.RacialProperties.${key}`);
 const normalize = value => String(value ?? "").trim().toLocaleLowerCase("ru").replaceAll("ё", "е");
 
-// Retain legacy world keys for compatibility; they no longer control or block selection.
+// Only the two explicitly approved exceptions are exposed as world settings.
 export function registerRacialSettings() {
-  for (const [key, defaultValue] of [
-    ["racialAncestryFilter", true], ["racialChoiceLimit", true], ["racialAllowInnateRemoval", false]
+  for (const [key, defaultValue, config] of [
+    ["racialAncestryFilter", true, false], ["racialChoiceLimit", true, false],
+    ["racialAllowInnateRemoval", false, true], ["racialAllowExcess", false, true]
   ]) {
     game.settings.register(RACIAL_SYSTEM_ID, key, {
       name: `FASTNRI.RacialProperties.${key}`, hint: `FASTNRI.RacialProperties.${key}Hint`,
-      scope: "world", config: false, type: Boolean, default: defaultValue
+      scope: "world", config, type: Boolean, default: defaultValue
     });
   }
 }
 
+export function racialPermissions() {
+  return {
+    allowInnateRemoval: globalThis.game?.settings?.get?.(RACIAL_SYSTEM_ID,"racialAllowInnateRemoval") === true,
+    allowExcess: globalThis.game?.settings?.get?.(RACIAL_SYSTEM_ID,"racialAllowExcess") === true
+  };
+}
+
 export const racialRaceNames = () => Object.values(RACES).map(([name]) => name);
 
-export function racialState(actor) {
+export function racialState(actor, items = actor?.items?.contents ?? []) {
   const race = normalize(actor?.system?.race);
   const primary = Object.keys(RACES).find(id => id === race || normalize(RACES[id][0]) === race);
-  const items = actor?.items?.contents ?? [];
   const secondary = racialPropertyRule(items.find(item => racialContentId(item) === HALF_BLOOD))?.selection;
   const races = [primary].filter(Boolean);
   if (primary === "human" && secondary !== "human" && Object.hasOwn(RACES, secondary)) races.push(secondary);
@@ -113,3 +120,36 @@ export function changesAncestry(item) {
   return [HALF_BLOOD, NEPHALEM_NATURE].includes(racialContentId(item));
 }
 
+
+/** A narrow configuration exception, never a check of gaming actions.
+ * A batch may contain more than one Item; count the prospective composition.
+ * Existing over-limit actors are left intact and may still remove properties. */
+export function racialAddBlock(actor, item, permissions = racialPermissions(), items = actor?.items?.contents ?? []) {
+  if (actor?.type !== 'character' || !racialPropertyRule(item) || permissions.allowExcess) return null;
+  const state = racialState(actor, items);
+  const id = racialContentId(item);
+  if (state.innate.has(id)) return null;
+  const next = racialState(actor, [...items, item]);
+  return state.max !== null && next.used > state.max && next.used > state.used ? 'limitReached' : null;
+}
+
+export function racialRemoveBlock(actor, item, permissions = racialPermissions()) {
+  return actor?.type === 'character' && racialPropertyRule(item) &&
+    racialState(actor).innate.has(racialContentId(item)) && !permissions.allowInnateRemoval ? 'innateLocked' : null;
+}
+
+export function racialCreationPlan(documents, permissions = racialPermissions()) {
+  const allowed = [], blocked = [], pending = new Map();
+  for (const item of documents) {
+    const actor = item.parent;
+    const items = pending.get(actor) ?? [...(actor?.items?.contents ?? [])];
+    const reason = racialAddBlock(actor, item, permissions, items);
+    if (reason) blocked.push({item,reason});
+    else {
+      allowed.push(item);
+      items.push(item);
+      pending.set(actor,items);
+    }
+  }
+  return {allowed,blocked};
+}

@@ -12,13 +12,13 @@ const S='fast-nri-v14', dir=new URL('../packs/_source/abilities/',import.meta.ur
 const cards=readdirSync(dir).map(file=>JSON.parse(readFileSync(new URL(file,dir),'utf8')));
 function itemOf(data,actor=null){const doc=structuredClone(data);doc.id=doc._id;doc.parent=actor;doc.uuid=(actor?.uuid??'Compendium.abilities')+'.Item.'+doc.id;doc.getFlag=(scope,key)=>doc.flags?.[scope]?.[key];doc.toObject=()=>structuredClone(data);return doc;}
 const card=(suffix)=>itemOf(cards.find(d=>d.flags?.[S]?.contentId?.endsWith(suffix)));
-let counter=0;const notifications=[],hooks={},settings=[];
-globalThis.game={user:{id:'p',targets:new Set()},i18n:{localize:k=>k,lang:'ru'},settings:{get:()=> 'public',register:(_s,key,cfg)=>settings.push([key,cfg])},packs:{get:()=>({getDocuments:async()=>cards.map(c=>itemOf(c))})}};
+let counter=0;const notifications=[],hooks={},settings=[],world={};
+globalThis.game={user:{id:'p',targets:new Set()},i18n:{localize:k=>k,lang:'ru'},settings:{get:(_s,key)=>world[key]??'public',register:(_s,key,cfg)=>settings.push([key,cfg])},packs:{get:()=>({getDocuments:async()=>cards.map(c=>itemOf(c))})}};
 globalThis.ui={notifications:{warn:v=>notifications.push(v)}};
 globalThis.Hooks={on:(key,fn)=>hooks[key]=fn};
 globalThis.foundry={utils:{randomID:()=>`id${++counter}`,deepClone:structuredClone},applications:{api:{DialogV2:{wait:acceptPreroll}}}};
-const actor={id:'hero',uuid:'Actor.hero',documentName:'Actor',type:'character',isOwner:true,hasPlayerOwner:true,name:'Hero',system:{race:'Человек',combatDie:'d10',resources:{},hp:{current:10,max:10,temp:0}},flags:{[S]:{}},effects:{contents:[]},items:{contents:[],get(id){return this.contents.find(i=>i.id===id)},has(id){return !!this.get(id)}},getFlag(scope,key){return this.flags[scope]?.[key]},async update(changes){for(const [path,v] of Object.entries(changes)){let target=this;const parts=path.split('.');for(const part of parts.slice(0,-1))target=target[part]??={};target[parts.at(-1)]=v;}},async createEmbeddedDocuments(type,docs){assert.equal(type,'Item');return docs.map(data=>{const doc=itemOf(data,this);assert.notEqual(hooks.preCreateItem?.(doc),false);this.items.contents.push(doc);return doc;});},async deleteEmbeddedDocuments(type,ids){assert.equal(type,'Item');this.items.contents=this.items.contents.filter(i=>!ids.includes(i.id));},getRollData:()=>({})};
-registerRacialSettings();assert.ok(settings.every(([,cfg])=>cfg.config===false));registerRacialPropertyLifecycle();assert.equal(hooks.preDeleteItem,undefined);
+const actor={id:'hero',uuid:'Actor.hero',documentName:'Actor',type:'character',isOwner:true,hasPlayerOwner:true,name:'Hero',system:{race:'Человек',combatDie:'d10',resources:{},hp:{current:10,max:10,temp:0}},flags:{[S]:{}},effects:{contents:[]},items:{contents:[],get(id){return this.contents.find(i=>i.id===id)},has(id){return !!this.get(id)}},getFlag(scope,key){return this.flags[scope]?.[key]},async update(changes){for(const [path,v] of Object.entries(changes)){let target=this;const parts=path.split('.');for(const part of parts.slice(0,-1))target=target[part]??={};target[parts.at(-1)]=v;}},async createEmbeddedDocuments(type,docs,options={}){assert.equal(type,'Item');return docs.flatMap(data=>{const doc=itemOf(data,this);if(hooks.preCreateItem?.(doc,data,options)===false)return [];this.items.contents.push(doc);return [doc];});},async deleteEmbeddedDocuments(type,ids,options={}){assert.equal(type,'Item');this.items.contents=this.items.contents.filter(i=>!ids.includes(i.id)||hooks.preDeleteItem?.(i,options)===false);},getRollData:()=>({})};
+registerRacialSettings();assert.deepEqual(settings.filter(([,cfg])=>cfg.config).map(([key,cfg])=>[key,cfg.scope,cfg.default]),[['racialAllowInnateRemoval','world',false],['racialAllowExcess','world',false]]);registerRacialPropertyLifecycle();assert.equal(typeof hooks.preDeleteItem,'function');
 await syncInnateProperties(actor);await syncInnateProperties(actor);assert.equal(actor.items.contents.length,1);assert.equal(actor.items.contents[0].name,'Умелый');assert.equal(racialState(actor).used,0);
 const half=await addRacialProperty(actor,card('racial.polukrovka'),'elf');
 await syncInnateProperties(actor);await syncInnateProperties(actor);
@@ -27,8 +27,11 @@ actor.system.role='Наследник';assert.equal(racialState(actor).max,4);
 const master=await addRacialProperty(actor,card('racial.master-boia'),null);assert.equal(master.system.mechanics.accounting.frequency.uses,1);
 await addRacialProperty(actor,card('racial.prodvinutyi'),null);await addRacialProperty(actor,card('racial.ustoichivyi'),null);assert.equal(racialState(actor).used,4);
 const wrong=card('racial.krepkij-khvost');assert.deepEqual(racialAddWarnings(actor,wrong),['wrongRace','limitReached']);
-const wrongOwned=await addRacialProperty(actor,wrong,null);assert.ok(actor.items.has(wrongOwned.id));assert.equal(racialState(actor).used,5);assert.ok(notifications.some(n=>n.endsWith('wrongRace')));assert.ok(notifications.some(n=>n.endsWith('limitReached')));
-const innate=actor.items.contents.find(i=>i.name==='Умелый');await actor.deleteEmbeddedDocuments('Item',[innate.id]);assert.ok(!actor.items.has(innate.id));
+assert.equal(await addRacialProperty(actor,wrong,null),null);
+world.racialAllowExcess=true;
+const wrongOwned=await addRacialProperty(actor,wrong,null);assert.ok(actor.items.has(wrongOwned.id));assert.equal(racialState(actor).used,5);
+const innate=actor.items.contents.find(i=>i.name==='Умелый');await actor.deleteEmbeddedDocuments('Item',[innate.id]);assert.ok(actor.items.has(innate.id));
+world.racialAllowInnateRemoval=true;await actor.deleteEmbeddedDocuments('Item',[innate.id]);assert.ok(!actor.items.has(innate.id));
 await actor.deleteEmbeddedDocuments('Item',[half.id]);await syncInnateProperties(actor,false);assert.deepEqual(racialState(actor).races,['human']);assert.ok(!actor.items.contents.some(i=>i.name==='Эльфийское проворство'));assert.ok(actor.items.has(wrongOwned.id));
 // An out-of-race or over-limit direct creation receives a warning, never a veto.
 assert.notEqual(hooks.preCreateItem({...wrong,parent:actor}),false);
