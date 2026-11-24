@@ -869,6 +869,7 @@
       "receiptFailed": "Potion receipt failed; use the receipt button or correct the resource manually."
     },
     "SkillAllocation": {
+      "distributionDeviations": "Allocation deviations",
       "distributionSummary": "Allocation summary",
       "distributionDice": "Dice and their sources",
       "distributionUpgrades": "Die upgrades",

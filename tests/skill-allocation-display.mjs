@@ -9,4 +9,7 @@ assert.equal(summaryOpenAfterRefresh(false,true,true),false);
 assert.equal(summaryOpenAfterRefresh(true,false,false),true);
 assert.equal(summaryOpenAfterRefresh(true,true,true),true);
 assert.equal(summaryOpenAfterRefresh(false,false,false),false);
+assert.deepEqual(skillAllocationDisplay({free:[],upgrades:[],warnings:[{code:'manualOverride',skill:'stealth',expected:'',actual:'1d8'}]}),{showPool:false,complete:false});
+assert.deepEqual(skillAllocationDisplay({free:[],upgrades:[{target:'die1'}],warnings:[]}),{showPool:false,complete:true});
+assert.equal(summaryOpenAfterRefresh(true,false,false),true,'new deviation reopens the completed summary');
 console.log('PASS allocation pool visibility and summary transitions');

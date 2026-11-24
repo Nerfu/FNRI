@@ -871,6 +871,7 @@
       "receiptFailed": "Не удалось учесть Зелье; используйте кнопку учёта или исправьте ресурс вручную."
     },
     "SkillAllocation": {
+      "distributionDeviations": "Отклонения от распределения",
       "distributionSummary": "Сводка распределения",
       "distributionDice": "Кубы и их источники",
       "distributionUpgrades": "Повышения кубов",
