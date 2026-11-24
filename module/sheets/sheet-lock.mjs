@@ -7,7 +7,7 @@ const CONFIG_ACTIONS = new Set([
 const SKILL_LIST_ACTIONS = new Set(['addSkill','addSpecialization','removeSkill','removeSpecialization']);
 export function hideWhenLocked(control) {
   const d=control?.dataset??{};
-  return SKILL_LIST_ACTIONS.has(d.action) || SKILL_LIST_ACTIONS.has(d.skillAction) || d.skillAction==='remove';
+  return d.fnriLockSection!==undefined || SKILL_LIST_ACTIONS.has(d.action) || SKILL_LIST_ACTIONS.has(d.skillAction) || d.skillAction==='remove';
 }
 const LIVE_FIELDS = new Set(['system.hp.current','system.hp.temp','system.potionsUsed','system.wealth','system.notes']);
 export function configurationControl(control) {
@@ -24,7 +24,7 @@ export function configurationControl(control) {
 }
 export function applySheetLock(root, locked) {
   if (!root) return;
-  for (const control of root.querySelectorAll('input,select,textarea,button')) {
+  for (const control of root.querySelectorAll('input,select,textarea,button,[data-fnri-lock-section]')) {
     if (locked && hideWhenLocked(control)) {
       if (!control.hidden) {
         control.hidden=true;
@@ -34,7 +34,7 @@ export function applySheetLock(root, locked) {
       control.hidden=false;
       delete control.dataset.fnriLockHidden;
     }
-    if (locked && configurationControl(control)) {
+    if (locked && configurationControl(control) && 'disabled' in control) {
       if (!control.disabled) {
         control.disabled=true;
         control.dataset.fnriLockDisabled='true';

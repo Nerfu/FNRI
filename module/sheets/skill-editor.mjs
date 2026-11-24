@@ -148,12 +148,12 @@ export function skillEditorMarkup(actor, openFormula = null) {
     ${BASIC_SKILLS.filter(skill => skill.group === group).map(skill =>
       skillRow(skill, allocation, raw, openFormula)).join('')}</section>`).join('');
 
-  return `<div class="fnri-skill-edit-toolbar">${showPool ? `<strong>${esc(skillText('free'))}</strong>
+  return `<div class="fnri-skill-edit-toolbar" data-fnri-lock-section>${showPool ? `<strong>${esc(skillText('free'))}</strong>
     <div class="fnri-skill-edit-pool" role="status">${pool}</div>` : ''}${button('reset',skillText('reset'))}</div>
     <div class="fnri-skill-edit-body">
       ${rule?.traditions ? `<div class="fnri-skill-edit-option">${esc(skillText('traditionLabel'))}
         ${button('tradition', skillName(raw.classTradition) || loc('CharacterChoice.choose'))}</div>` : ''}
-      ${allocation.upgrades.length ? `<div class="fnri-skill-upgrades">${allocation.upgrades.map(upgrade => upgradeOptions(allocation, upgrade)).join('')}</div>` : ''}
+      ${allocation.upgrades.length ? `<div class="fnri-skill-upgrades" data-fnri-lock-section>${allocation.upgrades.map(upgrade => upgradeOptions(allocation, upgrade)).join('')}</div>` : ''}
       <div class="fnri-skill-edit-head" aria-hidden="true"><span>${esc(loc('Fields.skill'))}</span><span>${esc(loc('Fields.dice'))}</span><span>${esc(skillText('modifierShort'))}</span></div>
       ${groups}
       <section class="fnri-skill-edit-custom-group" data-skill-custom="specialization">
@@ -164,7 +164,7 @@ export function skillEditorMarkup(actor, openFormula = null) {
         <h3>${esc(skillText('customSkills'))}</h3>${customRows(raw, 'skill')}
         ${button('addSkill',loc('Actions.addSkill'))}
       </section>
-      ${sources || upgrades || warnings ? `<details class="fnri-skill-distribution" data-skill-disclosure="sources" data-allocation-complete="${complete}"${complete ? '' : ' open'}>
+      ${sources || upgrades || warnings ? `<details class="fnri-skill-distribution" data-fnri-lock-section data-skill-disclosure="sources" data-allocation-complete="${complete}"${complete ? '' : ' open'}>
         <summary>${esc(skillText('distributionSummary'))}</summary>
         ${sources ? `<h4>${esc(skillText('distributionDice'))}</h4><ul>${sources}</ul>` : ''}
         ${upgrades ? `<h4>${esc(skillText('distributionUpgrades'))}</h4><ul>${upgrades}</ul>` : ''}
