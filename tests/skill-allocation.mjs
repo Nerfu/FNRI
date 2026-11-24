@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {classNames,mandatoryClassSkills} from '../module/data/classes.mjs';
 import {initialSkillEntries} from '../module/data/skills-catalog.mjs';
-import {initialSkillAllocation,resolveSkillAllocation,planSkillDie,planSkillAssignment,planSkillUpgrade,skillDieEditPatch,resetSkillDicePatch,prepareSkillAllocation} from '../module/data/skill-allocation.mjs';
+import {initialSkillAllocation,resolveSkillAllocation,planSkillDie,planSkillAssignment,planSkillUpgrade,skillDieEditPatch,resetSkillDicePatch,prepareSkillAllocation,skillPoolEditPatch,skillFormulaOverridePatch,resetSkillAssignmentsPatch} from '../module/data/skill-allocation.mjs';
 import {skillFormula} from '../module/rolls/checks.mjs';
 const dir=new URL('../packs/_source/abilities/',import.meta.url);
 const load=stem=>{const f=readdirSync(dir).find(n=>n.startsWith(stem+'--'));assert.ok(f,stem);const card=JSON.parse(readFileSync(new URL(f,dir),'utf8'));card.id=card._id;card.getFlag=(s,k)=>card.flags?.[s]?.[k];return card;};
@@ -49,4 +49,58 @@ u.skills.starter_primary.name='Лес';u.skills.starter_primary.dice='2d6';u.ski
 set(u,items,'nature','1d8');u.className='Друид';r=result(u,items);assert.equal(r.rows.nature.formula,'1d10');assert.ok(r.free.some(d=>d.size===8));u.className='Воин';assert.equal(result(u,items).rows.nature.formula,'1d8');
 const before=structuredClone(u);const model={...structuredClone(u),parent:{items:{contents:items},toObject:()=>({system:u})}};prepareSkillAllocation(model);assert.equal(skillFormula(model.skills.core_athletics),'1d20 + (1d10)');assert.equal(skillFormula(model.skills.core_nature),'1d20 + (1d8)');assert.equal(skillFormula(model.skills.core_deception),'1d20');assert.deepEqual(u,before);prepareSkillAllocation(model);assert.equal(model.skills.core_nature.dice,'1d8');
 patch(u,skillDieEditPatch(u,items,'nature','1d6'));assert.equal(result(u,items).rows.nature.formula,'1d6');assert.ok(result(u,items).free.some(d=>d.size===8));
+// A repeated size still selects one exact die. Transfers and upgrades follow
+// that die, while both affected skills' manual formulas remain independent.
+const pool = fresh('Колдун','mysticism');
+const poolItems = [advanced];
+const edit = (skill, dieId, from, previous) => {
+  const updates = skillPoolEditPatch(pool, poolItems, skill, {dieId, from, previous});
+  assert.ok(updates);
+  patch(pool, updates);
+};
+edit('medicine','free_1',null,null);
+edit('stealth','free_0',null,null);
+r = result(pool,poolItems);
+assert.deepEqual(sizes(r.free),[6]);
+const promote = r.upgrades.find(upgrade=>upgrade.size===6);
+pool.skillAllocation = planSkillUpgrade(pool,promote.id,'free_1');
+patch(pool,skillFormulaOverridePatch(pool,'medicine','2d6'));
+assert.equal(result(pool,poolItems).rows.medicine.die,'free_1','a manual formula leaves the allocated die in place');
+edit('stealth','free_1','medicine','free_0');
+r = result(pool,poolItems);
+assert.equal(r.rows.stealth.die,'free_1');
+assert.equal(r.rows.stealth.formula,'1d8');
+assert.equal(r.rows.medicine.die,null);
+assert.equal(r.rows.medicine.formula,'2d6');
+assert.ok(r.free.some(die=>die.id==='free_0'));
+assert.equal(skillPoolEditPatch(pool,poolItems,'intimidation',{dieId:'free_1',from:'medicine',previous:null}),null);
+assert.equal(skillPoolEditPatch(pool,poolItems,'mysticism',{dieId:'free_0',from:null,previous:'class_mysticism'}),null);
+assert.equal(skillPoolEditPatch(pool,poolItems,'intimidation',{dieId:'class_mysticism',from:'mysticism',previous:null}),null);
+edit('stealth',null,null,'free_1');
+assert.ok(result(pool,poolItems).free.some(die=>die.id==='free_1'&&die.face===8));
+patch(pool,skillFormulaOverridePatch(pool,'mysticism',''));
+assert.equal(result(pool,poolItems).rows.mysticism.formula,'','blank overrides an automatic assignment');
+patch(pool,skillFormulaOverridePatch(pool,'mysticism',null));
+assert.equal(result(pool,poolItems).rows.mysticism.formula,'1d10');
+edit('stealth','free_1',null,null);
+patch(pool,resetSkillAssignmentsPatch(pool));
+r = result(pool,poolItems);
+assert.equal(r.rows.stealth.die,null);
+assert.equal(r.rows.medicine.formula,'2d6');
+assert.equal(r.upgrades.find(upgrade=>upgrade.size===6).target,'free_1');
+patch(pool,skillFormulaOverridePatch(pool,'medicine',null));
+assert.equal(result(pool,poolItems).rows.medicine.formula,'');
+
+// Explicit return of a displaced racial die should not immediately assign it
+// back to its original, now-vacant skill. Reset restores initial grants.
+const returned = fresh();
+set(returned,[],'intimidation','1d8');
+const spawn = result(returned,[scars]).free.find(die=>die.source===scars.name);
+patch(returned,skillPoolEditPatch(returned,[scars],'medicine',{dieId:spawn.id,from:null,previous:null}));
+patch(returned,skillPoolEditPatch(returned,[scars],'intimidation',{dieId:null,from:null,previous:'free_0'}));
+patch(returned,skillPoolEditPatch(returned,[scars],'medicine',{dieId:null,from:null,previous:spawn.id}));
+assert.ok(result(returned,[scars]).free.some(die=>die.id===spawn.id));
+assert.equal(result(returned,[scars]).rows.intimidation.die,null);
+patch(returned,resetSkillAssignmentsPatch(returned));
+assert.equal(result(returned,[scars]).rows.intimidation.die,spawn.id);
 console.log('PASS source-aware skill grants, all classes, traditions, displacement, restricted dice, promotions, warnings, reset, source-safe roll data');

@@ -713,9 +713,10 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs label { display:flex; flex-direction:row; align-items:center; gap:5px; justify-content:center; }
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs input { width:72px; min-width:0; text-align:center; }
-.fnri-skill-editor { max-height: 70vh; overflow: auto; display: grid; gap: 9px; min-width: 0; }
+.fnri-skill-editor { display: grid; gap: 9px; min-width: 0; }
+.fnri-skill-edit-body { display: grid; gap: 9px; min-width: 0; max-height: 60vh; overflow: auto; padding-inline-end: 3px; }
 .fnri-skill-editor h3 { margin: 0; }
-.fnri-skill-edit-toolbar, .fnri-skill-edit-option, .fnri-skill-edit-toggle {
+.fnri-skill-edit-toolbar, .fnri-skill-edit-option {
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
 }
 .fnri-skill-edit-toolbar > button { margin-inline-start: auto; }
@@ -723,23 +724,25 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fnri-skill-edit-pool > span { padding: 2px 5px; border: 1px solid var(--color-border-light-tertiary, #8886); border-radius: 4px; }
 .fnri-skill-upgrades { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 6px; }
 .fnri-skill-upgrade { display: grid; gap: 3px; min-width: 0; }
-.fnri-skill-editor .fnri-skill-edit-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 10.9rem) 3.25rem; gap: 6px; align-items: center;
-  padding: 4px 0; border-block-end: 1px solid var(--color-border-light-tertiary, #8886);
+.fnri-skill-editor :is(.fnri-skill-edit-row, .fnri-skill-edit-head) {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 8.5rem) 3.25rem; gap: 6px; align-items: center;
 }
+.fnri-skill-edit-row { padding: 4px 0; border-block-end: 1px solid var(--color-border-light-tertiary, #8886); }
+.fnri-skill-edit-head { font-size: .75rem; opacity: .8; }
+.fnri-skill-edit-row select { text-overflow: ellipsis; }
 .fnri-skill-edit-group h3 { padding-bottom: 3px; }
 .fnri-skill-edit-row small { display: block; font-size: .75rem; overflow-wrap: anywhere; }
 .fnri-skill-edit-dice button { flex: 1 1 auto; padding: 0 3px; margin: 0; }
 .fnri-skill-edit-dice button[aria-pressed="true"] { background: var(--color-warm-2, #9a762c); color: white; }
-.fnri-skill-edit-dice .fnri-skill-manual-die { opacity: .65; }
-.fnri-skill-edit-formula { grid-column: 2 / -1; display: none; }
-.fnri-skill-show-formulas .fnri-skill-edit-formula { display: block; }
+.fnri-skill-edit-formula { grid-column: 1 / -1; display: grid; gap: 3px; font-size: .85rem; }
+.fnri-skill-edit-custom-group { display: grid; gap: 5px; }
+.fnri-skill-edit-custom-group > button { justify-self: start; }
 .fnri-skill-editor .fnri-skill-edit-custom {
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) 3.5rem 3.25rem 1.7rem;
   gap: 4px; align-items: center;
 }
 .fnri-skill-editor input, .fnri-skill-editor select { min-width: 0; max-width: 100%; }
 @media (max-width: 520px) {
-  .fnri-skill-editor .fnri-skill-edit-row { grid-template-columns: minmax(0, 1fr) minmax(0, 8.5rem) 2.5rem; }
+  .fnri-skill-editor :is(.fnri-skill-edit-row, .fnri-skill-edit-head) { grid-template-columns: minmax(0, 1fr) minmax(0, 7rem) 2.5rem; }
   .fnri-skill-editor .fnri-skill-edit-custom { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 2.5rem; }
 }

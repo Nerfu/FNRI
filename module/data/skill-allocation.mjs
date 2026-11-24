@@ -10,6 +10,7 @@ const face=v=>Number(/^1?d(4|6|8|10|12)$/.exec(String(v??''))?.[1]??0);
 const formula=n=>n?`1d${n}`:'';
 const record=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
 export const initialSkillAllocation=()=>({assignments:{},upgrades:{},overrides:{}});
+const IN_POOL = '__pool__';
 const copyState=state=>Object.fromEntries(Object.keys(initialSkillAllocation()).map(k=>[k,{...record(state?.[k])}]));
 
 export function skillDiceSources(system,items=[]){
@@ -59,7 +60,11 @@ export function resolveSkillAllocation(system,items=[],sourceSkills=system?.skil
   const candidates=[...byId.values()];
   // A named grant explicitly reallocated after displacement is now an ordinary
   // assigned die. Do not steal it back if its original skill later becomes free.
-  for(const d of candidates)if(d.preferred&&!d.locked&&ids.has(state.assignments[d.id])&&state.assignments[d.id]!==d.preferred)d.displaced=true;
+  for (const d of candidates) {
+    const assignment = state.assignments[d.id];
+    if (d.preferred && !d.locked &&
+        (assignment === IN_POOL || ids.has(assignment) && assignment !== d.preferred)) d.displaced = true;
+  }
   const slots=new Map();
   const place=(d,skill)=>{d.skill=skill;slots.set(skill,d);};
   const preferred=d=>d.displaced?state.assignments[d.id]:d.preferred||state.assignments[d.id];
@@ -100,7 +105,7 @@ export function planSkillDie(system,items,skill,value){
   const requested=String(value??'').trim(), size=face(requested);
   const d=current.dice.find(d=>d.skill===skill);
   if(current.rows[skill].override===null&&(requested===current.rows[skill].expected||size&&size===face(current.rows[skill].expected)))return state;
-  if(d&&!d.locked&&(!d.preferred||d.displaced)){
+  if(canMoveSkillDie(d)){
     state.assignments[d.id]=null;
   }
   state.overrides[skill]=null;
@@ -122,6 +127,49 @@ export function planSkillDie(system,items,skill,value){
   }
   state.overrides[skill]=requested;
   return state;
+}
+
+export function canMoveSkillDie(die) {
+  return Boolean(die && !die.locked && (!die.preferred || die.displaced));
+}
+
+/** Edit the assignment of a specific die, leaving manual formulas intact.
+ * The expected source and destination guard choices from an older render. */
+export function skillPoolEditPatch(system, items, skill, {dieId, from, previous}) {
+  const allocation = resolveSkillAllocation(system, items);
+  const row = allocation.rows[skill];
+  if (!row || row.die !== previous) return null;
+  const replaced = allocation.dice.find(die => die.id === row.die);
+  const moving = allocation.dice.find(die => die.id === dieId);
+  if (replaced && !canMoveSkillDie(replaced)) return null;
+  if (dieId !== null && (!canMoveSkillDie(moving) || moving.skill !== from || moving.skill === skill)) return null;
+
+  const state = copyState(system.skillAllocation);
+  // A displaced racial die explicitly returned to the pool stays there even
+  // if its original skill has become vacant.
+  if (replaced) state.assignments[replaced.id] = replaced.preferred ? IN_POOL : null;
+  if (moving) state.assignments[moving.id] = skill;
+
+  const next = resolveSkillAllocation({...system, skillAllocation: state}, items);
+  if (moving && next.rows[skill].die !== moving.id) return null;
+  return skillAllocationPatch(system, state);
+}
+
+/** A blank manual formula still overrides the assigned die. Null restores it. */
+export function skillFormulaOverridePatch(system, skill, value) {
+  if (!ids.has(skill)) return {};
+  const state = copyState(system.skillAllocation);
+  state.overrides[skill] = value === null ? null : String(value ?? '').trim();
+  const patch = skillAllocationPatch(system, state);
+  const id = `core_${skill}`;
+  if (system.skills?.[id]?.dice) patch[`system.skills.${id}.dice`] = '';
+  return patch;
+}
+
+export function resetSkillAssignmentsPatch(system) {
+  const state = copyState(system.skillAllocation);
+  for (const id of Object.keys(state.assignments)) state.assignments[id] = null;
+  return skillAllocationPatch(system, state);
 }
 
 /** Explicit token operations for the forthcoming skill editor. Null entries

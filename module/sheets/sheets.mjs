@@ -1,5 +1,5 @@
 import { currentMessageMode } from '../data/chat-visibility.mjs';
-import {resolveSkillAllocation,skillDieEditPatch,skillAllocationPatch,planSkillUpgrade,resetSkillDicePatch} from "../data/skill-allocation.mjs";
+import {resolveSkillAllocation,skillDieEditPatch,skillAllocationPatch,planSkillUpgrade,skillPoolEditPatch,skillFormulaOverridePatch,resetSkillAssignmentsPatch} from "../data/skill-allocation.mjs";
 import {openSkillEditor,skillUpgradeCandidates} from "./skill-editor.mjs";
 import {classAbilityCard,missingClassAbilityRows,useClassAbilityCard} from "./class-abilities.mjs";
 import {chooseCharacterOption} from "./character-choice.mjs";
@@ -1474,6 +1474,8 @@ export class FastNRICharacterSheet extends ActorBase {
     try {await openSkillEditor(this,{
       chooseTradition:()=>FastNRICharacterSheet.chooseTradition.call(this),
       upgrade:(id,die)=>this._applySkillUpgrade(id,die),
+      assign:(id,choice)=>this._editSkillPool(id,choice),
+      manual:(id,value)=>this._setSkillFormulaOverride(id,value),
       reset:()=>FastNRICharacterSheet.resetSkillDice.call(this),
       add:kind=>this._addRow('skills',{name:'',kind,dice:'',modifier:null,value:null}),
       remove:id=>this._removeRow('skills',id),
@@ -1508,10 +1510,27 @@ export class FastNRICharacterSheet extends ActorBase {
     if(!this.isEditable||!await this._flushWrites())return;
     await this._queueWrite(()=>{
       const raw=this.actor.toObject?.(true)?.system??this.actor.system;
-      const patch=resetSkillDicePatch(raw);
+      const patch=resetSkillAssignmentsPatch(raw);
       if(Object.keys(patch).length)return this.actor.update(patch);
     });
   }
+  async _editSkillPool(skill, choice) {
+    return this._queueWrite(() => {
+      const raw = this.actor.toObject?.(true)?.system ?? this.actor.system;
+      const patch = skillPoolEditPatch(raw, this.actor.items?.contents ?? [], skill, choice);
+      if (!patch) return ui.notifications?.warn(localized('SkillAllocation.poolChanged'));
+      if (Object.keys(patch).length) return this.actor.update(patch);
+    });
+  }
+
+  async _setSkillFormulaOverride(skill, value) {
+    return this._queueWrite(() => {
+      const raw = this.actor.toObject?.(true)?.system ?? this.actor.system;
+      const patch = skillFormulaOverridePatch(raw, skill, value);
+      if (Object.keys(patch).length) return this.actor.update(patch);
+    });
+  }
+
   async _applySkillUpgrade(upgradeId, dieId) {
     return this._queueWrite(() => {
       const live = this.actor.toObject?.(true)?.system ?? this.actor.system;

@@ -868,14 +868,24 @@
       "traditionLabel": "Magical tradition",
       "tradition": "Choose a magical tradition",
       "free": "Free dice",
-      "reset": "Reset allocation",
       "restricted": "Die assigned outside its allowed skills:",
       "invalidUpgrade": "Invalid die upgrade",
       "mandatoryOverride": "Mandatory die changed:",
       "manualOverride": "Manual deviation from dice pool:",
-      "manualDie": "Die outside the available pool. Manual assignment.",
       "unassignedUpgrade": "No upgrade",
       "warnings": "Allocation notes",
+      "reset": "Reset assignments",
+      "transfer": "Assigned dice",
+      "move": "move",
+      "release": "Return to pool",
+      "manualLabel": "manual",
+      "useAssigned": "Use the assigned die",
+      "emptyPool": "No free dice",
+      "outsideSkillList": "Outside allowed skills",
+      "poolChanged": "The allocation changed. Choose a die again.",
+      "modifierShort": "Mod.",
+      "specializations": "Specializations",
+      "customSkills": "Custom skills",
       "freeDie": "Unassigned die"
     },
     "CharacterEditor": {
@@ -886,7 +896,6 @@
       "base": "Base value",
       "potionBase": "Base potion limit",
       "sources": "Dice sources",
-      "manualFormulas": "Show manual formulas",
       "custom": "Custom formula"
     }
   }
