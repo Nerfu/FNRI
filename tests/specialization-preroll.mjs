@@ -16,7 +16,7 @@ const single=selectRollParts(available,{'specialization:locksmith':['specializat
 const both=selectRollParts(available,{'specialization:locksmith':['specialization','specialization'],'specialization:scout':['specialization']});
 assert.equal((await computeRollPreview({actor,available,selected:single,formula})).expression,'1d20 + (1d8) + (1) + (1d6 + 2)');
 const result=await computeRollPreview({actor,available,selected:both,formula});
-assert.equal(result.expression,'1d20 + (1d8) + (1) + (1d4 + -1) + (1d6 + 2)');
+assert.equal(result.expression,'1d20 + (1d8) + (1) + (1d4 - 1) + (1d6 + 2)');
 assert.equal((result.expression.match(/1d20/g)??[]).length,1);
 assert.equal((await prepareRoll({actor,kind:'skill',skillId:'core_stealth',formula,skipDialog:true})).expression,formula);
 assert.equal((await prepareRoll({actor,kind:'skill',skillId:'scout',formula:skillFormula(actor.system.skills.scout),skipDialog:true})).expression,'1d20 + (1d4) + (-1)');

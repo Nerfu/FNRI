@@ -20,7 +20,9 @@ export function specializationChoices(skills, skillId) {
 export function specializationValue(entry) {
   const dice = String(entry?.dice ?? '').trim();
   const modifier = typeof entry?.modifier === 'number' && Number.isFinite(entry.modifier) ? entry.modifier : 0;
-  return [dice, modifier ? String(modifier) : ''].filter(Boolean).join(' + ') || '0';
+  if (!dice) return String(modifier);
+  if (!modifier) return dice;
+  return `${dice} ${modifier < 0 ? '-' : '+'} ${Math.abs(modifier)}`;
 }
 
 export function specializationEntries(actor, skillId) {
