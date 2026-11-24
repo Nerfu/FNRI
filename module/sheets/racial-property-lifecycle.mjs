@@ -30,7 +30,7 @@ export async function rememberInnateRemoval(actor,item) {
 }
 export async function forgetInnateRemoval(actor,item) {
   const id=racialContentId(item);
-  if (!racialPropertyRule(item)||!id||!suppressedInnates(actor).has(id)) return;
+  if (!racialPropertyRule(item)||!id) return;
   return queueActorWrite(actor,async()=>{
     const previous=suppressedInnates(actor),next=new Set(previous);
     next.delete(id);

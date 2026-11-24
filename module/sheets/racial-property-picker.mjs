@@ -68,7 +68,8 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
     <div class="fnri-racial-options" data-racial-options></div>
     <p class="fnri-racial-empty" data-racial-empty hidden>${esc(label("noneToAdd"))}</p>
   </div>`;
-  return DialogV2.wait({
+  const subscriptions=[];
+  try { return await DialogV2.wait({
     window: {title: label("additional")}, position: {width: 440}, content, rejectClose: false,
     buttons: [{action: "closePicker", label: label("cancel")}],
     render: (_event, dialog) => {
@@ -162,8 +163,21 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
       });
       refresh();
       search.focus();
+      const sameActor=doc=>doc===actor||Boolean(doc?.uuid&&doc.uuid===actor.uuid);
+      const onChange=doc=>{
+        if (!mutating&&root.isConnected&&(sameActor(doc)||sameActor(doc?.parent))) refresh();
+      };
+      const onSettings=setting=>{
+        if (!mutating&&root.isConnected&&String(setting?.key??'').startsWith(RACIAL_SYSTEM_ID+'.racial')) refresh();
+      };
+      for(const [event,callback] of [['updateActor',onChange],['createItem',onChange],['updateItem',onChange],['deleteItem',onChange],['updateSetting',onSettings]]){
+        const id=globalThis.Hooks?.on?.(event,callback);
+        if(id!==undefined)subscriptions.push([event,id]);
+      }
     }
-  });
+  }); } finally {
+    for(const [event,id] of subscriptions) globalThis.Hooks?.off?.(event,id);
+  }
 }
 
 export async function chooseRacialSubproperty(item) {

@@ -32,4 +32,8 @@ actor.system.race='Эльф';
 assert.equal(racialRemoveBlock(actor,innate),null,'old innate is no longer protected after ancestry change');
 const npc={type:'npc',system:{race:'Человек'},items:{contents:[innate,a,b,c]}};
 assert.equal(racialAddBlock(npc,d),null);assert.equal(racialRemoveBlock(npc,innate),null);
+// Already excessive actors are not auto-corrected; removal is still available.
+actor.system.race='Человек';
+assert.equal(racialAddBlock(actor,e),'limitReached');
+assert.equal(racialState(actor).used,4);
 console.log('PASS racial configuration: four settings combinations, batch preflight, shortage only, ancestry change, NPC');
