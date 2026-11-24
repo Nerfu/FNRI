@@ -1,3 +1,4 @@
+import {skillAllocationDisplay,summaryOpenAfterRefresh} from './skill-allocation-display.mjs';
 import {applySheetLock} from './sheet-lock.mjs';
 import { BASIC_SKILLS, BASIC_SKILLS_BY_ROW_ID, SKILL_GROUPS } from '../data/skills-catalog.mjs';
 import { canMoveSkillDie, resolveSkillAllocation } from '../data/skill-allocation.mjs';
@@ -124,6 +125,7 @@ export function skillEditorMarkup(actor, openFormula = null) {
   const raw = rawSystem(actor);
   const allocation = resolveSkillAllocation(raw, actor.items?.contents ?? []);
   const rule = classDefinition(raw);
+  const {showPool,complete} = skillAllocationDisplay(allocation);
   const pool = [...faces].reverse().map(face => {
     const count = allocation.free.filter(die => die.face === face).length;
     return count ? `<span>d${face} × ${count}</span>` : '';
@@ -135,13 +137,19 @@ export function skillEditorMarkup(actor, openFormula = null) {
   }).join('');
   const sources = allocation.dice.map(die =>
     `<li>${esc(die.source)} · d${die.face} → ${esc(die.skill ? skillName(die.skill) : skillText('freeDie'))}</li>`).join('');
+  const upgrades = allocation.upgrades.map(upgrade => {
+    const die = allocation.dice.find(row => row.id === upgrade.target);
+    const next = faces[faces.indexOf(upgrade.size) + 1];
+    const destination = die ? (die.skill ? skillName(die.skill) : skillText('freeDie')) : skillText('unassignedUpgrade');
+    return `<li>${esc(upgrade.source)} · d${upgrade.size} → d${next} · ${esc(destination)}</li>`;
+  }).join('');
   const groups = SKILL_GROUPS.map(group => `<section class="fnri-skill-edit-group">
     <h3>${esc(loc('SkillGroups.' + group))}</h3>
     ${BASIC_SKILLS.filter(skill => skill.group === group).map(skill =>
       skillRow(skill, allocation, raw, openFormula)).join('')}</section>`).join('');
 
-  return `<div class="fnri-skill-edit-toolbar"><strong>${esc(skillText('free'))}</strong>
-    <div class="fnri-skill-edit-pool" role="status">${pool || esc(skillText('emptyPool'))}</div>${button('reset',skillText('reset'))}</div>
+  return `<div class="fnri-skill-edit-toolbar">${showPool ? `<strong>${esc(skillText('free'))}</strong>
+    <div class="fnri-skill-edit-pool" role="status">${pool}</div>` : ''}${button('reset',skillText('reset'))}</div>
     <div class="fnri-skill-edit-body">
       ${rule?.traditions ? `<div class="fnri-skill-edit-option">${esc(skillText('traditionLabel'))}
         ${button('tradition', skillName(raw.classTradition) || loc('CharacterChoice.choose'))}</div>` : ''}
@@ -149,7 +157,6 @@ export function skillEditorMarkup(actor, openFormula = null) {
       ${warnings ? `<details data-skill-disclosure="warnings"><summary>${esc(skillText('warnings'))} (${allocation.warnings.length})</summary>${warnings}</details>` : ''}
       <div class="fnri-skill-edit-head" aria-hidden="true"><span>${esc(loc('Fields.skill'))}</span><span>${esc(loc('Fields.dice'))}</span><span>${esc(skillText('modifierShort'))}</span></div>
       ${groups}
-      ${sources ? `<details data-skill-disclosure="sources"><summary>${esc(loc('CharacterEditor.sources'))}</summary><ul>${sources}</ul></details>` : ''}
       <section class="fnri-skill-edit-custom-group" data-skill-custom="specialization">
         <h3>${esc(skillText('specializations'))}</h3>${customRows(raw, 'specialization')}
         ${button('addSpecialization',loc('Actions.addSpecialization'))}
@@ -158,6 +165,11 @@ export function skillEditorMarkup(actor, openFormula = null) {
         <h3>${esc(skillText('customSkills'))}</h3>${customRows(raw, 'skill')}
         ${button('addSkill',loc('Actions.addSkill'))}
       </section>
+      ${sources || upgrades ? `<details class="fnri-skill-distribution" data-skill-disclosure="sources" data-allocation-complete="${complete}"${complete ? '' : ' open'}>
+        <summary>${esc(skillText('distributionSummary'))}</summary>
+        ${sources ? `<h4>${esc(skillText('distributionDice'))}</h4><ul>${sources}</ul>` : ''}
+        ${upgrades ? `<h4>${esc(skillText('distributionUpgrades'))}</h4><ul>${upgrades}</ul>` : ''}
+      </details>` : ''}
     </div>`;
 }
 
@@ -187,10 +199,16 @@ export async function openSkillEditor(sheet, actions) {
         const key = element => JSON.stringify(element.dataset);
         const focusKey = root.contains(focused) ? key(focused) : null;
         const expanded = [...root.querySelectorAll('details[open]')].map(detail => detail.dataset.skillDisclosure);
+        const oldSummary = root.querySelector('[data-allocation-complete]');
+        const prior = oldSummary ? {complete:oldSummary.dataset.allocationComplete==='true',open:oldSummary.open} : null;
         const scroll = root.querySelector('.fnri-skill-edit-body').scrollTop;
         root.innerHTML = skillEditorMarkup(sheet.actor, openFormula);
         syncLock();
-        for (const detail of root.querySelectorAll('details')) detail.open = expanded.includes(detail.dataset.skillDisclosure);
+        for (const detail of root.querySelectorAll('details')) {
+          if (detail.hasAttribute('data-allocation-complete')) {
+            if (prior) detail.open = summaryOpenAfterRefresh(prior.complete,prior.open,detail.dataset.allocationComplete==='true');
+          } else detail.open = expanded.includes(detail.dataset.skillDisclosure);
+        }
         const next = focusKey && [...root.querySelectorAll(fields)].find(element => key(element) === focusKey);
         // Keep a text draft if an earlier asynchronous edit refreshed the editor
         // while a different field was being typed.

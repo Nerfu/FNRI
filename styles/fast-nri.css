@@ -753,3 +753,7 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 
 /* Remove list-editing affordances only while the local sheet lock is closed. */
 .fnri-config-locked [data-fnri-lock-hidden='true'] { display: none !important; }
+
+.fnri-skill-distribution > summary { cursor: pointer; font-weight: 600; }
+.fnri-skill-distribution > h4 { margin: 8px 0 3px; font-size: .85rem; }
+.fnri-skill-distribution > ul { margin: 0 0 6px; padding-inline-start: 18px; }

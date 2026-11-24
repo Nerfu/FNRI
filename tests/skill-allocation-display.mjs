@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {skillAllocationDisplay,summaryOpenAfterRefresh} from '../module/sheets/skill-allocation-display.mjs';
+const state=(free,upgrades,needsTradition=false)=>skillAllocationDisplay({free,upgrades,needsTradition});
+assert.deepEqual(state([{}],[]),{showPool:true,complete:false});
+assert.deepEqual(state([], [{target:null}]),{showPool:false,complete:false});
+assert.deepEqual(state([], [{target:'die1'}]),{showPool:false,complete:true});
+assert.deepEqual(state([], [],true),{showPool:false,complete:false});
+assert.equal(summaryOpenAfterRefresh(false,true,true),false);
+assert.equal(summaryOpenAfterRefresh(true,false,false),true);
+assert.equal(summaryOpenAfterRefresh(true,true,true),true);
+assert.equal(summaryOpenAfterRefresh(false,false,false),false);
+console.log('PASS allocation pool visibility and summary transitions');

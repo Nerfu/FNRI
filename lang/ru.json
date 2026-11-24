@@ -871,6 +871,9 @@
       "receiptFailed": "Не удалось учесть Зелье; используйте кнопку учёта или исправьте ресурс вручную."
     },
     "SkillAllocation": {
+      "distributionSummary": "Сводка распределения",
+      "distributionDice": "Кубы и их источники",
+      "distributionUpgrades": "Повышения кубов",
       "traditionLabel": "Магическая традиция",
       "tradition": "Не выбрана магическая традиция",
       "free": "Свободные кубы",
