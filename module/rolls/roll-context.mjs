@@ -174,7 +174,8 @@ export function selectRollParts(available, choice = {}) {
     if (!Array.isArray(provided)) return {...entry,enabledPartIds:entry.parts
       .filter(part=>part.defaultEnabled!==false).map(part=>part.id)};
     const allowed = new Set(entry.parts.map(part => part.id));
-    const enabledPartIds = [...new Set(provided.filter(id => allowed.has(id)))];
+    const ids = [...new Set(provided.filter(id => allowed.has(id)))];
+    const enabledPartIds=entry.exclusiveParts?ids.slice(0,1):ids;
     return {...entry,enabledPartIds};
   }).filter(entry => selectedRollParts(entry).length > 0);
 }
@@ -500,7 +501,17 @@ export async function chooseRollEffects(effects, {actor=null, formula='',formula
         }
       };
       root.addEventListener('input',()=>{void update();});
-      root.addEventListener('change',()=>{void update();});
+      root.addEventListener('change',event=>{
+        const row=event?.target?.closest?.('[data-fnri-part-entry]');
+        const index=Number(row?.dataset.fnriPartEntry);
+        if(event?.target?.checked && effects[index]?.exclusiveParts){
+          for(const [j] of effects[index].parts.entries()){
+            const input=form?.elements?.namedItem?.(`part_${index}_${j}`);
+            if(input&&input!==event.target)input.checked=false;
+          }
+        }
+        void update();
+      });
       root.addEventListener('click',event=>{
         if(event.target.closest('[data-fnri-add-manual]')) {
           root.querySelector('[data-fnri-manual-list]')?.insertAdjacentHTML('beforeend',manualRowHTML());
@@ -610,13 +621,13 @@ export function applyDirectRollModifiers(expression, selected) {
 /** Shared roll preparation for skills, attacks, abilities and interventions. */
 export async function prepareRoll({actor = null, kind, skillId = null, defenseStat = null,
   formula = '', formulaForActor = null, skipDialog = false, label = '',sourceItem=null,weaponItem=null,attackKind=null,
-  extraEntries=[],prerollEntries=[],spatialInfo=null,targetActor=null,targetToken=null,attackProperties='',usesCombatDie=false } = {}) {
+  extraEntries=[],prerollEntries=[],spatialInfo=null,targetActor=null,targetToken=null,attackProperties='',usesCombatDie=false,declaredTargets=[] } = {}) {
   const area=String(attackProperties??'').toLowerCase().includes('область действия') ||
     String(attackProperties??'').toLowerCase().includes('area');
   const isAttack=kind==='attack';
   const directed=isAttack && !area;
   const available = [...(kind==='skill' ? specializationEntries(actor,skillId) : []),
-    ...applicableRollContributions(actor,{kind,skillId,defenseStat,formula,sourceItem,weaponItem,attackKind,usesCombatDie}),
+    ...applicableRollContributions(actor,{kind,skillId,defenseStat,formula,sourceItem,weaponItem,attackKind,usesCombatDie,declaredTargets}),
     ...(Array.isArray(prerollEntries) ? prerollEntries : []),
     ...(directed && Array.isArray(extraEntries) ? extraEntries : []),
     ...(directed ? targetHindranceEntries({attacker:actor,target:targetActor,targetToken,area}) : []),

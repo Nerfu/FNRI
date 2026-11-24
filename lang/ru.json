@@ -810,7 +810,8 @@
       "weaponNotHeld": "Оружие не находится в руке",
       "insufficientResource": "Возможная нехватка ресурса",
       "ambiguousResource": "Ресурс указан неоднозначно",
-      "missingResource": "Ресурс не найден в листе"
+      "missingResource": "Ресурс не найден в листе",
+      "manualTarget": "Цель определяется вручную"
     },
     "Projection": {
       "actorKind": "Actor Проекции",

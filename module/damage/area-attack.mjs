@@ -52,16 +52,27 @@ function interventionsFor(root){
   });
 }
 const parts=card=>(card.parts??[]).filter(p=>!p.pending&&!p.excluded&&!p.immune&&Number.isFinite(p.value));
-function profileFor(card,degree,{actor=null,covers=[]}={}){
+function profileFor(card,degree,{actor=null,covers=[],targetUuid=null}={}){
   if(card.areaAttack?.damageProfileInvalid===true)
     return {degree,damage:null,profileComplete:false,profileReason:'invalid-card-area-profile',
       includedPartIds:[],excludedPartIds:[]};
-  const valid=parts(card).filter(p=>p.value>=0);
+  // A targeted augmentation is part of the one shared roll, but only of
+  // the chosen recipient's damage. Unassigned additions remain manual.
+  const valid=parts(card).filter(p=>p.value>=0&&(!p.singleTarget||p.targetUuid&&p.targetUuid===targetUuid));
   // Immunity removes parts before a defense or profile can choose a die.
   // The profile still describes the size of the original shared damage pool.
   const fullDefenses=actor?previewDeclaredDamageDefenses(actor,card):null;
-  const selection=selectAreaDamageParts(valid,degree,card.areaAttack?.damageProfile??null,
-    {immunePartIds:fullDefenses?.immunePartIds});
+  // The canon defines default area profiles only for two or three dice.
+  // Full success and failure are unambiguous; do not invent removal steps
+  // for an expanded pool in intermediate degrees without a card profile.
+  const extra=valid.some(p=>p.singleTarget);
+  const explicit=card.areaAttack?.damageProfile??null;
+  const expanded=extra&&!explicit&&valid.length>3;
+  const immune=new Set(fullDefenses?.immunePartIds??[]);
+  const selection=expanded&&['great','failure'].includes(degree)?{ok:true,
+    includedPartIds:degree==='great'?valid.filter(p=>!immune.has(p.id)).map(p=>p.id):[],
+    excludedPartIds:degree==='failure'?valid.filter(p=>!immune.has(p.id)).map(p=>p.id):[]}:
+    selectAreaDamageParts(valid,degree,explicit,{immunePartIds:fullDefenses?.immunePartIds});
   if(!selection.ok)return {degree,damage:null,profileComplete:false,
     profileReason:selection.reason,includedPartIds:[],excludedPartIds:[]};
   const ids=new Set(selection.includedPartIds);
@@ -123,7 +134,7 @@ export function areaCoverCandidates(message, defender) {
     const covers=coverRecords(root,ally.document.uuid);
     if (!degree || covers.some(cover=>cover.allyKey!==coverActorKey(ally.actor) ||
       cover.sourceRevision!==(base.card.revision??0))) return [];
-    const profile=profileFor(base.card,degree,{actor:ally.actor,covers});
+    const profile=profileFor(base.card,degree,{actor:ally.actor,covers,targetUuid:ally.document.uuid});
     return profile.damage>0 && coverAllyDice(profile.card).length ? [{ally,card:profile.card}] : [];
   });
 }
@@ -149,7 +160,7 @@ export function resolveAreaResults(root,interventions=[]){
         (intervention.safe===true?2:1);
       degree=ATTACK_DEGREES[Math.max(0,ATTACK_DEGREES.indexOf(degree)-offset)];
     }
-    const profile=degree?profileFor(card,degree):null;
+    const profile=degree?profileFor(card,degree,{targetUuid:t.uuid}):null;
     return {key:t.key,name:t.name,tokenUuid:t.uuid,initial:ATTACK_DEGREES.includes(t.initialDegree)?t.initialDegree:
       (calculation?.ok?calculation.degree:null),
       degree,damage:profile?.damage??null,profileComplete:profile?.profileComplete!==false,
@@ -357,7 +368,7 @@ export async function applyAreaDamage(message,{degree=null,effect=false,both=fal
     if(!useDegree){ui.notifications?.warn(`Не определена степень для ${token.name}.`);continue;}
     let report=null;
     if(!effect||both){
-      const calculation=profileFor(card,useDegree,{actor,covers});
+      const calculation=profileFor(card,useDegree,{actor,covers,targetUuid:token.document?.uuid});
       if(calculation.profileComplete===false){
         ui.notifications?.warn(`${token.name}: профиль урона этой степени не задан. Расчёт не применён.`);
         continue;

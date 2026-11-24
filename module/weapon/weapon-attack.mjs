@@ -73,8 +73,8 @@ export function isPhysicalWeaponCard(item) {
 }
 
 /** The printed class list suggests *ordinary* proficiency, but explicit card
- * overrides win. This never removes proficiency granted by another ability:
- * such users select 'yes' on their weapon Item (or provide a custom formula).
+ * overrides win. Owned ability cards may also declare proficiency by stable
+ * weapon content ID. Manual yes/no and custom formulas retain priority.
  */
 export function attackExpressionForWeapon(item, actor) {
   const override = String(item?.system?.rollFormula ?? '').trim();
@@ -84,14 +84,18 @@ export function attackExpressionForWeapon(item, actor) {
   const mode = String(item?.system?.proficiencyMode ?? 'auto');
   const owners = String(item?.system?.proficiencyClasses ?? '').split(',').map(s=>s.trim()).filter(Boolean);
   const cls = String(actor?.system?.className ?? '').trim();
-  const proficient = mode === 'yes' || (mode !== 'no' && cls !== '' && owners.includes(cls));
+  const weaponId=item?.flags?.[SYSTEM_ID]?.contentId ?? item?.getFlag?.(SYSTEM_ID,'contentId');
+  const granted=!!weaponId && (actor?.items?.contents??[]).some(card=>card.type==='ability' &&
+    Array.isArray(card.system?.mechanics?.weaponProficiency?.weaponContentIds) &&
+    card.system.mechanics.weaponProficiency.weaponContentIds.includes(weaponId));
+  const proficient = mode === 'yes' || (mode !== 'no' && (granted || cls !== '' && owners.includes(cls)));
   const combatRaw = String(actor?.system?.combatDie ?? '').trim();
   const combatDie = /^d([1-9]\d*)$/i.test(combatRaw) ? '1' + combatRaw.toLowerCase() :
     (/^1d([1-9]\d*)$/i.test(combatRaw) ? combatRaw.toLowerCase() : '');
   return {
     expression: proficient && combatDie ? `1d20 + ${combatDie}` : '1d20',
     source: 'standard',
-    warning: mode === 'auto' && !cls ? 'unknownProficiency' : null
+    warning: mode === 'auto' && !cls && !granted ? 'unknownProficiency' : null
   };
 }
 
@@ -144,7 +148,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     attackKind:normalizeAttackKind(attackKind),extraEntries:space.entries,prerollEntries,spatialInfo:space,
     targetActor:!areaDeclared&&declaredTargets.length===1?declaredTargets[0]?.actor:null,
     targetToken:!areaDeclared&&declaredTargets.length===1?declaredTargets[0]:null,
-    attackProperties:properties,usesCombatDie});
+    attackProperties:properties,usesCombatDie,declaredTargets});
   if (context === null) return null;
   expression = context.expression;
   // Checkbox choices are resolved BEFORE the attack, then reused by damage,
@@ -232,7 +236,8 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       point:publicOrigin.point,tokenName:publicOrigin.tokenName,
       distanceSpaces:privateAreaSource?null:distanceSpaces}} : {}),
     ...(attackAugments.length?{attackAugments:attackAugments.map(augment=>({
-      name:privateAreaSource?null:augment.item.name,sourceUuid:hideSource?null:augment.sourceUuid
+      name:privateAreaSource?null:augment.rule.singleTarget?augment.rule.label:augment.item.name,sourceUuid:hideSource?null:augment.sourceUuid,
+      ...(augment.rule.singleTarget?{singleTarget:true,targetUuid:augment.targetUuid??null}: {})
     })),damageAdditions}:{}),
     profile:profileKind==='magic' ? {failure:profile.failure,partial:profile.partial,
       success:profile.success,great:profile.great} : {A:profile.A,B:profile.B,C:profile.C},
@@ -312,7 +317,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     ...(audienceMessage ? {whisper:[...(audienceMessage.whisper??[])],blind:!!audienceMessage.blind} : {}),
     speaker, flavor:`<strong>${safe(name)}</strong> — ${safe(local('attack'))}`+
       (racialTraits.length ? ` · ${racialTraits.map(safe).join(', ')}` : '')+
-      (attackAugments.length&&!privateAreaSource ? ` · ${attackAugments.map(a=>safe(a.item.name)).join(', ')}` : '')+
+      (attackAugments.length&&!privateAreaSource ? ` · ${attackAugments.map(a=>safe(a.rule.singleTarget?a.rule.label:a.item.name)).join(', ')}` : '')+
       (privateAreaSource?'':cardEffectLinks(sourceItem))+
       (publicOrigin?.kind==='projection'?` · через ${safe(publicOrigin.tokenName)}`:'')+
       autoRerollFlavor(areaDamage?.card.history),
@@ -338,6 +343,8 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       const flags=chatData.flags[SYSTEM_ID];
       flags.weaponAttack.areaAttack.targets=targets;
       flags.weaponDamage.areaAttack.targets=targets;
+      for(const row of [...(flags.weaponAttack.attackAugments??[]),...(flags.weaponAttack.damageAdditions??[]),...flags.weaponDamage.parts])
+        if(row.singleTarget && hiddenIds.has(row.targetUuid))row.targetUuid=null;
     }
     message=privateAreaSource ?
       await createPrivateAreaSourceMessage(chatData,actor,{

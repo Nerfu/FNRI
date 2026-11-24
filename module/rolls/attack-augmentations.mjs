@@ -14,7 +14,7 @@
  * Item.system.mechanics.accounting owns the actual resource cost.
  * Requirements are advisory; an invalid weapon never blocks a roll.
  */
-import {abilityCostPreview} from '../data/ability-accounting.mjs';
+import {abilityCostPreview,abilityAccountingStatus} from '../data/ability-accounting.mjs';
 import {itemSlot} from '../equipment/equipment.mjs';
 
 const SCOPE='fast-nri-v14';
@@ -49,7 +49,7 @@ export function attackAugmentRule(item) {
   const parts=validatedDamageParts(raw.damageParts);
   if (!parts) return null;
   const requirements=isObject(raw.requirements)?raw.requirements:{};
-  return {id:raw.id,label:trimmed(raw.label)||trimmed(item.name),parts,
+  return {id:raw.id,label:trimmed(raw.label)||trimmed(item.name),parts,singleTarget:raw.singleTarget===true,
     requirements:{attackKind:trimmed(requirements.attackKind),
       weaponContentIds:Array.isArray(requirements.weaponContentIds)
         ? requirements.weaponContentIds.map(trimmed).filter(Boolean) : []}};
@@ -69,6 +69,8 @@ export function attackAugmentWarnings({actor=null,weaponItem=null,attackKind='me
       if (!itemSlot(weaponItem.id,actor?.system)?.positions?.length) warnings.push(tr('weaponNotHeld'));
     }
   }
+  if(rule.singleTarget && abilityAccountingStatus(actor,item)?.remaining===0)
+    warnings.push(game.i18n.localize('FASTNRI.GameReroll.exhausted'));
   for (const shortage of abilityCostPreview(actor,item)) {
     warnings.push(shortage.reason==='insufficient'?tr('insufficientResource'):
       shortage.reason==='ambiguous'?tr('ambiguousResource'):tr('missingResource'));
@@ -77,7 +79,7 @@ export function attackAugmentWarnings({actor=null,weaponItem=null,attackKind='me
 }
 
 /** Generate a selectable component for each owned ability with explicit data. */
-export function attackAugmentEntries(actor,{kind='attack',weaponItem=null,attackKind='melee'}={}) {
+export function attackAugmentEntries(actor,{kind='attack',weaponItem=null,attackKind='melee',declaredTargets=[]}={}) {
   if (kind!=='attack' || !actor) return [];
   return (actor.items?.contents??[]).flatMap(item=>{
     const rule=attackAugmentRule(item);
@@ -85,21 +87,30 @@ export function attackAugmentEntries(actor,{kind='attack',weaponItem=null,attack
     const warnings=attackAugmentWarnings({actor,weaponItem,attackKind,rule,item});
     const description=rule.parts.map(p=>p.formula).join(' + ') +
       ` (${[...new Set(rule.parts.map(p=>p.damageType))].join(', ')})`;
+    const remaining=rule.singleTarget?abilityAccountingStatus(actor,item)?.remaining:null;
+    const note=remaining!=null&&remaining>0?game.i18n.localize('FASTNRI.AbilityChat.dailyRemaining').replace('{remaining}',String(remaining)):null;
+    const targets=rule.singleTarget?[...declaredTargets].filter(t=>t?.document?.hidden!==true&&t?.hidden!==true).map(t=>({uuid:t?.document?.uuid??t?.uuid??null,name:t?.name??t?.document?.name??''})):[];
+    const targetOptions=targets.length?targets:[{uuid:null,name:game.i18n.localize('FASTNRI.AttackAugment.manualTarget')}];
+    const parts=rule.singleTarget?targetOptions.map((target,index)=>({id:`augment-${rule.id}-${index}`,kind:'attackAugment',
+      label:`${rule.label} · ${target.name}`,value:`+${description}`,targetUuid:target.uuid,defaultEnabled:false,
+      warning:warnings.join('; ')||null,note})): [{id:`augment-${rule.id}`,kind:'attackAugment',label:rule.label,
+        value:`+${description}${warnings.length?` · ⚠ ${warnings.join('; ')}`:''}`,defaultEnabled:false}];
     return [{uuid:`attack-augment:${item.uuid}:${rule.id}`,
       sourceUuid:item.uuid,sourceType:'item',id:item.id,name:item.name,
       effect:null,native:false,nativeChanges:[],onUse:'none',actorOwned:false,
       augment:{item,rule,warnings},
-      parts:[{id:`augment-${rule.id}`,kind:'attackAugment',label:rule.label,
-        value:`+${description}${warnings.length?` · ⚠ ${warnings.join('; ')}`:''}`,
-        defaultEnabled:false}]}];
+      exclusiveParts:rule.singleTarget,parts}];
   });
 }
 
 /** Already-selected preroll decisions, not a second decision at damage time. */
 export function selectedAttackAugments(context) {
-  return (context?.selected??[]).filter(entry=>entry.augment &&
-    entry.enabledPartIds?.includes(`augment-${entry.augment.rule.id}`))
-    .map(entry=>({...entry.augment,sourceUuid:entry.sourceUuid}));
+  return (context?.selected??[]).flatMap(entry=>{
+    if(!entry.augment)return [];
+    const part=entry.parts?.find(p=>p.kind==='attackAugment' && entry.enabledPartIds?.includes(p.id));
+    return part?[{...entry.augment,sourceUuid:entry.sourceUuid,
+      ...(entry.augment.rule.singleTarget?{targetUuid:part.targetUuid??null}:{})}]:[];
+  });
 }
 
 /** Minimal, immutable roll-component data; no Item contents or effect snapshot. */
@@ -107,6 +118,7 @@ export function attackAugmentDamageParts(augments,{redactSources=false}={}) {
   return augments.flatMap((augment,augmentIndex)=>augment.rule.parts.map((part,index)=>({
     id:`augment-${augmentIndex}-${index}`,kind:'die',faces:part.faces,formula:part.formula,
     damageType:part.damageType,partOrigin:'attackAugment',spellDamage:augment.item.system?.mechanics?.attackAugment?.spellDamage===true || augment.item.flags?.[SCOPE]?.contentId==='fnri7.rulebook.ability.warlock.blade',traits:[],
+    ...(augment.rule.singleTarget?{singleTarget:true,targetUuid:augment.targetUuid??null}:{}),
     source:redactSources?null:augment.sourceUuid
   })));
 }
@@ -122,6 +134,7 @@ export function readAttackAugmentDamageParts(raw) {
       throw new Error('Invalid saved attack enhancement');
     return {id:`augment-${index}`,kind:'die',faces,formula:`1d${faces}`,
       damageType:trimmed(part.damageType),partOrigin:'attackAugment',spellDamage:part.spellDamage===true,traits:[],
+      ...(part.singleTarget===true?{singleTarget:true,targetUuid:typeof part.targetUuid==='string'?part.targetUuid:null}:{}),
       source:typeof part.source==='string'?part.source:null};
   });
 }

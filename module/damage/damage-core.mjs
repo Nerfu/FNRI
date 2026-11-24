@@ -28,6 +28,7 @@ export function snapshotDamageParts(roll, definitions, {damageType='физиче
       formula:def.formula, original:value, value, excluded:false,
       ...(def.profilePart ? {profilePart:def.profilePart} : {}),
       ...(def.spellDamage===true?{spellDamage:true}:{}),
+      ...(def.singleTarget===true?{singleTarget:true,targetUuid:def.targetUuid??null}:{}),
       damageType:def.damageType || damageType, traits:def.partOrigin==='attackAugment' ? [] : (def.traits?.length ? [...def.traits] : [...traits]),
       source:def.source ?? null};
   });

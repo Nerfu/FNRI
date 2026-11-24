@@ -810,7 +810,8 @@
       "weaponNotHeld": "The weapon is not held in a hand",
       "insufficientResource": "Resource may be insufficient",
       "ambiguousResource": "Resource name is ambiguous",
-      "missingResource": "Resource was not found on the character"
+      "missingResource": "Resource was not found on the character",
+      "manualTarget": "Target selected manually"
     },
     "Projection": {
       "actorKind": "Projection Actor",

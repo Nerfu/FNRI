@@ -1,0 +1,40 @@
+{
+  "name": "Магия эльфов",
+  "type": "ability",
+  "_id": "fnrielfmagic0001",
+  "system": {
+    "description": "Вы получаете способность «Искра магии».\n\nИскра магии\nЧастота: 1 раз в день.\nПри объявлении атаки выберите одну её цель.\nПри попадании по выбранной цели добавьте 2d6 магического урона к урону этой атаки.",
+    "category": "Свойство Эльфа",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "elf"
+        ]
+      },
+      "attackAugment": {
+        "id": "magic-spark",
+        "label": "Искра магии",
+        "singleTarget": true,
+        "damageParts": [
+          {
+            "formula": "2d6",
+            "damageType": "магический"
+          }
+        ]
+      },
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.magiia-elfov",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Магия эльфов"
+    }
+  },
+  "effects": []
+}

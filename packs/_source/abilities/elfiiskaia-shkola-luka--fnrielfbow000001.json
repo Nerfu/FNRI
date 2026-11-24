@@ -1,0 +1,30 @@
+{
+  "name": "Эльфийская школа лука",
+  "type": "ability",
+  "_id": "fnrielfbow000001",
+  "system": {
+    "description": "Вы владеете Короткими и Длинными луками.",
+    "category": "Свойство Эльфа",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "elf"
+        ]
+      },
+      "weaponProficiency": {
+        "weaponContentIds": [
+          "fnri7.rulebook.weapon.020",
+          "fnri7.rulebook.weapon.022"
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.elfiiskaia-shkola-luka",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Эльфийская школа лука"
+    }
+  },
+  "effects": []
+}
