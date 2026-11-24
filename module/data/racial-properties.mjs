@@ -75,13 +75,28 @@ export function racialPermissions() {
 }
 
 export const racialRaceNames = () => Object.values(RACES).map(([name]) => name);
+export function primaryRace(actor) {
+  const race = normalize(actor?.system?.race);
+  return Object.keys(RACES).find(id => id === race || normalize(RACES[id][0]) === race);
+}
+
+/** The approved general Half-Blood property uses the current race catalogue.
+ * Its content ID stays stable, including for previously embedded copies. */
+export function racialChoicesForItem(item, actor = item?.parent) {
+  if (racialContentId(item) !== HALF_BLOOD) return racialPropertyChoices(racialPropertyRule(item));
+  const primary = primaryRace(actor);
+  return Object.entries(RACES).filter(([id]) => id !== primary).map(([id,[label]]) => ({id,label}));
+}
+
+export function selectedRacialChoiceForItem(item, actor = item?.parent) {
+  return racialChoicesForItem(item,actor).find(choice => choice.id === racialPropertyRule(item)?.selection) ?? null;
+}
 
 export function racialState(actor, items = actor?.items?.contents ?? []) {
-  const race = normalize(actor?.system?.race);
-  const primary = Object.keys(RACES).find(id => id === race || normalize(RACES[id][0]) === race);
-  const secondary = racialPropertyRule(items.find(item => racialContentId(item) === HALF_BLOOD))?.selection;
+  const primary = primaryRace(actor);
+  const secondary = selectedRacialChoiceForItem(items.find(item => racialContentId(item) === HALF_BLOOD), actor)?.id;
   const races = [primary].filter(Boolean);
-  if (primary === "human" && secondary !== "human" && Object.hasOwn(RACES, secondary)) races.push(secondary);
+  if (primary && secondary && secondary !== primary && Object.hasOwn(RACES, secondary)) races.push(secondary);
   const innate = new Set(races.flatMap(id => RACES[id].slice(2)));
   const nature = racialPropertyRule(items.find(item => racialContentId(item) === NEPHALEM_NATURE))?.selection;
   if (races.includes("nephalem")) {
@@ -106,7 +121,7 @@ export function racialAddWarnings(actor, item, state = null) {
     warnings.push("duplicate");
   if (state.innate.has(contentId)) return warnings;
   if (rule.innateOnly === true ||
-      (rule.universal !== true && !rule.races?.some?.(race => state.races.includes(race)))) warnings.push("wrongRace");
+      (contentId !== HALF_BLOOD && rule.universal !== true && !rule.races?.some?.(race => state.races.includes(race)))) warnings.push("wrongRace");
   if (state.max !== null && state.used >= state.max) warnings.push("limitReached");
   return warnings;
 }

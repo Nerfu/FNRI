@@ -1581,7 +1581,7 @@ export class FastNRICharacterSheet extends ActorBase {
     try {
       await openRacialPropertyEditor(this.actor, {add: async card => {
         if (!this.isEditable || this.configurationLocked) return;
-        const selection = await chooseRacialSubproperty(card);
+        const selection = await chooseRacialSubproperty(card,this.actor);
         if (!this.isEditable || this.configurationLocked) return;
         const added = await this._queueWrite(() => addRacialProperty(this.actor, card, selection));
         if (added && selection && changesAncestry(added)) await syncInnateProperties(this.actor);

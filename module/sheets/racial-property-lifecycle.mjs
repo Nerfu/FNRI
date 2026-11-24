@@ -2,7 +2,7 @@ import {queueActorWrite} from "../data/ability-accounting.mjs";
 import {
   RACIAL_SYSTEM_ID, racialLabel, racialContentId, racialState, racialPropertyRule,
   racialPropertyChoices, selectedRacialPropertyChoice, racialAddWarnings, changesAncestry,
-  racialAddBlock, racialRemoveBlock, racialCreationPlan
+  racialAddBlock, racialRemoveBlock, racialCreationPlan, racialChoicesForItem, selectedRacialChoiceForItem
 } from "../data/racial-properties.mjs";
 import {racialCatalog, addRacialProperty, chooseRacialSubproperty} from "./racial-property-picker.mjs";
 
@@ -44,7 +44,7 @@ function reportError(error) {
 }
 
 export async function editRacialSubproperty(item) {
-  if (!racialPropertyChoices(racialPropertyRule(item)).length || openChoices.has(item)) return;
+  if (!racialChoicesForItem(item).length || openChoices.has(item)) return;
   const actor = item.parent;
   openChoices.add(item);
   try {
@@ -54,7 +54,7 @@ export async function editRacialSubproperty(item) {
       const live = actor.items.get(item.id);
       if (live !== item) return;
       const rule = racialPropertyRule(live);
-      if (rule?.selection !== selection && racialPropertyChoices(rule).some(choice => choice.id === selection))
+      if (rule?.selection !== selection && racialChoicesForItem(live,actor).some(choice => choice.id === selection))
         await live.update({"system.mechanics.racialProperty.selection": selection});
     });
   } finally {
@@ -133,8 +133,8 @@ export function registerRacialPropertyLifecycle() {
     if (!shouldSync(actor, userId) || !racialPropertyRule(item)) return;
     void forgetInnateRemoval(actor,item).catch(reportError);
     if (options.fnriPicker) return;
-    if (changesAncestry(item) && selectedRacialPropertyChoice(racialPropertyRule(item))) reconcile(actor);
-    if (!selectedRacialPropertyChoice(racialPropertyRule(item)))
+    if (changesAncestry(item) && selectedRacialChoiceForItem(item,actor)) reconcile(actor);
+    if (!selectedRacialChoiceForItem(item,actor))
       void editRacialSubproperty(item).catch(reportError);
   });
 

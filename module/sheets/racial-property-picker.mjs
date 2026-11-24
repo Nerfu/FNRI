@@ -1,6 +1,6 @@
 import {
   RACIAL_SYSTEM_ID, racialLabel as label, racialContentId, racialPropertyRule,
-  racialPropertyChoices, selectedRacialPropertyChoice, racialState, racialAddWarnings, racialPermissions, racialAddBlock, racialRemoveBlock
+  racialPropertyChoices, selectedRacialPropertyChoice, racialState, racialAddWarnings, racialPermissions, racialAddBlock, racialRemoveBlock, racialChoicesForItem, selectedRacialChoiceForItem
 } from "../data/racial-properties.mjs";
 
 const esc = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -38,9 +38,9 @@ export function racialChoiceStatus(state) {
 export function racialPropertyRows(actor, state = racialState(actor)) {
   return actor.items.contents.filter(racialPropertyRule).map(item => {
     const rule = racialPropertyRule(item);
-    const choice = selectedRacialPropertyChoice(rule);
+    const choice = selectedRacialChoiceForItem(item,actor);
     return {id: item.id, name: item.name, choice: choice?.label ?? "",
-      innate: state.innate.has(racialContentId(item)), configurable: racialPropertyChoices(rule).length > 0};
+      innate: state.innate.has(racialContentId(item)), configurable: racialChoicesForItem(item,actor).length > 0};
   });
 }
 
@@ -102,7 +102,7 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
           const warnings = ownedItem ? [] : racialAddWarnings(actor, item, state);
           if ((!ownedItem && !showAll.checked && warnings.includes("wrongRace")) ||
               !normalizeSearch(item.name).includes(query)) return [];
-          const choice = ownedItem ? selectedRacialPropertyChoice(racialPropertyRule(item)) : null;
+          const choice = ownedItem ? selectedRacialChoiceForItem(item,actor) : null;
           const blocked = ownedItem ? racialRemoveBlock(actor,item,permissions) : racialAddBlock(actor,item,permissions);
           return [{item, ownedItem, blocked, choice, key: keyOf(item)}];
         });
@@ -180,9 +180,9 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
   }
 }
 
-export async function chooseRacialSubproperty(item) {
+export async function chooseRacialSubproperty(item, actor = item?.parent) {
   const rule = racialPropertyRule(item);
-  const choices = racialPropertyChoices(rule);
+  const choices = racialChoicesForItem(item,actor);
   if (!choices.length) return null;
   const {DialogV2} = foundry.applications.api;
   const content = `<div class="fnri-racial-options" data-racial-subproperties>${choices.map(choice =>
@@ -212,7 +212,7 @@ export async function addRacialProperty(actor, card, selection, {automatic = fal
   if (racialPropertyRule(existing)) return existing;
   if (racialAddBlock(actor,card)) return null;
   const rule = foundry.utils.deepClone(racialPropertyRule(card));
-  if (selection) rule.selection = selection;
+  if (selection && racialChoicesForItem(card,actor).some(choice=>choice.id===selection)) rule.selection = selection;
   if (existing) {
     // Keep an existing manually acquired card and its UUID.
     await existing.update({"system.mechanics.racialProperty": rule}, {fnriPicker: true});
