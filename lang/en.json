@@ -13,6 +13,7 @@
     }
   },
   "FASTNRI": {
+    "SheetLock": {"lock": "Lock configuration", "unlock": "Unlock configuration"},
     "CharacterChoice": {
       "choose": "Choose",
       "clear": "Clear selection",

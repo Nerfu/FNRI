@@ -13,6 +13,7 @@
     }
   },
   "FASTNRI": {
+    "SheetLock": {"lock": "Заблокировать настройки", "unlock": "Разблокировать настройки"},
     "CharacterChoice": {
       "choose": "Выбрать",
       "clear": "Снять выбор",

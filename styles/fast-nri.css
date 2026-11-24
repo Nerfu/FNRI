@@ -746,3 +746,7 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
   .fnri-skill-editor :is(.fnri-skill-edit-row, .fnri-skill-edit-head) { grid-template-columns: minmax(0, 1fr) minmax(0, 7rem) 2.5rem; }
   .fnri-skill-editor .fnri-skill-edit-custom { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 2.5rem; }
 }
+
+/* Local configuration lock: keep the geometry; no alternate sheet layout. */
+.fast-nri-v14.fast-nri-actor .fnri-config-locked input[data-fnri-lock-disabled],
+.fast-nri-v14.fast-nri-actor.fnri-config-locked input[data-fnri-lock-disabled] { opacity: 1; background: transparent; box-shadow: none; }

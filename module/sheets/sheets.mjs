@@ -1,3 +1,4 @@
+import {configurationControl,applySheetLock} from './sheet-lock.mjs';
 import { currentMessageMode } from '../data/chat-visibility.mjs';
 import {resolveSkillAllocation,skillDieEditPatch,skillAllocationPatch,planSkillUpgrade,skillPoolEditPatch,skillFormulaOverridePatch,resetSkillAssignmentsPatch} from "../data/skill-allocation.mjs";
 import {openSkillEditor,skillUpgradeCandidates} from "./skill-editor.mjs";
@@ -256,6 +257,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     form: { submitOnChange: false, closeOnSubmit: false },
     actions: {
       fnriSwitchTab: ActorBase.changeTab,
+      toggleSheetLock: ActorBase.toggleSheetLock,
       openProjectionOwner: ActorBase.openProjectionOwner,
       toggleProjectionFull: ActorBase.toggleProjectionFull,
       toggleQuickHp: ActorBase.toggleQuickHp,
@@ -307,7 +309,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     this._writeQueue = Promise.resolve();
     this._tabFlagQueue = Promise.resolve();
     this._quickHpOpen = false;
-    this._characterEditing = false;
+    this._configurationLocked = true;
     this._skillEditorOpen = false;
     this._restPending = false;
     this._skillsFilter = "all";
@@ -320,6 +322,34 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     this._failedFields = new Set();
     // UI-only selection; never persisted as a game-rule constraint or sentinel.
     this._customDiceEditors = new Set();
+  }
+
+  get configurationLocked() { return this._configurationLocked !== false; }
+
+  _getFrameButtons(options) {
+    const buttons = super._getFrameButtons(options);
+    if (!this.isEditable) return buttons;
+    return [{action:'toggleSheetLock', icon:this.configurationLocked?'fa-solid fa-lock':'fa-solid fa-lock-open',
+      label:localized(this.configurationLocked?'SheetLock.unlock':'SheetLock.lock')}, ...buttons];
+  }
+
+  _applyConfigurationLock() {
+    applySheetLock(this.element, this.configurationLocked);
+    const button=this.element?.querySelector?.('[data-action="toggleSheetLock"]');
+    if (!button) return;
+    const label=localized(this.configurationLocked?'SheetLock.unlock':'SheetLock.lock');
+    button.title=label;
+    button.setAttribute('aria-label',label);
+    button.setAttribute('aria-pressed',String(this.configurationLocked));
+    const icon=button.querySelector('i')??button;
+    icon.classList.toggle('fa-lock',this.configurationLocked);
+    icon.classList.toggle('fa-lock-open',!this.configurationLocked);
+  }
+
+  static async toggleSheetLock() {
+    if (!this.isEditable || !await this._flushWrites()) return;
+    this._configurationLocked=!this.configurationLocked;
+    this._applyConfigurationLock();
   }
 
   static async openProjectionOwner() {
@@ -1056,6 +1086,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   async _addRow(collection, value) {
+    if (this.configurationLocked) return;
     if (!this.isEditable || !Object.hasOwn(ROW_FIELDS, collection)) return;
     const id = foundry.utils.randomID();
     if (!VALID_ROW_ID.test(id)) throw new Error("Invalid generated row ID");
@@ -1063,6 +1094,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   async _removeRow(collection, id) {
+    if (this.configurationLocked) return;
     if (!this.isEditable || !(collection in ROW_FIELDS) || !VALID_ROW_ID.test(id ?? "")) return;
     await this._queueWrite(async () => {
       const source = this.actor.toObject?.(true)?.system?.[collection] ?? {};
@@ -1101,7 +1133,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   _saveRowControl(control) {
-    if (!this.isEditable) return;
+    if (!this.isEditable || (this.configurationLocked && configurationControl(control))) return;
     const { rowCollection: collection, rowId: id, rowField: field } = control.dataset;
     if (!ROW_FIELDS[collection]?.has(field) || !VALID_ROW_ID.test(id ?? "")) return;
     const isNumber = NUMERIC_ROW_FIELDS[collection]?.has(field) ?? false;
@@ -1154,6 +1186,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       this.setPosition({width: 470, height: 530});
     }
     this._updateSaveIndicator();
+    this._applyConfigurationLock();
     const filter = root.querySelector?.("[data-fnri-skill-filter]");
     if (filter) {
       filter.value = this._skillsFilter;
@@ -1181,7 +1214,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     for (const picker of root.querySelectorAll("[data-fnri-dice-picker]")) {
       picker.addEventListener("change", event => {
         event.stopPropagation();
-        if (!this.isEditable || picker.hidden) return;
+        if (!this.isEditable || picker.hidden || this.configurationLocked) return;
         const id = picker.dataset.rowId;
         const input = [...root.querySelectorAll("[data-fnri-custom-dice]")]
           .find(control => control.dataset.rowId === id);
@@ -1215,6 +1248,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
         event.stopPropagation();
         if (!this.isEditable) return;
         const control = event.currentTarget;
+        if (this.configurationLocked && configurationControl(control)) return;
         const field = control.name;
         if (field !== "name" && !field.startsWith("system.")) return;
         if (control.hasAttribute?.("data-fnri-hp-math") &&
@@ -1408,7 +1442,6 @@ export class FastNRICharacterSheet extends ActorBase {
   static PARTS = { main: { root: true, template: "systems/fast-nri-v14/templates/character.hbs" } };
   static DEFAULT_OPTIONS = {
     actions: {
-      toggleCharacterEditor: FastNRICharacterSheet.toggleCharacterEditor,
       openSkillEditor: FastNRICharacterSheet.openSkillEditor,
       editRacialProperties: FastNRICharacterSheet.editRacialProperties,
       chooseIdentity: FastNRICharacterSheet.chooseIdentity,
@@ -1426,7 +1459,6 @@ export class FastNRICharacterSheet extends ActorBase {
     const rule=classDefinition(this.actor.system);
     const base=foundry.utils?.deepClone ? foundry.utils.deepClone(raw) : JSON.parse(JSON.stringify(raw));
     prepareClassBaseStats(base);
-    const characterEditing=!!this._characterEditing&&this.isEditable;
     const race = racialState(this.actor);
     const racialProperties = racialPropertyRows(this.actor, race);
     const additionalRacialProperties = racialProperties.filter(row => !row.innate);
@@ -1438,10 +1470,10 @@ export class FastNRICharacterSheet extends ActorBase {
       classAbility: ownedClassAbilities.has(row.item.getFlag(SYSTEM_ID, 'contentId'))
     }));
     const playSkill=row=>{const dice=this.actor.system.skills?.[row.id]?.dice??row.dice;return {...row,dice,hasDice:!!String(dice??'').trim()};};
-    return {...context, system:characterEditing?base:this.actor.system,
-      characterEditing, pcSkillView:true, rawHp:raw.hp, basePotionMax:raw.potionsBaseMax??3,
+    return {...context, system:base,
+      pcSkillView:true, rawHp:raw.hp, basePotionMax:raw.potionsBaseMax??3,
       effectiveDiffs:{speed:base.speed!==this.actor.system.speed, ...Object.fromEntries(["hp","ac","defenses"].map(group=>[group,Object.fromEntries(Object.keys(base[group]??{}).map(key=>[key,base[group][key]!==this.actor.system[group]?.[key]]))]))},
-      resourceRows:rowsOf(characterEditing?raw.resources:this.actor.system.resources),
+      resourceRows:rowsOf(raw.resources),
       catalogGroups:context.catalogGroups.map(g=>({...g,rows:g.rows.map(playSkill)})), skillRows:context.skillRows.map(playSkill),
       innateRacialProperties: racialProperties.filter(row => row.innate),
       additionalRacialProperties,
@@ -1461,14 +1493,8 @@ export class FastNRICharacterSheet extends ActorBase {
         ...abilityItems.filter(row => !row.classAbility)]};
   }
 
-  static async toggleCharacterEditor() {
-    if(!this.isEditable||!await this._flushWrites())return;
-    this._characterEditing=!this._characterEditing;
-    if(this._characterEditing){this._selectedTab='characteristics';this._sectionState.set('identity',true);}
-    await this.render({force:true});
-  }
   static async openSkillEditor() {
-    if(!this.isEditable||this._skillEditorOpen||!await this._flushWrites())return;
+    if(!this.isEditable||this.configurationLocked||this._skillEditorOpen||!await this._flushWrites())return;
     this._skillEditorOpen=true;
     try {await openSkillEditor(this,{
       chooseTradition:()=>FastNRICharacterSheet.chooseTradition.call(this),
@@ -1483,7 +1509,7 @@ export class FastNRICharacterSheet extends ActorBase {
   }
 
   static async chooseIdentity(_event,button) {
-    if (!this.isEditable || !await this._flushWrites()) return;
+    if (!this.isEditable || this.configurationLocked || !await this._flushWrites()) return;
     const field=button.dataset.identity;
     const choices={race:racialRaceNames,className:classNames,role:roleNames};
     if (!Object.hasOwn(choices,field)) return;
@@ -1496,7 +1522,7 @@ export class FastNRICharacterSheet extends ActorBase {
   }
 
   static async chooseTradition() {
-    if(!this.isEditable||!await this._flushWrites())return;
+    if(!this.isEditable||this.configurationLocked||!await this._flushWrites())return;
     const rule=classDefinition(this.actor.system);
     if(!rule?.traditions)return;
     const choices=BASIC_SKILLS.filter(s=>rule.traditions.includes(s.id));
@@ -1506,7 +1532,7 @@ export class FastNRICharacterSheet extends ActorBase {
     await this._queueWrite(()=>this.actor.update({'system.classTradition':choices.find(s=>s.name===selection)?.id??''}),'system.classTradition');
   }
   static async resetSkillDice() {
-    if(!this.isEditable||!await this._flushWrites())return;
+    if(!this.isEditable||this.configurationLocked||!await this._flushWrites())return;
     await this._queueWrite(()=>{
       const raw=this.actor.toObject?.(true)?.system??this.actor.system;
       const patch=resetSkillAssignmentsPatch(raw);
@@ -1514,6 +1540,7 @@ export class FastNRICharacterSheet extends ActorBase {
     });
   }
   async _editSkillPool(skill, choice) {
+    if (!this.isEditable || this.configurationLocked) return;
     return this._queueWrite(() => {
       const raw = this.actor.toObject?.(true)?.system ?? this.actor.system;
       const patch = skillPoolEditPatch(raw, this.actor.items?.contents ?? [], skill, choice);
@@ -1523,6 +1550,7 @@ export class FastNRICharacterSheet extends ActorBase {
   }
 
   async _setSkillFormulaOverride(skill, value) {
+    if (!this.isEditable || this.configurationLocked) return;
     return this._queueWrite(() => {
       const raw = this.actor.toObject?.(true)?.system ?? this.actor.system;
       const patch = skillFormulaOverridePatch(raw, skill, value);
@@ -1531,6 +1559,7 @@ export class FastNRICharacterSheet extends ActorBase {
   }
 
   async _applySkillUpgrade(upgradeId, dieId) {
+    if (!this.isEditable || this.configurationLocked) return;
     return this._queueWrite(() => {
       const live = this.actor.toObject?.(true)?.system ?? this.actor.system;
       const allocation = resolveSkillAllocation(live, this.actor.items?.contents ?? []);
@@ -1541,7 +1570,7 @@ export class FastNRICharacterSheet extends ActorBase {
     });
   }
   static async editRacialProperties() {
-    if (!this.isEditable) return;
+    if (!this.isEditable || this.configurationLocked) return;
     if (!racialState(this.actor).races.length && !this.actor.items.contents.some(racialPropertyRule)) return;
     try {
       await openRacialPropertyEditor(this.actor, {add: async card => {
@@ -1563,7 +1592,7 @@ export class FastNRICharacterSheet extends ActorBase {
   }
 
   static async changeRacialSubproperty(_event, button) {
-    if (!this.isEditable) return;
+    if (!this.isEditable || this.configurationLocked) return;
     const item = this.actor.items.get(button.dataset.itemId);
     if (!item) return;
     try { await editRacialSubproperty(item); }
