@@ -50,7 +50,7 @@ const SECTION_DEFAULTS = Object.freeze({
   effects: false, resources: false, wealth: false
 });
 const TAB_IDS = new Set(["characteristics", "actions", "skills", "abilities", "inventory", "description", "journal"]);
-const ACTOR_PARTIALS = Object.fromEntries(['actor-actions', 'actor-standard-action', 'actor-core-skill', 'actor-short-rest']
+const ACTOR_PARTIALS = Object.fromEntries(['actor-actions', 'actor-standard-action', 'actor-core-skill', 'actor-custom-skill', 'actor-short-rest']
   .map(id => [`fnri-${id}`, `systems/${SYSTEM_ID}/templates/${id}.hbs`]));
 const ITEM_TYPES = new Set(["weapon", "armor", "gear", "ability"]);
 const ROW_FIELDS = {
@@ -182,6 +182,8 @@ function preparedSkillRow(row, actor, customEditors) {
     effectiveModifier: actor.system.skills?.[row.id]?.modifier,
     hasEffectiveModifier: (actor.system.skills?.[row.id]?.modifier ?? 0) !== (row.modifier ?? 0),
     isSpecialization: row.kind === "specialization",
+    specializationGroups: SKILL_GROUPS.map(group=>({id:group,name:localized("SkillGroups."+group),selected:row.group===group})),
+    hasSkillGroup: SKILL_GROUPS.includes(row.group),
     isSkill: row.kind !== "specialization",
     skillDiceOptions: diceOptions("skill", String(row.dice ?? ""), customEditors.has(row.id)),
     specializationDiceOptions: diceOptions("specialization", String(row.dice ?? ""), customEditors.has(row.id)),
@@ -1421,6 +1423,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       catalogGroups: SKILL_GROUPS.map(group => ({
         id: group, name: localized("SkillGroups." + group),
         expanded: this._groupState.get(group) ?? true,
+        specializations: rowsOf(completeSkills).filter(row=>!BASIC_SKILLS_BY_ROW_ID.has(row.id)&&row.kind==="specialization"&&row.group===group).map(row=>preparedSkillRow(row,actor,this._customDiceEditors)),
         rows: BASIC_SKILLS.filter(skill => skill.group === group).map(skill => {
           const id = "core_" + skill.id;
           const current = completeSkills[id] ?? standardSkillEntry(skill);
@@ -1431,7 +1434,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
             namedActions: skillActionRows(skill.id), actionsExpanded: this._expandedSkillActions.has(id)};
         })
       })),
-      skillRows: rowsOf(completeSkills).filter(row => !BASIC_SKILLS_BY_ROW_ID.has(row.id))
+      skillRows: rowsOf(completeSkills).filter(row => !BASIC_SKILLS_BY_ROW_ID.has(row.id) && !(row.kind==="specialization"&&SKILL_GROUPS.includes(row.group)))
         .map(row => preparedSkillRow(row, actor, this._customDiceEditors)),
       resourceRows: rowsOf(base.resources),
       journalRows: actorJournalRows(actor)
@@ -1475,7 +1478,7 @@ export class FastNRICharacterSheet extends ActorBase {
       pcSkillView:true, rawHp:raw.hp, basePotionMax:raw.potionsBaseMax??3,
       effectiveDiffs:{speed:base.speed!==this.actor.system.speed, ...Object.fromEntries(["hp","ac","defenses"].map(group=>[group,Object.fromEntries(Object.keys(base[group]??{}).map(key=>[key,base[group][key]!==this.actor.system[group]?.[key]]))]))},
       resourceRows:rowsOf(raw.resources),
-      catalogGroups:context.catalogGroups.map(g=>({...g,rows:g.rows.map(playSkill)})), skillRows:context.skillRows.map(playSkill),
+      catalogGroups:context.catalogGroups.map(g=>({...g,rows:g.rows.map(playSkill),specializations:g.specializations.map(playSkill)})), skillRows:context.skillRows.map(playSkill),
       innateRacialProperties: racialProperties.filter(row => row.innate),
       additionalRacialProperties,
       showAdditionalRacialProperties: race.races.length > 0 || additionalRacialProperties.length > 0,

@@ -765,3 +765,5 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fnri-skill-editor .fnri-skill-custom-identity { display: grid; min-width: 0; gap: 3px; }
 .fnri-skill-editor .fnri-skill-edit-pool > span { font-size: 1.05rem; font-weight: 600; padding: 5px 9px; }
 .fnri-skill-editor .fnri-skill-distribution-warnings > small { display: block; }
+
+.fast-nri-v14.fast-nri-sheet .fnri-group-specializations-list { display: grid; gap: 4px; margin-top: 5px; padding-inline-start: 8px; border-inline-start: 1px solid var(--color-border-light-tertiary,#8886); }

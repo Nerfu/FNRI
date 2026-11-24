@@ -39,7 +39,7 @@ for hbs in (root/'templates').glob('*.hbs'):
     elif hbs.name == 'effects-panel.hbs':
         assert 'data-effect-uuid' in src
     else:
-        assert hbs.name in {'actor-actions.hbs','actor-standard-action.hbs','actor-core-skill.hbs','actor-short-rest.hbs','token-ruler-label.hbs'}, f'Unclassified template: {hbs.name}'
+        assert hbs.name in {'actor-actions.hbs','actor-standard-action.hbs','actor-core-skill.hbs','actor-custom-skill.hbs','actor-short-rest.hbs','token-ruler-label.hbs'}, f'Unclassified template: {hbs.name}'
 for name in ('character','npc'):
     src=(root/'templates'/f'{name}.hbs').read_text()
     src=src.replace('{{> fnri-actor-actions}}',(root/'templates'/'actor-actions.hbs').read_text())
@@ -58,14 +58,16 @@ for name in ('character','npc'):
     assert 'data-action="attackEquipped"' in src
     assert 'data-example=' not in src
     assert 'data-row-collection="resources"' in src
+    custom=(root/'templates'/'actor-custom-skill.hbs').read_text()
+    assert '{{> fnri-actor-custom-skill}}' in src
     if name=='npc':
-        assert 'data-row-collection="skills"' in src
-        assert 'data-row-field="dice"' in src
-        assert 'data-fnri-dice-picker="skill"' in src
-        assert 'data-fnri-dice-picker="specialization"' in src
-        assert 'data-fnri-custom-dice' in src
-        assert 'this.skillDiceOptions' in src and 'this.specializationDiceOptions' in src
-        assert 'data-row-field="kind"' in src
+        assert 'data-row-collection="skills"' in custom
+        assert 'data-row-field="dice"' in custom
+        assert 'data-fnri-dice-picker="skill"' in custom
+        assert 'data-fnri-dice-picker="specialization"' in custom
+        assert 'data-fnri-custom-dice' in custom
+        assert 'this.skillDiceOptions' in custom and 'this.specializationDiceOptions' in custom
+        assert 'data-row-field="kind"' in custom
         assert 'data-action="addSpecialization"' in src
     else:
         assert 'data-action="openSkillEditor"' in src and 'data-action="toggleCharacterEditor"' not in src
@@ -91,7 +93,7 @@ for name in ('character','npc'):
     assert ('data-fnri-quick-hp' in src) == (name=='npc')
     assert 'data-fnri-save-state' in src
     assert 'data-fnri-skill-filter' in src
-    assert 'data-fnri-skill-group-content' in src and 'data-fnri-skill-entry' in src
+    assert 'data-fnri-skill-group-content' in src and 'data-fnri-skill-entry' in custom
     assert 'data-action="rollAbility"' in src
     assert src.count('data-fnri-section=') == 7
     assert 'name="system.wealth"' in src

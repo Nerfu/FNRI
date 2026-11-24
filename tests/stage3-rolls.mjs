@@ -75,7 +75,7 @@ assert.equal(sent.at(-1).data.flags['fast-nri-v14'].checkRoll.result, undefined)
 const root=join(dirname(fileURLToPath(import.meta.url)),'..');
 const read=path=>readFileSync(join(root,path),'utf8');
 for(const file of ['templates/character.hbs','templates/npc.hbs']){
- const src=read(file);
+ const src=read(file)+read('templates/actor-custom-skill.hbs');
  for(const action of ['rollSkill','createEffect','editEffect','toggleEffect','deleteEffect'])
   assert.ok(src.includes(`data-action="${action}"`),`${file} missing ${action}`);
  assert.ok(file.includes('character')?src.includes('data-action="openSkillEditor"'):src.includes('data-row-field="modifier"'));

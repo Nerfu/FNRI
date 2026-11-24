@@ -148,6 +148,8 @@
  {{#each this.rows}}
  {{> fnri-actor-core-skill}}
  {{/each}}
+ {{#if this.specializations}}<div class="fnri-group-specializations-list"><small>{{localize "FASTNRI.Fields.specialization"}}</small>
+ {{#each this.specializations}}{{> fnri-actor-custom-skill}}{{/each}}</div>{{/if}}
  </div>
  </div></div>
  {{/each}}
@@ -157,23 +159,7 @@
  <div data-fnri-skill-group-content="custom" {{#unless customGroupExpanded}}hidden{{/unless}}>
  <div class="fnri-skill-column-head fnri-custom-head" aria-hidden="true"><span>{{localize "FASTNRI.Fields.name"}}</span><span>{{localize "FASTNRI.Fields.checkKind"}}</span><span>{{localize "FASTNRI.Fields.dice"}}</span><span>{{localize "FASTNRI.Fields.checkModifier"}}</span><span></span><span></span></div>
  <div class="fnri-stack">{{#each skillRows}}
-<div class="fnri-entry fnri-skill-row" data-fnri-skill-entry data-fnri-dice-assigned="{{#if this.hasDice}}true{{else}}false{{/if}}">
-  <label>{{localize "FASTNRI.Fields.name"}}<input type="text" data-row-collection="skills" data-row-id="{{this.id}}" data-row-field="name" value="{{this.name}}" {{#unless @root.editable}}disabled{{/unless}}></label>
-  <label>{{localize "FASTNRI.Fields.checkKind"}}<select data-row-collection="skills" data-row-id="{{this.id}}" data-row-field="kind" {{#unless @root.editable}}disabled{{/unless}}><option value="skill" {{#if this.isSkill}}selected{{/if}}>{{localize "FASTNRI.Fields.skill"}}</option><option value="specialization" {{#if this.isSpecialization}}selected{{/if}}>{{localize "FASTNRI.Fields.specialization"}}</option></select></label>
-  <label>{{localize "FASTNRI.Fields.dice"}}
-    <select data-fnri-dice-picker="skill" data-row-id="{{this.id}}" {{#if this.isSpecialization}}hidden{{/if}} {{#unless @root.editable}}disabled{{/unless}}>
-    {{#each this.skillDiceOptions}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
-    </select>
-    <select data-fnri-dice-picker="specialization" data-row-id="{{this.id}}" {{#unless this.isSpecialization}}hidden{{/unless}} {{#unless @root.editable}}disabled{{/unless}}>
-    {{#each this.specializationDiceOptions}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
-    </select>
-    <input type="text" class="fnri-custom-dice" data-fnri-custom-dice data-row-collection="skills" data-row-id="{{this.id}}" data-row-field="dice" value="{{this.dice}}" placeholder="2d6 + 1d8" aria-label="{{localize 'FASTNRI.Fields.customDice'}}" {{#unless this.hasCustomDice}}hidden{{/unless}} {{#unless @root.editable}}disabled{{/unless}}>
-  </label>
-  <label>{{localize "FASTNRI.Fields.checkModifier"}}<input class="fnri-number" type="text" inputmode="decimal" data-row-collection="skills" data-row-id="{{this.id}}" data-row-field="modifier" value="{{this.modifier}}" {{#unless @root.editable}}disabled{{/unless}}>{{#if this.hasEffectiveModifier}}<small class="fnri-effective">{{localize "FASTNRI.Fields.effective"}}: {{this.effectiveModifier}}</small>{{/if}}</label>
-  <button type="button" data-action="rollSkill" data-id="{{this.id}}" title="{{localize 'FASTNRI.Actions.rollSkill'}}"><i class="fa-solid fa-dice-d20"></i></button>
-  {{#if @root.editable}}<button type="button" data-action="removeSkill" data-id="{{this.id}}" title="{{localize 'FASTNRI.Actions.removeSkill'}}"><i class="fa-solid fa-trash"></i></button>{{/if}}
-  {{#if this.hasLegacyValue}}<label class="fnri-legacy-field">{{localize "FASTNRI.Fields.legacySkillValue"}}<input type="text" class="fnri-number" inputmode="decimal" data-row-collection="skills" data-row-id="{{this.id}}" data-row-field="value" value="{{this.value}}" {{#unless @root.editable}}disabled{{/unless}}></label>{{/if}}
-</div>
+{{> fnri-actor-custom-skill}}
 {{/each}}</div></div></div></section></div>
 <div class="fnri-tab-content" data-fnri-panel="abilities" {{#unless tabs.abilities}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.abilities"}}</h3><div class="fnri-row-head"><p class="fnri-muted">{{localize "FASTNRI.Hints.dropItems"}}</p>
 {{#if editable}}<button type="button" data-action="createItem" data-type="ability">{{localize "FASTNRI.Actions.createAbility"}}</button>{{/if}}</div><ul class="fnri-item-list">
