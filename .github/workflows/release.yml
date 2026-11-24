@@ -1,16 +1,6 @@
-name: Package and publish Foundry system
-
-# The audited release candidate is prepared off main. Promote main only
-# after GitHub serves the ZIP referenced by the candidate manifest.
+name: Repair the Fast NRI v0.2.0 installer
 on:
   create:
-  workflow_dispatch:
-    inputs:
-      release_approved:
-        description: 'User explicitly approved this release'
-        required: true
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -21,37 +11,23 @@ concurrency:
 
 jobs:
   build-and-release:
-    if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.release_approved == true && startsWith(github.ref, 'refs/heads/release/v')) ||
-      (github.event_name == 'create' && github.event.ref_type == 'branch' && startsWith(github.event.ref, 'release/v'))
+    if: github.event.ref_type == 'branch' && github.event.ref == 'maintenance/v0.2.0-packs'
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Verify release candidate and its main ancestry
+      - name: Verify the repair changes only the build script
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version="$(python3 -c 'import json; print(json.load(open("system.json"))["version"])')"
-          tag="v${version}"
-          if [[ "$GITHUB_REF" != "refs/heads/release/${tag}" ]]; then
-            echo "::error::Release branch must be release/${tag}"
-            exit 1
-          fi
-          git fetch origin main
-          if ! git merge-base --is-ancestor FETCH_HEAD "$GITHUB_SHA"; then
-            echo "::error::Release candidate must fast-forward main"
-            exit 1
-          fi
-          if git show-ref --verify --quiet "refs/tags/${tag}" ||
-             gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Tag or release ${tag} already exists"
-            exit 1
-          fi
+          approved_tag=fd2ceb1b949bab766e8fc316e5b4116dcf05d1b0
+          repair_commit="$(git rev-parse HEAD^)"
+          [[ "$(git rev-parse 'v0.2.0^{commit}')" == "$approved_tag" ]]
+          [[ "$(git rev-parse "${repair_commit}^")" == "$approved_tag" ]]
+          [[ "$(git diff --name-only "$approved_tag" "$repair_commit")" == scripts/build-packs.mjs ]]
+          [[ "$(git diff --name-only "$repair_commit" HEAD)" == .github/workflows/release.yml ]]
       - name: Run the same test gate as local pre-release
         shell: bash
         run: bash tests/release-gate.sh
@@ -95,28 +71,47 @@ jobs:
           print(f"Packaged {len(files)} runtime files")
           PY
           sha256sum dist/fast-nri-v14.zip
-      - name: Publish and verify the ZIP before advancing main
+      - name: Preserve the original installer, publish the correction and advance main
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
           set -euo pipefail
-          version="$(python3 -c 'import json;print(json.load(open("system.json"))["version"])')"
-          tag="v${version}"
+          tag=v0.2.0
+          approved_tag=fd2ceb1b949bab766e8fc316e5b4116dcf05d1b0
+          release_id=457223606
+          original_id=788515480
+          original_digest=sha256:09f2e3597df54636807e5f6ebebfb9066f567f7b7f48ec1a3fc2da2ca720ad15
+          installer=fast-nri-v14.zip
+          preserved=fast-nri-v14-original-empty-packs.zip
+          repair_commit="$(git rev-parse HEAD^)"
           git fetch origin main
-          git merge-base --is-ancestor FETCH_HEAD "$GITHUB_SHA"
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Release already exists; refusing to replace it."
-            exit 1
-          fi
-          gh release create "$tag" dist/fast-nri-v14.zip \
-            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Fast NRI 7.0 — $tag (Foundry 14)" \
-            --notes 'Предварительная сборка для Foundry VTT 14. Контрольный контент: Человек, Драконообразный, Колдун, Наследник. Миграции старых данных нет; рекомендуется чистый тестовый мир. Аудит состояний, поля и полная игровая приёмка перенесены на 0.2.1. Подробности в CHANGELOG.' \
-            --prerelease
+          [[ "$(git rev-parse FETCH_HEAD)" == "$approved_tag" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha)" == "$approved_tag" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/release/$tag" --jq .object.sha)" == "$approved_tag" ]]
+
+          current="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag")"
+          jq -e --argjson release "$release_id" --argjson original "$original_id" \
+            --arg name "$installer" --arg digest "$original_digest" --arg preserved "$preserved" \
+            '.id == $release and .prerelease and (.draft | not) and
+            ([.assets[] | select(.name == $name)] | length == 1) and
+            (any(.assets[]; .name == $name and .id == $original and .digest == $digest and .state == "uploaded")) and
+            (all(.assets[]; .name != $preserved))' <<< "$current"
+
+          original_endpoint="repos/$GITHUB_REPOSITORY/releases/assets/$original_id"
+          gh api --method PATCH "$original_endpoint" -f name="$preserved" \
+            -f label='Первая сборка с пустыми компендиями (архив)' \
+            --jq '.name + " " + .digest'
+          gh release upload "$tag" "dist/$installer" --repo "$GITHUB_REPOSITORY"
+
           verify_dir="$(mktemp -d)"
-          gh release download "$tag" --pattern fast-nri-v14.zip --dir "$verify_dir" --repo "$GITHUB_REPOSITORY"
-          cmp dist/fast-nri-v14.zip "$verify_dir/fast-nri-v14.zip"
-          git fetch origin "refs/tags/${tag}"
-          [[ "$(git rev-parse 'FETCH_HEAD^{commit}')" == "$GITHUB_SHA" ]]
-          git push origin "${GITHUB_SHA}:refs/heads/main"
+          gh release download "$tag" --pattern "$installer" --dir "$verify_dir" --repo "$GITHUB_REPOSITORY"
+          cmp "dist/$installer" "$verify_dir/$installer"
+          digest="sha256:$(sha256sum "dist/$installer" | cut -d' ' -f1)"
+          current="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag")"
+          jq -e --argjson release "$release_id" --argjson original "$original_id" \
+            --arg name "$installer" --arg digest "$digest" --arg preserved "$preserved" --arg old "$original_digest" \
+            '.id == $release and .prerelease and (.draft | not) and
+            (any(.assets[]; .name == $name and .id != $original and .digest == $digest and .state == "uploaded")) and
+            (any(.assets[]; .name == $preserved and .id == $original and .digest == $old and .state == "uploaded"))' <<< "$current"
+          git push origin "${repair_commit}:refs/heads/main"
