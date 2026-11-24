@@ -54,12 +54,12 @@ for(const model of [CONFIG.Actor.dataModels.character.defineSchema(),CONFIG.Acto
   assert.equal(model.skills.args[0].constructor,Field,'skills value has schema');
   assert.equal(model.skills.args[1].required,false);
   const initial = model.skills.args[1].initial();
-  assert.equal(Object.keys(initial).length, 17, 'Rulebook 7.0 base catalogue is complete');
+  assert.equal(Object.keys(initial).length, 18, 'Rulebook 7.0 base catalogue is complete');
   assert.equal(initial.core_acrobatics.name,'Акробатика');
   assert.equal(initial.core_intimidation.name,'Запугивание');
   assert.equal(initial.core_athletics.dice,'', 'new skills begin without an assigned cube');
-  assert.equal(initial.starter_primary.dice, '2d6');
-  assert.equal(initial.starter_secondary.dice, '2d4');
+  assert.equal(initial.starter_primary.dice, '1d6');
+  assert.equal(initial.starter_secondary.dice, '1d4');
   assert.notEqual(initial, model.skills.args[1].initial(), 'new Actors receive independent skill dictionaries');
   const checkSchema=model.skills.args[0].args[0];
   for(const key of ['name','kind','dice','modifier','value'])assert.ok(checkSchema[key],key);
@@ -134,6 +134,7 @@ function makeControl({name='',dataset={},value=''}){
  return control;
 }
 async function attachControls(sheet,rowControls=[],namedControls=[]){
+ if(sheet.isEditable)sheet._configurationLocked=false;
  sheet.element={
   querySelectorAll(selector){
    if(selector.startsWith('[data-row'))return rowControls;
@@ -182,9 +183,9 @@ assert.equal(ctx.skillRows[1].isSpecialization,true);
 assert.deepEqual(ctx.skillRows[0].skillDiceOptions.slice(1,6).map(option => option.value),
   ['1d4','1d6','1d8','1d10','1d12']);
 assert.deepEqual(ctx.skillRows[1].specializationDiceOptions.slice(1,3).map(option => option.value),
-  ['2d6','2d4']);
+  ['1d6','1d4']);
 assert.equal(ctx.skillRows[0].skillDiceOptions.find(option => option.selected).value,'1d8');
-assert.equal(ctx.skillRows[1].specializationDiceOptions.find(option => option.selected).value,'2d6');
+assert.equal(ctx.skillRows[1].specializationDiceOptions.find(option => option.selected).value,'__custom__');
 assert.equal(ctx.skillRows[0].hasCustomDice,false);
 
 assert.equal(ctx.missingEquipment.leftHand,false);
@@ -384,7 +385,7 @@ assert.equal(errors,0);
 
 // Confirm compact summary is persistent and editable fields live in Characteristics, once.
 for(const path of ['templates/character.hbs','templates/npc.hbs']){
- const html=readFileSync(file(path),'utf8').replace('{{> fnri-actor-actions}}',readFileSync(file('templates/actor-actions.hbs'),'utf8'));
+ const html=readFileSync(file(path),'utf8').replace('{{> fnri-actor-actions}}',readFileSync(file('templates/actor-actions.hbs'),'utf8')).replace('{{> fnri-actor-custom-skill}}',readFileSync(file('templates/actor-custom-skill.hbs'),'utf8'));
  assert.ok(html.indexOf('fnri-persistent')<html.indexOf('fnri-tabs'));
  assert.equal(html.lastIndexOf('name="system.hp.current"')>html.indexOf('fnri-tabs'),!path.includes('character'));
  assert.ok(html.indexOf('name="system.defenses.awareness"')>html.indexOf('fnri-tabs'));

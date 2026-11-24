@@ -5,15 +5,15 @@ import { fileURLToPath,pathToFileURL } from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const mod=name=>import(pathToFileURL(resolve(root,name)).href);
 const {BASIC_SKILLS,SKILL_GROUPS,initialSkillEntries}=await mod('module/data/skills-catalog.mjs');
-assert.equal(BASIC_SKILLS.length,15);
-assert.deepEqual(SKILL_GROUPS,['physical','practical','magical','social']);
-assert.equal(new Set(BASIC_SKILLS.map(s=>s.id)).size,15);
+assert.equal(BASIC_SKILLS.length,16);
+assert.deepEqual(SKILL_GROUPS,['physical','practical','field','magical','social']);
+assert.equal(new Set(BASIC_SKILLS.map(s=>s.id)).size,16);
 assert.deepEqual(BASIC_SKILLS.map(x=>x.group).reduce((a,b)=>(a[b]=(a[b]??0)+1,a),{}),{
-  physical:4,practical:3,magical:4,social:4
+  physical:3,practical:3,field:3,magical:3,social:4
 });
 assert.deepEqual(BASIC_SKILLS.map(x=>x.name), [
-  'Акробатика','Атлетика','Скрытность','Ловкость рук','Выживание','Медицина','Ремесло',
-  'Природа','Религия','Мистика','Аркана','Общество','Убеждение','Обман','Запугивание'
+  'Акробатика','Атлетика','Скрытность','Ловкость рук','Ремесло','Медицина',
+  'Выживание','Восприятие','Природа','Аркана','Мистицизм','Религия','Общество','Убеждение','Обман','Запугивание'
 ]);
 const mockID=()=>`testCustom${Math.random().toString(16).slice(2,10)}`;
 class Sheet {
@@ -55,11 +55,12 @@ function makeActor({name='Тестовый герой',skills=initialSkillEntrie
 }
 const actor=makeActor();
 let sheet=new FastNRICharacterSheet({actor});
+sheet._configurationLocked=false;
 let ctx=await sheet._prepareContext({});
-assert.deepEqual(ctx.catalogGroups.map(g=>g.rows.length),[4,3,4,4]);
+assert.deepEqual(ctx.catalogGroups.map(g=>g.rows.length),[3,3,3,3,4]);
 assert.equal(ctx.skillRows.length,2,'two blank starting specialization entries');
-assert.deepEqual(ctx.skillRows.map(x=>x.dice),['2d6','2d4']);
-assert.equal(Object.keys(actor._source.system.skills).length,17);
+assert.deepEqual(ctx.skillRows.map(x=>x.dice),['1d6','1d4']);
+assert.equal(Object.keys(actor._source.system.skills).length,18);
 assert.ok(ctx.catalogGroups[0].rows.every(x=>x.dice===''));
 // Explicit edits only touch their own row. No object-wide skills update.
 sheet._saveRowControl({dataset:{rowCollection:'skills',rowId:'core_athletics',rowField:'dice'},value:'1d10',setCustomValidity(){}});
@@ -73,23 +74,24 @@ await sheet._addRow('skills',{name:'Мореходство',kind:'skill',dice:'2
 await sheet._addRow('skills',{name:'Легенды леса',kind:'specialization',dice:'2d6',modifier:null,value:null});
 ctx=await sheet._prepareContext({});
 assert.equal(ctx.skillRows.length,4);
-assert.equal(ctx.catalogGroups.flatMap(g=>g.rows).length,15);
+assert.equal(ctx.catalogGroups.flatMap(g=>g.rows).length,16);
 assert.equal(actor.updates.some(([p])=>p==='system.skills'),false,'never overwrite the whole dictionary');
 const saved=clone(actor._source);
 const actorRestart=makeActor({name:saved.name,skills:saved.system.skills});
 sheet=new FastNRICharacterSheet({actor:actorRestart});
 const after=await sheet._prepareContext({});
 assert.equal(actorRestart.name,'Переименованный персонаж');
-assert.equal(after.catalogGroups.flatMap(g=>g.rows).length,15);
+assert.equal(after.catalogGroups.flatMap(g=>g.rows).length,16);
 assert.equal(after.catalogGroups[0].rows.find(x=>x.id==='core_athletics').dice,'1d10');
 assert.equal(after.catalogGroups[0].rows.find(x=>x.id==='core_acrobatics').modifier,2);
 assert.deepEqual(after.skillRows.slice(-2).map(r=>r.name),['Мореходство','Легенды леса']);
-assert.deepEqual(after.skillRows.slice(0,2).map(r=>r.dice),['2d6','2d4']);
+assert.deepEqual(after.skillRows.slice(0,2).map(r=>r.dice),['1d6','1d4']);
 // Simulate an existing pre-0.1.9 Actor: base skills virtual until first edit.
 const prior=makeActor({skills:{old99:{name:'Свой старый навык',kind:'skill',dice:'3d4',modifier:0,value:null}}});
 const oldSheet=new FastNRICharacterSheet({actor:prior});
+oldSheet._configurationLocked=false;
 const virtual=await oldSheet._prepareContext({});
-assert.equal(virtual.catalogGroups.flatMap(g=>g.rows).length,15);
+assert.equal(virtual.catalogGroups.flatMap(g=>g.rows).length,16);
 assert.equal(virtual.skillRows.length,1);
 oldSheet._saveRowControl({dataset:{rowCollection:'skills',rowId:'core_arcana',rowField:'dice'},value:'1d8',setCustomValidity(){}});
 await oldSheet._writeQueue;
@@ -97,10 +99,10 @@ assert.equal(prior.system.skills.core_arcana.name,'Аркана');
 assert.equal(prior.system.skills.core_arcana.dice,'1d8');
 assert.equal(prior.system.skills.old99.dice,'3d4');
 const priorAfter=makeActor({skills:prior._source.system.skills});
-assert.equal((await (new FastNRICharacterSheet({actor:priorAfter}))._prepareContext({})).catalogGroups.flatMap(g=>g.rows).length,15);
+assert.equal((await (new FastNRICharacterSheet({actor:priorAfter}))._prepareContext({})).catalogGroups.flatMap(g=>g.rows).length,16);
 // A transiently empty prepared skills object must not hide stored skills.
 priorAfter.system.skills={};
 const mismatch=(await (new FastNRICharacterSheet({actor:priorAfter}))._prepareContext({}));
 assert.equal(mismatch.skillRows.length,1);
-assert.equal(mismatch.catalogGroups[2].rows.find(x=>x.id==='core_arcana').dice,'1d8');
-console.log('PASS catalogue 15/4 groups, independent edit + name, add skills/spec, reload, old Actor virtual defaults, source/prepared reconciliation');
+assert.equal(mismatch.catalogGroups.find(g=>g.id==='magical').rows.find(x=>x.id==='core_arcana').dice,'1d8');
+console.log('PASS catalogue 16/5 groups, independent edit + name, add skills/spec, reload, old Actor virtual defaults, source/prepared reconciliation');
