@@ -1,39 +1,187 @@
-import {BASIC_SKILLS} from '../data/skills-catalog.mjs';
-import {resolveSkillAllocation} from '../data/skill-allocation.mjs';
-import {classDefinition} from '../data/classes.mjs';
-const loc=k=>game.i18n.localize('FASTNRI.'+k);
-const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
-const name=id=>BASIC_SKILLS.find(s=>s.id===id)?.name??id;
-const btn=(action,label,attrs='')=>`<button type="button" data-skill-action="${action}" ${attrs}>${esc(label)}</button>`;
-const input=(id,field,value,label)=>`<input type="text" data-row-collection="skills" data-row-id="${esc(id)}" data-row-field="${field}" value="${esc(value)}" aria-label="${esc(label)}">`;
-export function skillEditorMarkup(actor){
-  const raw=actor.toObject?.(true)?.system??actor.system, items=actor.items?.contents??[];
-  const a=resolveSkillAllocation(raw,items), rule=classDefinition(raw);
-  const pool=[4,6,8,10,12].map(size=>`<span>d${size} × ${a.free.filter(d=>d.face===size).length}</span>`).join('');
-  const row=(id,label,formula,modifier,source='')=>{
-    const dice=['1d4','1d6','1d8','1d10','1d12'];
-    return `<div class="fnri-skill-edit-row"><div><strong>${esc(label)}</strong>${source?`<small>${esc(source)}</small>`:''}</div><div class="fnri-skill-edit-dice">${dice.map(d=>btn('die',d.slice(1),`data-id="${esc(id)}" data-die="${d}" aria-pressed="${formula===d}"`)).join('')}</div>${input(id,'dice',formula,`${label} · ${loc('CharacterEditor.custom')}`)}${input(id,'modifier',modifier,`${label} · ${loc('Fields.checkModifier')}`)}</div>`;
-  };
-  const warnings=a.warnings.map(w=>`<small class="fnri-racial-warning">${esc([loc('SkillAllocation.'+w.code),w.skill?name(w.skill):'',w.expected!==undefined?`(${w.expected||'—'} → ${w.actual||'—'})`:''].filter(Boolean).join(' '))}</small>`).join('');
-  const sources=a.dice.map(d=>`<li>${esc(d.source)} · d${d.face} → ${esc(d.skill?name(d.skill):loc('SkillAllocation.freeDie'))}</li>`).join('');
-  const core=BASIC_SKILLS.map(s=>{const id='core_'+s.id, stored=raw.skills?.[id]??{}, prepared=actor.system.skills?.[id]??stored;const d=a.dice.find(d=>d.skill===s.id);return row(id,s.name,a.active?a.rows[s.id].formula:prepared.dice??'',stored.modifier,d?`${d.source} · d${d.face}`:'');}).join('');
-  const custom=Object.entries(raw.skills??{}).filter(([id])=>!BASIC_SKILLS.some(s=>'core_'+s.id===id)).map(([id,s])=>`<div class="fnri-skill-edit-custom">${input(id,'name',s.name,loc('Fields.name'))}<select data-row-collection="skills" data-row-id="${esc(id)}" data-row-field="kind"><option value="skill" ${s.kind!=='specialization'?'selected':''}>${esc(loc('Fields.skill'))}</option><option value="specialization" ${s.kind==='specialization'?'selected':''}>${esc(loc('Fields.specialization'))}</option></select><div class="fnri-skill-edit-dice">${(s.kind==='specialization'?['2d6','2d4']:['1d4','1d6','1d8','1d10','1d12']).map(d=>btn('die',d,`data-id="${esc(id)}" data-die="${d}" aria-pressed="${s.dice===d}"`)).join('')}</div>${input(id,'dice',s.dice,loc('Fields.dice'))}${input(id,'modifier',s.modifier,loc('Fields.checkModifier'))}${btn('remove','×',`data-id="${esc(id)}" aria-label="${esc(loc('Actions.removeSkill'))}"`)}</div>`).join('');
-  return `<div class="fnri-skill-edit-toolbar"><strong>${esc(loc('SkillAllocation.free'))}</strong><div class="fnri-skill-edit-pool">${pool}</div>${btn('reset',loc('SkillAllocation.reset'))}</div>${rule?.traditions?`<div class="fnri-skill-edit-option">${esc(loc('SkillAllocation.traditionLabel'))} ${btn('tradition',name(raw.classTradition)||loc('CharacterChoice.choose'))}</div>`:''}${a.upgrades.map(u=>`<div class="fnri-skill-edit-option">${esc(u.source)} · d${u.size} ${btn('upgrade',u.target?`${name(a.dice.find(d=>d.id===u.target)?.skill)||loc('SkillAllocation.freeDie')} · d${a.dice.find(d=>d.id===u.target)?.face}`:loc('CharacterChoice.choose'),`data-id="${esc(u.id)}"`)}</div>`).join('')}<div class="fnri-skill-edit-warnings">${warnings}</div><div class="fnri-skill-edit-head"><span>${esc(loc('Fields.skill'))}</span><span>${esc(loc('Fields.dice'))}</span><span>${esc(loc('CharacterEditor.custom'))}</span><span>${esc(loc('Fields.checkModifier'))}</span></div>${core}<details><summary>${esc(loc('CharacterEditor.sources'))}</summary><ul>${sources}</ul></details><h3>${esc(loc('Sections.customChecks'))}</h3>${custom}<div class="fnri-skill-edit-option">${btn('addSkill',loc('Actions.addSkill'))}${btn('addSpecialization',loc('Actions.addSpecialization'))}</div>`;
+import { BASIC_SKILLS, SKILL_GROUPS } from '../data/skills-catalog.mjs';
+import { resolveSkillAllocation } from '../data/skill-allocation.mjs';
+import { classDefinition } from '../data/classes.mjs';
+
+const loc = key => game.i18n.localize('FASTNRI.' + key);
+const esc = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+const skillName = id => BASIC_SKILLS.find(skill => skill.id === id)?.name ?? id;
+const faces = [4, 6, 8, 10, 12];
+const rawSystem = actor => actor.toObject?.(true)?.system ?? actor.system;
+const button = (action, label, attrs = '') =>
+  `<button type="button" data-skill-action="${action}" ${attrs}>${esc(label)}</button>`;
+const field = (id, key) =>
+  `data-row-collection="skills" data-row-id="${esc(id)}" data-row-field="${key}"`;
+const input = (id, key, value, label) =>
+  `<input type="text" ${field(id, key)} value="${esc(value)}" aria-label="${esc(label)}"${key === 'modifier' ? ' inputmode="decimal" placeholder="±0"' : ''}>`;
+
+function diceButtons(id, dice, formula, free) {
+  return `<div class="fnri-skill-edit-dice">${dice.map(die => {
+    const label = die.replace(/^1d/, 'd');
+    const manual = free && !free.has(Number(die.slice(2))) && die !== formula;
+    return button('die', label, `data-id="${esc(id)}" data-die="${die}" aria-pressed="${formula === die}"` +
+      (manual ? ` class="fnri-skill-manual-die" title="${esc(loc('SkillAllocation.manualDie'))}"` : ''));
+  }).join('')}</div>`;
 }
-/** Separate Foundry window, live field writes, no second copy of Actor data. */
-export async function openSkillEditor(sheet,actions){
-  const {DialogV2}=foundry.applications.api;
-  let pending=Promise.resolve();
-  await DialogV2.wait({window:{title:loc('CharacterEditor.skills')},position:{width:680},content:`<div class="fnri-skill-editor" data-skill-editor>${skillEditorMarkup(sheet.actor)}</div>`,rejectClose:false,buttons:[{action:'done',label:loc('CharacterEditor.done')}],render:(_event,dialog)=>{
-    const root=dialog.element.querySelector('[data-skill-editor]');
-    if(!root||root.dataset.bound)return;root.dataset.bound='true';
-    const refresh=()=>{if(root.isConnected)root.innerHTML=skillEditorMarkup(sheet.actor);};
-    const run=(op,redraw=true)=>{pending=pending.then(async()=>{if(!sheet.isEditable)return;await op();await sheet._flushWrites();if(redraw)refresh();}).catch(e=>{console.warn('Fast NRI | skill editor',e);ui.notifications?.warn(loc('Hints.saveFailed'));refresh();});};
-    root.addEventListener('change',event=>{const c=event.target;if(!c.matches('[data-row-field]'))return;event.stopPropagation();run(()=>actions.save(c),c.dataset.rowField==='dice'||c.dataset.rowField==='kind');});
-    root.addEventListener('click',event=>{const b=event.target.closest('[data-skill-action]');if(!b)return;event.preventDefault();const {skillAction,id,die}=b.dataset;
-      run(()=>{switch(skillAction){case 'die':{const raw=sheet.actor.toObject?.(true)?.system??sheet.actor.system;const a=resolveSkillAllocation(raw,sheet.actor.items?.contents??[]);const current=a.active&&id.startsWith('core_')?a.rows[id.slice(5)]?.formula:raw.skills?.[id]?.dice;const control=document.createElement('input');Object.assign(control.dataset,{rowCollection:'skills',rowId:id,rowField:'dice'});control.value=current===die?'':die;return actions.save(control);}case 'reset':return actions.reset();case 'tradition':return actions.chooseTradition();case 'upgrade':return actions.chooseUpgrade(id);case 'remove':return actions.remove(id);case 'addSkill':return actions.add('skill');case 'addSpecialization':return actions.add('specialization');}});
-    });
-  }});
+
+export function skillUpgradeCandidates(allocation, upgrade) {
+  return allocation.dice.filter(die =>
+    die.size === upgrade.size && !allocation.upgrades.some(other => other.id !== upgrade.id && other.target === die.id));
+}
+
+function upgradeOptions(allocation, upgrade) {
+  const next = faces[faces.indexOf(upgrade.size) + 1];
+  const direction = `d${upgrade.size} → d${next}`;
+  const options = skillUpgradeCandidates(allocation, upgrade);
+  return `<label class="fnri-skill-upgrade"><span>${esc(upgrade.source)} · <strong>${direction}</strong></span>
+    <select data-skill-upgrade="${esc(upgrade.id)}">
+      <option value="">${esc(loc('SkillAllocation.unassignedUpgrade'))}</option>
+      ${options.map((die, index) => {
+        const label = die.skill ? skillName(die.skill) : `${loc('SkillAllocation.freeDie')} ${index + 1}`;
+        return `<option value="${esc(die.id)}"${die.id === upgrade.target ? ' selected' : ''}>${esc(label)} · ${esc(die.source)}</option>`;
+      }).join('')}
+    </select></label>`;
+}
+
+export function skillEditorMarkup(actor) {
+  const raw = rawSystem(actor);
+  const allocation = resolveSkillAllocation(raw, actor.items?.contents ?? []);
+  const rule = classDefinition(raw);
+  const freeCounts = new Map(faces.map(face => [face, allocation.free.filter(die => die.face === face).length])
+    .filter(([, count]) => count));
+  const pool = [...freeCounts].map(([face, count]) => `<span>d${face} × ${count}</span>`).join(' ');
+  const warnings = allocation.warnings.map(({code, skill, expected, actual}) => {
+    const text = [loc('SkillAllocation.' + code), skill && skillName(skill),
+      expected !== undefined && `(${expected || '—'} → ${actual || '—'})`].filter(Boolean).join(' ');
+    return `<small class="fnri-racial-warning">${esc(text)}</small>`;
+  }).join('');
+  const sources = allocation.dice.map(die =>
+    `<li>${esc(die.source)} · d${die.face} → ${esc(die.skill ? skillName(die.skill) : loc('SkillAllocation.freeDie'))}</li>`).join('');
+  const dice = faces.map(face => '1d' + face);
+  const groups = SKILL_GROUPS.map(group => `<section class="fnri-skill-edit-group">
+    <h3>${esc(loc('SkillGroups.' + group))}</h3>
+    ${BASIC_SKILLS.filter(skill => skill.group === group).map(({id: skill, name}) => {
+      const id = 'core_' + skill;
+      const stored = raw.skills?.[id];
+      const assigned = allocation.rows[skill];
+      const formula = allocation.active ? assigned.formula : actor.system.skills?.[id]?.dice ?? stored?.dice ?? '';
+      const die = allocation.dice.find(die => die.id === assigned.die);
+      const manual = assigned.override !== null && formula !== assigned.expected;
+      const subtitle = manual ? `${loc('CharacterEditor.custom')} · ${formula || '—'}` : die?.source;
+      return `<div class="fnri-skill-edit-row">
+        <div><strong>${esc(name)}</strong>${subtitle ? `<small>${esc(subtitle)}</small>` : ''}</div>
+        ${diceButtons(id, dice, formula, allocation.active ? freeCounts : null)}
+        ${input(id, 'modifier', stored?.modifier, `${name} · ${loc('Fields.checkModifier')}`)}
+        <div class="fnri-skill-edit-formula">${input(id, 'dice', formula, `${name} · ${loc('CharacterEditor.custom')}`)}</div>
+      </div>`;
+    }).join('')}</section>`).join('');
+  const custom = Object.entries(raw.skills ?? {}).filter(([id]) => !BASIC_SKILLS.some(skill => 'core_' + skill.id === id))
+    .map(([id, skill]) => `<div class="fnri-skill-edit-custom">
+      ${input(id, 'name', skill.name, loc('Fields.name'))}
+      <select ${field(id, 'kind')} aria-label="${esc(loc('Fields.checkKind'))}">
+        <option value="skill"${skill.kind !== 'specialization' ? ' selected' : ''}>${esc(loc('Fields.skill'))}</option>
+        <option value="specialization"${skill.kind === 'specialization' ? ' selected' : ''}>${esc(loc('Fields.specialization'))}</option>
+      </select>
+      ${diceButtons(id, skill.kind === 'specialization' ? ['2d6', '2d4'] : dice, skill.dice)}
+      ${input(id, 'dice', skill.dice, loc('Fields.dice'))}
+      ${input(id, 'modifier', skill.modifier, loc('Fields.checkModifier'))}
+      ${button('remove', '×', `data-id="${esc(id)}" aria-label="${esc(loc('Actions.removeSkill'))}"`)}
+    </div>`).join('');
+  return `<div class="fnri-skill-edit-toolbar"><strong>${esc(loc('SkillAllocation.free'))}</strong>
+    <div class="fnri-skill-edit-pool">${pool || '—'}</div>${button('reset',loc('SkillAllocation.reset'))}</div>
+    ${rule?.traditions ? `<div class="fnri-skill-edit-option">${esc(loc('SkillAllocation.traditionLabel'))}
+      ${button('tradition', skillName(raw.classTradition) || loc('CharacterChoice.choose'))}</div>` : ''}
+    ${allocation.upgrades.length ? `<div class="fnri-skill-upgrades">${allocation.upgrades.map(upgrade => upgradeOptions(allocation, upgrade)).join('')}</div>` : ''}
+    ${warnings ? `<details data-skill-disclosure="warnings"><summary>${esc(loc('SkillAllocation.warnings'))} (${allocation.warnings.length})</summary>${warnings}</details>` : ''}
+    <label class="fnri-skill-edit-toggle"><input type="checkbox" data-skill-manual>${esc(loc('CharacterEditor.manualFormulas'))}</label>
+    ${groups}
+    <details data-skill-disclosure="sources"><summary>${esc(loc('CharacterEditor.sources'))}</summary><ul>${sources}</ul></details>
+    <h3>${esc(loc('Sections.customChecks'))}</h3>${custom}
+    <div class="fnri-skill-edit-option">${button('addSkill',loc('Actions.addSkill'))}${button('addSpecialization',loc('Actions.addSpecialization'))}</div>`;
+}
+
+/** Separate Foundry window with live writes to the existing Actor. */
+export async function openSkillEditor(sheet, actions) {
+  const { DialogV2 } = foundry.applications.api;
+  let pending = Promise.resolve();
+  await DialogV2.wait({
+    window: {title: loc('CharacterEditor.skills')}, position: {width: 560},
+    content: `<div class="fnri-skill-editor" data-skill-editor>${skillEditorMarkup(sheet.actor)}</div>`,
+    rejectClose: false, buttons: [{action: 'done', label: loc('CharacterEditor.done')}],
+    render: (_event, dialog) => {
+      const root = dialog.element.querySelector('[data-skill-editor]');
+      if (!root || root.dataset.bound) return;
+      root.dataset.bound = 'true';
+
+      function refresh() {
+        if (!root.isConnected) return;
+        const focused = document.activeElement;
+        const controls = () => [...root.querySelectorAll('[data-row-field],[data-skill-action],[data-skill-upgrade],[data-skill-manual]')];
+        const key = element => JSON.stringify(element.dataset);
+        const focusKey = root.contains(focused) ? key(focused) : null;
+        const expanded = [...root.querySelectorAll('details[open]')].map(detail => detail.dataset.skillDisclosure);
+        const scroll = root.scrollTop;
+        root.innerHTML = skillEditorMarkup(sheet.actor);
+        root.querySelector('[data-skill-manual]').checked = root.classList.contains('fnri-skill-show-formulas');
+        for (const detail of root.querySelectorAll('details')) detail.open = expanded.includes(detail.dataset.skillDisclosure);
+        if (focusKey) controls().find(element => key(element) === focusKey)?.focus({preventScroll: true});
+        root.scrollTop = scroll;
+      }
+
+      function run(operation, redraw = true) {
+        pending = pending.then(async () => {
+          if (!sheet.isEditable) return;
+          await operation();
+          await sheet._flushWrites();
+          if (redraw) refresh();
+        }).catch(error => {
+          console.warn('Fast NRI | skill editor', error);
+          ui.notifications?.warn(loc('Hints.saveFailed'));
+          refresh();
+        });
+      }
+
+      root.addEventListener('change', event => {
+        const target = event.target;
+        if (target.matches('[data-skill-manual]')) {
+          root.classList.toggle('fnri-skill-show-formulas', target.checked);
+        } else if (target.matches('[data-skill-upgrade]')) {
+          const {skillUpgrade} = target.dataset;
+          const value = target.value;
+          run(() => actions.upgrade(skillUpgrade, value || null));
+        } else if (target.matches('[data-row-field]')) {
+          event.stopPropagation();
+          const control = target.cloneNode();
+          control.value = target.value;
+          run(() => actions.save(control), ['dice', 'kind', 'name'].includes(target.dataset.rowField));
+        }
+      });
+      root.addEventListener('click', event => {
+        const pressed = event.target.closest('[data-skill-action]');
+        if (!pressed) return;
+        event.preventDefault();
+        const {skillAction, id, die} = pressed.dataset;
+        const commands = {
+          die: () => {
+            const raw = rawSystem(sheet.actor);
+            const allocation = resolveSkillAllocation(raw, sheet.actor.items?.contents ?? []);
+            const current = allocation.active && id.startsWith('core_')
+              ? allocation.rows[id.slice(5)]?.formula : raw.skills?.[id]?.dice;
+            const control = document.createElement('input');
+            Object.assign(control.dataset, {rowCollection: 'skills', rowId: id, rowField: 'dice'});
+            control.value = current === die ? '' : die;
+            return actions.save(control);
+          },
+          reset: actions.reset,
+          tradition: actions.chooseTradition,
+          remove: () => actions.remove(id),
+          addSkill: () => actions.add('skill'),
+          addSpecialization: () => actions.add('specialization')
+        };
+        if (Object.hasOwn(commands, skillAction)) run(commands[skillAction]);
+      });
+    }
+  });
   await pending;
   await sheet._flushWrites();
 }

@@ -80,8 +80,25 @@
 </div>
 <div class="fnri-racial-properties">
   <strong>{{localize "FASTNRI.RacialProperties.title"}}</strong>
-  <ul class="fnri-racial-tags" aria-label="{{localize 'FASTNRI.RacialProperties.title'}}">
-    {{#each racialProperties}}
+  <ul class="fnri-racial-tags">
+    {{#each innateRacialProperties}}
+      <li>{{#if this.configurable}}{{#if @root.characterEditing}}
+        <button type="button" class="fnri-racial-tag" data-action="changeRacialSubproperty" data-item-id="{{this.id}}" title="{{localize 'FASTNRI.RacialProperties.choose'}}">{{this.name}}{{#if this.choice}} · {{this.choice}}{{/if}}</button>
+      {{else}}
+        <span class="fnri-racial-tag">{{this.name}}{{#if this.choice}} · {{this.choice}}{{/if}}</span>
+      {{/if}}{{else}}
+        <span class="fnri-racial-tag">{{this.name}}</span>
+      {{/if}}</li>
+    {{else}}<li class="fnri-muted">—</li>
+    {{/each}}
+  </ul>
+</div>
+{{#if showAdditionalRacialProperties}}
+<div class="fnri-racial-properties fnri-racial-additional">
+  <strong>{{localize "FASTNRI.RacialProperties.additional"}}</strong>
+  {{#if characterEditing}}<button type="button" class="fnri-racial-edit" data-action="editRacialProperties">{{localize 'FASTNRI.RacialProperties.edit'}}</button>{{/if}}
+  <ul class="fnri-racial-tags">
+    {{#each additionalRacialProperties}}
       <li>{{#if this.configurable}}{{#if @root.characterEditing}}
         <button type="button" class="fnri-racial-tag" data-action="changeRacialSubproperty" data-item-id="{{this.id}}" title="{{localize 'FASTNRI.RacialProperties.choose'}}">{{this.name}}{{#if this.choice}} · {{this.choice}}{{/if}}</button>
       {{else}}
@@ -91,8 +108,9 @@
       {{/if}}</li>
     {{/each}}
   </ul>
-  {{#if characterEditing}}<button type="button" class="fnri-racial-edit" data-action="editRacialProperties" {{#unless hasSelectedRace}}disabled title="{{localize 'FASTNRI.CharacterChoice.raceFirst'}}"{{/unless}}>{{localize 'FASTNRI.RacialProperties.edit'}}</button>{{/if}}
+  {{#if racialChoiceWarning}}<small class="fnri-racial-warning">{{localize racialChoiceWarning}}</small>{{/if}}
 </div>
+{{/if}}
 </details>
 <details class="fnri-panel fnri-collapsible" data-fnri-section="parameters" {{#if sections.parameters}}open{{/if}}><summary>{{localize "FASTNRI.Sections.parameters"}}</summary>
   
@@ -189,18 +207,20 @@
 </li>
 {{/if}}
 {{#each abilityItems}}
-  <li data-item-id="{{this.id}}" class="fnri-item-row">
+  <li data-item-id="{{this.id}}" {{#if this.classContentId}}data-class-content-id="{{this.classContentId}}"{{/if}} class="fnri-item-row">
     <img src="{{this.img}}" alt="">
     <span>{{this.name}}</span>
-    <small>{{this.type}}</small>
+    <small>{{#if this.classAbility}}{{localize "FASTNRI.Fields.className"}}{{else}}{{this.type}}{{/if}}</small>
+    {{#if @root.editable}}
     <button type="button" data-action="publishAbility" title="{{localize 'FASTNRI.AbilityChat.toChat'}}" aria-label="{{localize 'FASTNRI.AbilityChat.toChat'}}"><i class="fa-solid fa-comment"></i></button>
+    {{/if}}
     {{#if this.hasRollFormula}}<button type="button" data-action="rollAbility" title="{{localize 'FASTNRI.Actions.rollAbility'}}"><i class="fa-solid fa-dice-d20"></i></button>{{/if}}
     {{#if @root.editable}}
     {{#if this.doubleInvocation}}<button type="button" data-action="invokeFromSheet" data-id="doubleInvocation" title="{{this.name}}" aria-label="{{this.name}}"><i class="fa-solid fa-play" aria-hidden="true"></i></button>{{/if}}
     {{#if this.grantedAction}}<button type="button" data-action="openGrantedAction" data-id="{{this.grantedAction}}" title="{{localize 'FASTNRI.Tabs.actions'}}" aria-label="{{localize 'FASTNRI.Tabs.actions'}}"><i class="fa-solid fa-share-from-square" aria-hidden="true"></i></button>{{/if}}
     {{/if}}
     <button type="button" data-action="openItem" title="{{localize 'FASTNRI.Actions.openItem'}}"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
-    {{#if @root.editable}}{{#unless this.isRacialProperty}}<button type="button" data-action="deleteItem" title="{{localize 'FASTNRI.Actions.deleteItem'}}"><i class="fa-solid fa-trash"></i></button>{{/unless}}{{/if}}
+    {{#if @root.editable}}{{#unless this.compendiumOnly}}{{#unless this.isRacialProperty}}<button type="button" data-action="deleteItem" title="{{localize 'FASTNRI.Actions.deleteItem'}}"><i class="fa-solid fa-trash"></i></button>{{/unless}}{{/unless}}{{/if}}
   </li>
 {{/each}}
 </ul></section></div>

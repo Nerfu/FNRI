@@ -55,8 +55,7 @@ async function runCheck(event) {
   try {
     const options = {
       difficulty: check.difficulty,
-      skipPreroll: event.shiftKey,
-      mode: game.settings.get('core', 'messageMode')
+      skipPreroll: event.shiftKey
     };
     if (check.action) {
       await rollStandardAction(actor, check.action.id, options);

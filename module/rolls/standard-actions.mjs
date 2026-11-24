@@ -117,7 +117,7 @@ export async function rollStandardAction(actor, actionId, {
     targetDifficultyModifier:action.id === 'forceAidAlly'
       ? token => hasCondition(token?.actor,['unconscious']) ? -5 : 0
       : null,
-    mode:mode ?? game.settings.get('core','messageMode')
+    mode
   });
   return {action, roll:check?.roll??null, message:check?.message??null,
     result:check?.result??null, targetResults:check?.targetResults??[],

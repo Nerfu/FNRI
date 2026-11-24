@@ -1,5 +1,5 @@
 /** Independent execution uses existing roll/accounting; no fictional attack. */
-import {declareAction,canExecuteAction,actionAudience,actionText,escapeActionText as esc} from '../rolls/action-declaration.mjs';
+import {declareAction,canExecuteAction,actionText,escapeActionText as esc} from '../rolls/action-declaration.mjs';
 import {canReadChatContent} from '../data/chat-visibility.mjs';
 import {postCheckRoll} from '../rolls/checks.mjs';
 import {selfDefenseFormula,availableInterventions} from './interventions.mjs';
@@ -55,5 +55,5 @@ export async function standaloneIntervention(actor,id=null,{choice=null,stat=nul
     }
   }
   if(!formula)return declare();
-  return postCheckRoll({actor,formula,formulaForActor,label:name,kind:'intervention',defenseStat:stat,sourceItem:item,accountingItem,actionId,execution,isIntervention:true,skipPreroll,targetTokens:[],audienceMessage:source??actionAudience()});
+  return postCheckRoll({actor,formula,formulaForActor,label:name,kind:'intervention',defenseStat:stat,sourceItem:item,accountingItem,actionId,execution,isIntervention:true,skipPreroll,targetTokens:[],audienceMessage:source});
 }

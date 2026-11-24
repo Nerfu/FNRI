@@ -22,11 +22,17 @@ function sameProperty(actor, item) {
   return id ? actor.items.contents.find(owned => owned.type === "ability" && racialContentId(owned) === id) : null;
 }
 
-export function racialPropertyRows(actor) {
+export function racialChoiceWarning(state) {
+  if (state.max === null || state.used === state.max) return "";
+  return state.used < state.max ? "limitMissing" : "limitExceeded";
+}
+
+export function racialPropertyRows(actor, state = racialState(actor)) {
   return actor.items.contents.filter(racialPropertyRule).map(item => {
     const rule = racialPropertyRule(item);
     const choice = selectedRacialPropertyChoice(rule);
-    return {id: item.id, name: item.name, choice: choice?.label ?? "", configurable: racialPropertyChoices(rule).length > 0};
+    return {id: item.id, name: item.name, choice: choice?.label ?? "",
+      innate: state.innate.has(racialContentId(item)), configurable: racialPropertyChoices(rule).length > 0};
   });
 }
 
@@ -49,18 +55,13 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
   const content = `<div data-racial-picker>
     <input type="search" data-racial-search placeholder="${esc(label("search"))}" aria-label="${esc(label("search"))}">
     <label><input type="checkbox" data-racial-show-all>${esc(label("showAll"))}</label>
-    <p data-racial-count></p>
-    <p class="fnri-racial-warning" data-racial-over hidden>${esc(label("limitExceeded"))}</p>
+    <div class="fnri-racial-count"><span data-racial-count></span>
+      <small class="fnri-racial-warning" data-racial-status role="status"></small></div>
     <div class="fnri-racial-options" data-racial-options></div>
     <p class="fnri-racial-empty" data-racial-empty hidden>${esc(label("noneToAdd"))}</p>
-    <section data-racial-owned>
-      <h3>${esc(label("owned"))}</h3>
-      <ul class="fnri-racial-owned-list"></ul>
-    </section>
-    <button type="button" data-racial-add disabled>${esc(label("addConfirm"))}</button>
   </div>`;
   return DialogV2.wait({
-    window: {title: label("title")}, content, rejectClose: false,
+    window: {title: label("additional")}, position: {width: 440}, content, rejectClose: false,
     buttons: [{action: "closePicker", label: label("cancel")}],
     render: (_event, dialog) => {
       const root = dialog.element.querySelector("[data-racial-picker]");
@@ -68,111 +69,86 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
       root.dataset.bound = "true";
       const search = root.querySelector("[data-racial-search]");
       const showAll = root.querySelector("[data-racial-show-all]");
-      showAll.checked = (pendingFilter && pendingFilter.user===game.user ? pendingFilter.checked : game.user?.getFlag?.(RACIAL_SYSTEM_ID,"racialShowAll")) === true;
+      showAll.checked = (pendingFilter?.user === game.user
+        ? pendingFilter?.checked : game.user?.getFlag?.(RACIAL_SYSTEM_ID, "racialShowAll")) === true;
       const count = root.querySelector("[data-racial-count]");
-      const over = root.querySelector("[data-racial-over]");
-      const owned = root.querySelector("[data-racial-owned]");
-      const ownedList = owned.querySelector("ul");
+      const status = root.querySelector("[data-racial-status]");
       const list = root.querySelector("[data-racial-options]");
       const empty = root.querySelector("[data-racial-empty]");
-      const addButton = root.querySelector("[data-racial-add]");
-      dialog.element.querySelector('button[data-action="closePicker"]')?.before(addButton);
-      let selected = null;
+      let visible = [];
       let mutating = false;
 
-      const refreshOwned = state => {
-        const rows = racialPropertyRows(actor);
-        const removeLabel = esc(label("remove"));
-        owned.hidden = rows.length === 0;
-        ownedList.innerHTML = rows.map(row => {
-          const name = row.choice ? `${row.name} · ${row.choice}` : row.name;
-          return `<li>
-            <span>${esc(name)}</span>
-            <button type="button" data-racial-remove="${esc(row.id)}"
-              title="${removeLabel}" aria-label="${removeLabel}: ${esc(row.name)}">
-              <i class="fa-solid fa-trash" aria-hidden="true"></i></button>
-          </li>`;
-        }).join("");
-      };
-
-      const refreshAvailable = (state = racialState(actor)) => {
+      function refresh(focusKey) {
+        const state = racialState(actor);
         const query = normalizeSearch(search.value);
-        count.textContent = `${label("selectedCount")}: ${state.used} / ${state.max ?? "—"}`;
-        over.hidden = state.max === null || state.used <= state.max;
-        const available = cards.filter(card => {
-          const warnings = racialAddWarnings(actor, card, state);
-          return !warnings.includes("duplicate") && (showAll.checked || !warnings.includes("wrongRace")) &&
-            normalizeSearch(card.name).includes(query);
+        const owned = actor.items.contents.filter(racialPropertyRule);
+        const keyOf = item => racialContentId(item) || item.id;
+        const keys = new Set(owned.map(keyOf));
+        const sources = [
+          ...owned.map(item => ({item, ownedItem: true})),
+          ...cards.filter(card => !keys.has(keyOf(card))).map(item => ({item, ownedItem: false}))
+        ].sort((a, b) => a.item.name.localeCompare(b.item.name, game.i18n.lang));
+        visible = sources.flatMap(({item, ownedItem}) => {
+          const warnings = ownedItem ? [] : racialAddWarnings(actor, item, state);
+          if ((!ownedItem && !showAll.checked && warnings.includes("wrongRace")) ||
+              !normalizeSearch(item.name).includes(query)) return [];
+          const choice = ownedItem ? selectedRacialPropertyChoice(racialPropertyRule(item)) : null;
+          return [{item, ownedItem, warnings, choice, key: keyOf(item)}];
         });
-        if (!available.some(card => card.id === selected)) selected = null;
+        const warning = racialChoiceWarning(state);
+        count.textContent = `${label("selectedCount")} ${state.used} / ${state.max ?? "—"}`;
+        status.textContent = warning ? label(warning) : "";
+        status.hidden = !warning;
         const expanded = new Set([...list.querySelectorAll("details[open]")].map(node => node.dataset.card));
         const scroll = list.scrollTop;
-        list.innerHTML = available.map(card => {
-          const description = card.system.description || card.system.effect || card.system.notes;
+        list.innerHTML = visible.map(({item, ownedItem, warnings, choice, key}, index) => {
+          const description = item.system.description || item.system.effect || item.system.notes;
+          const name = choice ? `${item.name} · ${choice.label}` : item.name;
           return `<div class="fnri-racial-option">
-            <button type="button" class="fnri-racial-pick" data-racial-id="${esc(card.id)}"
-              aria-pressed="${card.id === selected}">${esc(card.name)}</button>
-            ${racialAddWarnings(actor, card, state).map(warning => `<small class="fnri-racial-warning">⚠ ${esc(label(warning))}</small>`).join("")}
-            ${description ? `<details class="fnri-racial-info" data-card="${esc(card.id)}"${expanded.has(card.id) ? " open" : ""}>
+            <button type="button" class="fnri-racial-pick" data-racial-index="${index}" aria-pressed="${ownedItem}">
+              <span class="fnri-racial-mark" aria-hidden="true">${ownedItem ? "✓" : "+"}</span><span>${esc(name)}</span>
+            </button>
+            ${warnings.map(warning => `<small class="fnri-racial-warning">${esc(label(warning))}</small>`).join("")}
+            ${description ? `<details class="fnri-racial-info" data-card="${esc(key)}"${expanded.has(key) ? " open" : ""}>
               <summary aria-label="${esc(label("description"))}" title="${esc(label("description"))}">?</summary>
               <div class="fnri-racial-description">${esc(description)}</div></details>` : ""}
           </div>`;
         }).join("");
+        empty.hidden = visible.length > 0;
         list.scrollTop = scroll;
-        empty.hidden = available.length > 0;
-        addButton.disabled = selected === null || mutating;
-      };
+        if (focusKey != null) {
+          const index = visible.findIndex(row => row.key === focusKey);
+          (list.querySelector(`[data-racial-index="${index}"]`) ?? search).focus({preventScroll: true});
+        }
+      }
 
-      const applyChange = async operation => {
-        if (mutating) return;
+      showAll.addEventListener("change", () => {
+        refresh();
+        rememberFilter(showAll.checked);
+      });
+      search.addEventListener("input", () => refresh());
+      search.addEventListener("keydown", event => {
+        if (event.key === "Enter") event.preventDefault();
+      });
+      list.addEventListener("click", async event => {
+        const button = event.target.closest("[data-racial-index]");
+        const row = button && visible[button.dataset.racialIndex];
+        if (!row || mutating) return;
         mutating = true;
-        addButton.disabled = true;
+        list.setAttribute("aria-busy", "true");
         try {
-          await operation();
+          if (row.ownedItem) await remove(row.item.id);
+          else await add(row.item);
         } catch (error) {
           console.warn("Fast NRI | racial property edit failed", error);
           ui.notifications?.warn(label("unavailable"));
         } finally {
           mutating = false;
-          if (search.isConnected) {
-            const state = racialState(actor);
-            refreshOwned(state);
-            refreshAvailable(state);
-            search.focus();
-          }
+          list.removeAttribute("aria-busy");
+          if (root.isConnected) refresh(row.key);
         }
-      };
-
-      showAll.addEventListener("change", () => {
-        refreshAvailable();
-        rememberFilter(showAll.checked);
       });
-      search.addEventListener("input", () => refreshAvailable());
-      search.addEventListener("keydown", event => {
-        if (event.key === "Enter") event.preventDefault();
-      });
-      list.addEventListener("click", event => {
-        const button = event.target.closest("[data-racial-id]");
-        if (!button || mutating) return;
-        selected = button.dataset.racialId;
-        for (const row of list.querySelectorAll("[data-racial-id]")) {
-          row.setAttribute("aria-pressed", String(row === button));
-        }
-        addButton.disabled = false;
-      });
-      addButton.addEventListener("click", () => {
-        const card = cards.find(entry => entry.id === selected);
-        if (!card || mutating) return;
-        selected = null;
-        void applyChange(() => add(card));
-      });
-      ownedList.addEventListener("click", event => {
-        const button = event.target.closest("[data-racial-remove]");
-        if (button) void applyChange(() => remove(button.dataset.racialRemove));
-      });
-      const state = racialState(actor);
-      refreshOwned(state);
-      refreshAvailable(state);
+      refresh();
       search.focus();
     }
   });
@@ -188,7 +164,7 @@ export async function chooseRacialSubproperty(item) {
       aria-pressed="${choice.id === rule.selection}">${esc(choice.label)}</button>`).join("")}</div>`;
   let selection = null;
   await DialogV2.wait({
-    window: {title: item.name}, content, rejectClose: false,
+    window: {title: item.name}, position: {width: 400}, content, rejectClose: false,
     buttons: [{action: "cancel", label: label("cancel")}],
     render: (_event, dialog) => {
       const choicesList = dialog.element.querySelector("[data-racial-subproperties]");

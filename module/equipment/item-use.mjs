@@ -70,11 +70,11 @@ export async function useItem(item,{actor=item?.parent,skipPreroll=false}={}){
         results.push(result);
       }
       const stack=stackPlan(item,actor,rule.consume);
-      const audience=actionAudience(),redact=redactActorSourceForAudience(actor,audience);
       const labels={healHp:'itemHeal',addTempHp:'itemTemp',restoreResource:'itemResource',applyEffect:'itemEffect',roll:'itemRoll'};
       const lines=results.map(r=>`<li>${esc(actionText(labels[r.kind]??'itemManual'))}${r.resourceName?` · ${esc(r.resourceName)}`:''}${r.classes.length?` (${esc(r.classes.join(', '))})`:''}${r.amount!=null?`: <strong>${esc(r.amount)}</strong>`:''}${r.formula&&r.amount==null?` · ${esc(r.formula)}`:''}${r.manual?` · ${esc(actionText('manualConsequences'))}`:''}</li>`).join('');
       const raw=String(item.system?.description||item.system?.effect||item.system?.notes||'');
       const description=raw&&foundry.applications?.ux?.TextEditor?.enrichHTML?await foundry.applications.ux.TextEditor.enrichHTML(raw,{secrets:false,relativeTo:item}):esc(raw);
+      const audience=actionAudience(),redact=redactActorSourceForAudience(actor,audience);
       const content=`<article class="fnri-item-use"><strong>${esc(item.name)} · ${esc(actionText('useItem'))}</strong>${description?`<div>${description}</div>`:''}${lines?`<ul>${lines}</ul>`:''}${stack?.reason?`<p>⚠ ${esc(actionText('itemStackWarning'))}</p>`:''}<p>${esc(actionText('manualConsequences'))}</p>${redact?'':cardEffectLinks(item)}</article>`;
       const message=await ChatMessage.create({speaker:actionSpeaker(actor,audience),...audience,content,rolls:rolls.map(r=>r.toJSON()),flags:{[ID]:{itemUseResult:{version:1,...(isPotionItem(item)?{potion:true}:{}),results:results.map(({kind,amount,rollIndex,manual})=>({kind,...(amount!=null?{amount}:{}),...(rollIndex!=null?{rollIndex}:{}),manual:!!manual})),...(!redact?{itemUuid:item.uuid,actorUuid:actor.uuid}:{})}}}});
       if(!message?.id)return null;

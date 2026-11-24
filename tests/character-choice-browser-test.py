@@ -27,6 +27,8 @@ with sync_playwright() as p:
         page.evaluate('openChoice()');page.evaluate('cancelChoice()');assert page.evaluate('pendingChoice') is None
         markup=(root/'templates/character.hbs').read_text()
         assert markup.count('data-action="chooseIdentity"')==3
-        assert 'data-action="editRacialProperties" {{#unless hasSelectedRace}}disabled' in markup
+        assert '{{#if showAdditionalRacialProperties}}' in markup
+        assert markup.index('RacialProperties.title') < markup.index('RacialProperties.additional')
+        assert 'data-action="editRacialProperties"' in markup
         print('PASS searchable choices, active selection, case-insensitive search, select/clear/cancel, ancestry guard in PC template')
     finally:browser.close()

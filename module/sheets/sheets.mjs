@@ -1,7 +1,9 @@
+import { currentMessageMode } from '../data/chat-visibility.mjs';
 import {resolveSkillAllocation,skillDieEditPatch,skillAllocationPatch,planSkillUpgrade,resetSkillDicePatch} from "../data/skill-allocation.mjs";
-import {openSkillEditor} from "./skill-editor.mjs";
+import {openSkillEditor,skillUpgradeCandidates} from "./skill-editor.mjs";
+import {classAbilityCard,missingClassAbilityRows,useClassAbilityCard} from "./class-abilities.mjs";
 import {chooseCharacterOption} from "./character-choice.mjs";
-import {classSelectionUpdate,classNames,classDefinition,prepareClassBaseStats} from "../data/classes.mjs";
+import {classSelectionUpdate,classNames,classDefinition,prepareClassBaseStats,DOUBLE_INVOCATION_ID} from "../data/classes.mjs";
 import {permanentRacialStats} from "../data/character-contributions.mjs";
 import {chooseByButtons} from '../rolls/button-choice.mjs';
 import {isProjectionActor,projectionCaster,projectionLink,projectionActorsForAbility,
@@ -16,7 +18,7 @@ import { skillFormula, itemFormula, postRoll } from "../rolls/checks.mjs";
 import { rollStandardAction, standardAction } from "../rolls/standard-actions.mjs";
 import { hasCheckLinks } from "../rolls/check-links.mjs";
 import { useItem } from "../equipment/item-use.mjs";
-import { declareAction } from "../rolls/action-declaration.mjs";
+import { declareAction, actionAudience, actionSpeaker } from "../rolls/action-declaration.mjs";
 import { standaloneIntervention } from "../damage/standalone-intervention.mjs";
 import { cardRollKind } from "../rolls/roll-contributions.mjs";
 import { roleNames } from "../data/roles.mjs";
@@ -29,7 +31,7 @@ import { resolveUnarmedAction, sendUnarmedAttack, availableUnarmedActions, UNARM
 import { BASIC_SKILLS, BASIC_SKILLS_BY_ROW_ID, SKILL_GROUPS, standardSkillEntry } from "../data/skills-catalog.mjs";
 import { BASE_SELF_DEFENSE } from "../data/core-actions.mjs";
 import {compactPhysicalProfile,attackCardDetails} from "./attack-preview.mjs";
-import {racialPropertyRows,openRacialPropertyEditor,chooseRacialSubproperty,addRacialProperty} from "./racial-property-picker.mjs";
+import {racialPropertyRows,racialChoiceWarning,openRacialPropertyEditor,chooseRacialSubproperty,addRacialProperty} from "./racial-property-picker.mjs";
 import {racialRaceNames,racialLabel,racialPropertyRule,changesAncestry,racialState} from "../data/racial-properties.mjs";
 import {editRacialSubproperty,syncInnateProperties} from "./racial-property-lifecycle.mjs";
 import {normalizeAttackKind,effectiveWeaponProperties,hasComputedReach,explicitInterventionFromCard} from "../rolls/attack-properties.mjs";
@@ -534,10 +536,10 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     this._pendingSheetActions.add(action.id);
     try {
       if (!await this._flushWrites()) return ui.notifications?.warn(localized("Hints.unsavedRoll"));
-      const mode = game.settings.get('core', 'messageMode');
+      const mode = currentMessageMode();
       const targetTokens = [...(game.user.targets ?? [])].filter(token =>
         mode === 'gm' || mode === 'blind' || mode === 'self' || (token.document ?? token).hidden !== true);
-      const options = {skipPreroll: !!event?.shiftKey, targetTokens, mode};
+      const options = {skipPreroll: !!event?.shiftKey, targetTokens};
       if (action.id === 'escape') {
         const skills = BASIC_SKILLS.filter(skill => action.skillChoices.includes(skill.id));
         const selection = await chooseSheetOption(sheetActionText(action.id, 'name'), skills);
@@ -604,14 +606,19 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async invokeFromSheet(_event, button) {
     if (!this.isEditable) return;
     const actor = this.actor;
-    const action = extraAbilityActions(actor.items.contents).find(entry => entry.id === button.dataset.id);
+    const actionId = button.dataset.id;
+    const classInvocation = ['invocation', 'doubleInvocation'].includes(actionId) &&
+      classDefinition(actor.system)?.abilityIds?.includes(DOUBLE_INVOCATION_ID);
+    const action = extraAbilityActions(actor.items.contents).find(entry => entry.id === actionId)
+      ?? (classInvocation ? sheetAction(actionId) : null);
     if (!action || this._pendingSheetActions.has(action.id)) return;
     this._pendingSheetActions.add(action.id);
     try {
       if (!await this._flushWrites()) return ui.notifications?.warn(localized('Hints.unsavedRoll'));
       const description = sheetActionText(action.id, 'description');
       // Invocation declares the rule only; spells are used independently.
-      const item = action.itemId ? actor.items.get(action.itemId) : undefined;
+      const item = action.itemId ? actor.items.get(action.itemId) :
+        action.id === 'doubleInvocation' && classInvocation ? await classAbilityCard(actor, DOUBLE_INVOCATION_ID) : undefined;
       return await declareAction({actor,item,label:action.name,description:item?.system?.description??description,account:false});
     } catch (error) {
       console.error('Fast NRI | invocation publication failed',error);
@@ -674,12 +681,25 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /** Sending a description never runs or spends the ability. */
   static async publishAbility(_event, button) {
-    const id=button.closest?.('[data-item-id]')?.dataset.itemId;
-    const item=this.actor.items.get(id);
-    if(!item || item.type!=='ability')return;
-    try {await publishAbility(item);}
-    catch(error){console.error('Fast NRI | ability publication failed',error);
-      ui.notifications?.warn(localized('AbilityChat.actionFailed'));}
+    const row = button.closest?.('[data-item-id]');
+    const classId = row?.dataset.classContentId;
+    const action = classId && `class-ability:${classId}`;
+    if (action && (!this.isEditable || this._pendingSheetActions.has(action))) return;
+    if (action) this._pendingSheetActions.add(action);
+    try {
+      if (classId && !await this._flushWrites()) return ui.notifications?.warn(localized('Hints.unsavedRoll'));
+      const item = classId ? await useClassAbilityCard(this.actor, classId) : this.actor.items.get(row?.dataset.itemId);
+      if (item?.type !== 'ability') {
+        if (classId) ui.notifications?.warn(localized('AbilityChat.actionFailed'));
+        return;
+      }
+      await publishAbility(item);
+    } catch (error) {
+      console.error('Fast NRI | ability publication failed', error);
+      ui.notifications?.warn(localized('AbilityChat.actionFailed'));
+    } finally {
+      if (action) this._pendingSheetActions.delete(action);
+    }
   }
 
   static async rollAbility(event, button) {
@@ -697,8 +717,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       else await postRoll({formula, label: item.name, actor: this.actor,
         isIntervention:explicitInterventionFromCard(item),
         kind:cardRollKind(item),sourceItem:item,weaponItem:weapon,
-        targetDefense:item.system.mechanics?.attack?.targetDefense,skipPreroll:!!event?.shiftKey,
-        mode: game.settings.get("core", "messageMode")});
+        targetDefense:item.system.mechanics?.attack?.targetDefense,skipPreroll:!!event?.shiftKey});
     } catch (error) {
       console.error("Fast NRI | Ability roll failed", error);
       ui.notifications?.warn(localized("Hints.rollFailed"));
@@ -801,7 +820,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     try {
       await postRoll({
         formula: skillFormula(entry), label: entry.name || localized("Fields.skill"),
-        actor: this.actor, mode: game.settings.get("core", "messageMode"),
+        actor: this.actor,
         kind:'skill',skillId:id,skipPreroll:!!event?.shiftKey,
         formulaForActor: prepared => skillFormula(prepared?.system?.skills?.[id] ?? entry)
       });
@@ -887,9 +906,16 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   static async openItem(_event, button) {
-    const id = button.closest("[data-item-id]")?.dataset.itemId;
-    const item = this.actor.items.get(id);
-    if (item) await item.sheet.render({ force: true });
+    const row = button.closest("[data-item-id]");
+    const classId = row?.dataset.classContentId;
+    try {
+      const item = classId ? await classAbilityCard(this.actor, classId) : this.actor.items.get(row?.dataset.itemId);
+      if (item) await item.sheet.render({ force: true });
+      else if (classId) ui.notifications?.warn(localized('AbilityChat.actionFailed'));
+    } catch (error) {
+      console.warn('Fast NRI | opening Item sheet failed', error);
+      ui.notifications?.warn(localized('AbilityChat.actionFailed'));
+    }
   }
 
   static async createItem(_event, button) {
@@ -978,8 +1004,9 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Chat reports the completed action only; failed Actor updates must not
       // create a success message. Chat publication is a separate operation.
       try {
+        const audience = actionAudience();
         const message = await ChatMessage.create({
-          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          speaker: actionSpeaker(this.actor, audience), ...audience,
           content: restChatContent(this.actor, completed)
         });
         if (!message) throw new Error("ChatMessage.create returned no message");
@@ -1333,7 +1360,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
           mechanics.grantsAction === 'coverAlly' || contentId === 'fnri7.rulebook.racial.samootverzhennyi' ? 'coverAlly' :
           contentId === 'fnri7.rulebook.racial.master-boia' ? 'combatMaster' : null;
         return {...rowWithSelection(item, actor.system), grantedAction,
-          doubleInvocation: mechanics.doubleInvocation === true || contentId === 'fnri7.rulebook.ability.warlock.double-invocation'};
+          doubleInvocation: mechanics.doubleInvocation === true || contentId === DOUBLE_INVOCATION_ID};
       }),
       inventoryItems: items.filter(i => i.type !== "ability").map(item => {
         return {...rowWithSelection(item, actor.system),
@@ -1388,7 +1415,6 @@ export class FastNRICharacterSheet extends ActorBase {
       chooseIdentity: FastNRICharacterSheet.chooseIdentity,
       chooseTradition: FastNRICharacterSheet.chooseTradition,
       resetSkillDice: FastNRICharacterSheet.resetSkillDice,
-      chooseSkillUpgrade: FastNRICharacterSheet.chooseSkillUpgrade,
       changeRacialSubproperty: FastNRICharacterSheet.changeRacialSubproperty
     }
   };
@@ -1402,13 +1428,26 @@ export class FastNRICharacterSheet extends ActorBase {
     const base=foundry.utils?.deepClone ? foundry.utils.deepClone(raw) : JSON.parse(JSON.stringify(raw));
     prepareClassBaseStats(base);
     const characterEditing=!!this._characterEditing&&this.isEditable;
+    const race = racialState(this.actor);
+    const racialProperties = racialPropertyRows(this.actor, race);
+    const additionalRacialProperties = racialProperties.filter(row => !row.innate);
+    const raceWarning = racialChoiceWarning(race);
+    const missingAbilities = await missingClassAbilityRows(this.actor);
+    const ownedClassAbilities = new Set(rule?.abilityIds);
+    const abilityItems = context.abilityItems.map(row => ({
+      ...row, isRacialProperty: Boolean(racialPropertyRule(row.item)),
+      classAbility: ownedClassAbilities.has(row.item.getFlag(SYSTEM_ID, 'contentId'))
+    }));
     const playSkill=row=>{const dice=this.actor.system.skills?.[row.id]?.dice??row.dice;return {...row,dice,hasDice:!!String(dice??'').trim()};};
     return {...context, system:characterEditing?base:this.actor.system,
       characterEditing, pcSkillView:true, rawHp:raw.hp, basePotionMax:raw.potionsBaseMax??3,
       effectiveDiffs:{speed:base.speed!==this.actor.system.speed, ...Object.fromEntries(["hp","ac","defenses"].map(group=>[group,Object.fromEntries(Object.keys(base[group]??{}).map(key=>[key,base[group][key]!==this.actor.system[group]?.[key]]))]))},
       resourceRows:rowsOf(characterEditing?raw.resources:this.actor.system.resources),
       catalogGroups:context.catalogGroups.map(g=>({...g,rows:g.rows.map(playSkill)})), skillRows:context.skillRows.map(playSkill),
-      racialProperties: racialPropertyRows(this.actor),
+      innateRacialProperties: racialProperties.filter(row => row.innate),
+      additionalRacialProperties,
+      showAdditionalRacialProperties: race.races.length > 0 || additionalRacialProperties.length > 0,
+      racialChoiceWarning: raceWarning ? `FASTNRI.RacialProperties.${raceWarning}` : null,
       skillAllocation:allocation.active?{
         free: [4,6,8,10,12].map(size=>({size,count:allocation.free.filter(d=>d.face===size).length})).filter(d=>d.count),
         warnings:allocation.warnings.map(w=>({text:[localized('SkillAllocation.'+w.code),w.skill?skillName(w.skill):'',w.expected!==undefined?`(${w.expected||'—'} → ${w.actual||'—'})`:''].filter(Boolean).join(' ')})),
@@ -1416,10 +1455,11 @@ export class FastNRICharacterSheet extends ActorBase {
       }:null,
       hasTradition:!!rule?.traditions,
       traditionName:skillName(this.actor.system.classTradition)||'', 
-      hasSelectedRace: racialState(this.actor).races.length > 0,
       standardArmor:classDefinition(this.actor.system)?.armorName??"",
       inventoryItems:context.inventoryItems.map(row=>({...row,canEquip:row.canEquip&&equipmentKind(row.item)!=="armor"})),
-      abilityItems: context.abilityItems.map(row => ({...row, isRacialProperty: Boolean(racialPropertyRule(row.item))}))};
+      invocation: context.invocation ?? (rule?.abilityIds?.includes(DOUBLE_INVOCATION_ID) ? sheetAction('invocation') : null),
+      abilityItems: [...abilityItems.filter(row => row.classAbility), ...missingAbilities,
+        ...abilityItems.filter(row => !row.classAbility)]};
   }
 
   static async toggleCharacterEditor() {
@@ -1433,7 +1473,7 @@ export class FastNRICharacterSheet extends ActorBase {
     this._skillEditorOpen=true;
     try {await openSkillEditor(this,{
       chooseTradition:()=>FastNRICharacterSheet.chooseTradition.call(this),
-      chooseUpgrade:id=>FastNRICharacterSheet.chooseSkillUpgrade.call(this,null,{dataset:{upgrade:id}}),
+      upgrade:(id,die)=>this._applySkillUpgrade(id,die),
       reset:()=>FastNRICharacterSheet.resetSkillDice.call(this),
       add:kind=>this._addRow('skills',{name:'',kind,dice:'',modifier:null,value:null}),
       remove:id=>this._removeRow('skills',id),
@@ -1472,25 +1512,19 @@ export class FastNRICharacterSheet extends ActorBase {
       if(Object.keys(patch).length)return this.actor.update(patch);
     });
   }
-  static async chooseSkillUpgrade(_event,button) {
-    if(!this.isEditable||!await this._flushWrites())return;
-    const raw=this.actor.toObject?.(true)?.system??this.actor.system;
-    const allocation=resolveSkillAllocation(raw,this.actor.items?.contents??[]);
-    const upgrade=allocation.upgrades.find(u=>u.id===button.dataset.upgrade);
-    if(!upgrade)return;
-    const candidates=allocation.dice.filter(d=>d.size===upgrade.size&&(!allocation.upgrades.some(u=>u.id!==upgrade.id&&u.target===d.id)));
-    const choices=candidates.map((d,i)=>({id:d.id,name:`${BASIC_SKILLS.find(s=>s.id===d.skill)?.name??localized('SkillAllocation.freeDie')} · d${d.size} · ${d.source} · ${i+1}`}));
-    const selection=await chooseCharacterOption({title:`${upgrade.source} · d${upgrade.size}`,names:choices.map(c=>c.name),current:choices.find(c=>c.id===upgrade.target)?.name,
-      searchLabel:localized('RacialProperties.search'),clearLabel:localized('CharacterChoice.clear'),cancelLabel:localized('RacialProperties.cancel')});
-    if(selection===null)return;
-    await this._queueWrite(()=>{
-      const live=this.actor.toObject?.(true)?.system??this.actor.system;
-      const patch=skillAllocationPatch(live,planSkillUpgrade(live,upgrade.id,choices.find(c=>c.name===selection)?.id??null));
-      if(Object.keys(patch).length)return this.actor.update(patch);
+  async _applySkillUpgrade(upgradeId, dieId) {
+    return this._queueWrite(() => {
+      const live = this.actor.toObject?.(true)?.system ?? this.actor.system;
+      const allocation = resolveSkillAllocation(live, this.actor.items?.contents ?? []);
+      const upgrade = allocation.upgrades.find(entry => entry.id === upgradeId);
+      if (!upgrade || dieId && !skillUpgradeCandidates(allocation, upgrade).some(die => die.id === dieId)) return;
+      const patch = skillAllocationPatch(live, planSkillUpgrade(live, upgradeId, dieId));
+      if (Object.keys(patch).length) return this.actor.update(patch);
     });
   }
   static async editRacialProperties() {
-    if (!this.isEditable || !racialState(this.actor).races.length) return;
+    if (!this.isEditable) return;
+    if (!racialState(this.actor).races.length && !this.actor.items.contents.some(racialPropertyRule)) return;
     try {
       await openRacialPropertyEditor(this.actor, {add: async card => {
         if (!this.isEditable) return;
@@ -1678,12 +1712,11 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     try {
       // Same existing roll button: abilities with a declared physical weapon
       // use the shared attack pipeline, other abilities the shared check.
-      const mode = game.settings.get("core", "messageMode");
       if (physicalAttack) await sendOtherItemAttack(item,actor,{skipPreroll:!!event?.shiftKey});
       else await postRoll({ formula, label: item.name, isIntervention:explicitInterventionFromCard(item),
         actor,kind:cardRollKind(item),sourceItem:item,weaponItem:resolveAbilityWeapon(item,actor),
         targetDefense:item.system.mechanics?.attack?.targetDefense,
-        skipPreroll:!!event?.shiftKey,mode });
+        skipPreroll:!!event?.shiftKey });
     } catch (error) {
       console.error("Fast NRI | item roll failed", error);
       ui.notifications?.warn(localized("Hints.rollFailed"));

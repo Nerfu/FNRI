@@ -1,3 +1,16 @@
+export const MESSAGE_MODES = new Set(['public', 'gm', 'blind', 'self', 'ic']);
+const legacyModes = new Map([['publicroll', 'public'], ['gmroll', 'gm'], ['blindroll', 'blind'], ['selfroll', 'self']]);
+
+export function resolveMessageMode(selected, fallback = 'public') {
+  const mode = legacyModes.get(selected) ?? selected;
+  const defaultMode = legacyModes.get(fallback) ?? fallback;
+  return MESSAGE_MODES.has(mode) ? mode : MESSAGE_MODES.has(defaultMode) ? defaultMode : 'public';
+}
+
+export function currentMessageMode() {
+  return resolveMessageMode(game.settings?.get?.('core', 'messageMode'));
+}
+
 /** Foundry can show a placeholder for a roll while hiding its content. */
 export function canReadChatContent(message) {
   return Boolean(message && message.visible !== false && message.isContentVisible !== false);

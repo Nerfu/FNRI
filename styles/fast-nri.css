@@ -25,32 +25,29 @@
   padding: 2px 7px; border: 1px solid var(--color-border-light-tertiary, #8886); border-radius: 8px;
 }
 .fast-nri-v14.fast-nri-sheet .fnri-racial-edit { flex: none; width: auto; padding-inline: 8px; }
-[data-racial-owned]:not([hidden]) {
-  margin-top: 10px; padding-top: 8px;
-  border-top: 1px solid var(--color-border-light-tertiary, #8886);
-}
-.fnri-racial-owned-list {
-  list-style: none; margin: 0; padding: 0; max-height: 25vh; overflow-y: auto;
-}
-.fnri-racial-owned-list > li {
-  display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 1.8rem;
-}
-.fnri-racial-owned-list > li > button { flex: none; width: 1.8rem; padding: 0; }
-.fnri-racial-options { max-height: 50vh; overflow-y: auto; margin-top: 6px; }
+.fast-nri-v14.fast-nri-sheet .fnri-racial-additional .fnri-racial-tags { flex-basis: 100%; }
+.fast-nri-v14.fast-nri-sheet .fnri-racial-tag { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+[data-racial-picker] { min-width: 0; }
+[data-racial-picker] > input { max-width: 100%; }
+.fnri-racial-options { max-height: 50vh; overflow-y: auto; margin-top: 6px; min-width: 0; }
 [data-racial-picker] > .fnri-racial-options { max-height: 38vh; }
-.fnri-racial-option { position: relative; padding: 2px 0; }
+.fnri-racial-option { position: relative; padding: 3px 2.1rem 3px 2px; min-width: 0; }
 .fnri-racial-warning { display:block; margin:2px 0 2px 5px; color:var(--color-level-warning,#bd8b46); }
-.fnri-racial-option[hidden] { display: none; }
-.fnri-racial-pick { width: calc(100% - 2.2rem); justify-content: flex-start; text-align: start; }
+.fnri-racial-count { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.fnri-racial-count [hidden] { display: none; }
+.fnri-racial-pick {
+  width: 100%; min-width: 0; height: auto; justify-content: flex-start; text-align: start;
+  white-space: normal; overflow-wrap: anywhere;
+}
+.fnri-racial-mark { flex: 0 0 1em; text-align: center; }
 .fnri-racial-pick[aria-pressed="true"] { font-weight: 700; outline: 1px solid currentColor; }
 .fnri-racial-options[data-racial-subproperties] { display: grid; gap: 4px; }
-.fnri-racial-options[data-racial-subproperties] .fnri-racial-pick { width: 100%; }
 .fnri-racial-info > summary {
   position: absolute; inset-inline-end: .25rem; top: .3rem; min-width: 1.55rem; text-align: center;
   border: 1px solid var(--color-border-light-tertiary, #8886); border-radius: 5px; cursor: pointer; list-style: none;
 }
 .fnri-racial-info > summary::-webkit-details-marker { display: none; }
-.fnri-racial-description { padding: 5px 7px; white-space: pre-line; }
+.fnri-racial-description { padding: 5px 7px; white-space: pre-line; overflow-wrap: anywhere; }
 .fast-nri-v14.fast-nri-sheet label { display: flex; flex-direction: column; gap: 4px; font-size: .84rem; min-width: 0; }
 .fast-nri-v14.fast-nri-sheet input,
 .fast-nri-v14.fast-nri-sheet textarea,
@@ -716,13 +713,33 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs label { display:flex; flex-direction:row; align-items:center; gap:5px; justify-content:center; }
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs input { width:72px; min-width:0; text-align:center; }
-.fnri-skill-editor { max-height:70vh; overflow:auto; display:flex; flex-direction:column; gap:5px; }
-.fnri-skill-editor .fnri-skill-edit-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-.fnri-skill-editor .fnri-skill-edit-pool, .fnri-skill-editor .fnri-skill-edit-option, .fnri-skill-editor .fnri-skill-edit-dice { display:flex; gap:4px; align-items:center; }
-.fnri-skill-editor .fnri-skill-edit-row, .fnri-skill-editor .fnri-skill-edit-head { display:grid; grid-template-columns:minmax(100px,1.2fr) minmax(170px,1.5fr) minmax(70px,.7fr) minmax(52px,.5fr); gap:5px; align-items:center; }
-.fnri-skill-editor .fnri-skill-edit-row small { display:block; opacity:.75; font-size:.72rem; }
-.fnri-skill-editor .fnri-skill-edit-dice button { flex:1; min-width:0; padding:0 3px; }
-.fnri-skill-editor .fnri-skill-edit-dice button[aria-pressed="true"] { background:var(--color-warm-2,#9a762c); color:white; }
-.fnri-skill-editor .fnri-skill-edit-custom { display:grid; grid-template-columns:minmax(90px,1fr) minmax(90px,1fr) minmax(100px,1fr) 70px 45px 28px; gap:4px; align-items:center; }
-.fnri-skill-editor input { min-width:0; }
-.fnri-skill-editor .fnri-skill-edit-warnings { display:flex; flex-direction:column; color:var(--color-level-warning,#b58125); }
+.fnri-skill-editor { max-height: 70vh; overflow: auto; display: grid; gap: 9px; min-width: 0; }
+.fnri-skill-editor h3 { margin: 0; }
+.fnri-skill-edit-toolbar, .fnri-skill-edit-option, .fnri-skill-edit-toggle {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.fnri-skill-edit-toolbar > button { margin-inline-start: auto; }
+.fnri-skill-edit-pool, .fnri-skill-edit-dice { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.fnri-skill-edit-pool > span { padding: 2px 5px; border: 1px solid var(--color-border-light-tertiary, #8886); border-radius: 4px; }
+.fnri-skill-upgrades { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 6px; }
+.fnri-skill-upgrade { display: grid; gap: 3px; min-width: 0; }
+.fnri-skill-editor .fnri-skill-edit-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 10.9rem) 3.25rem; gap: 6px; align-items: center;
+  padding: 4px 0; border-block-end: 1px solid var(--color-border-light-tertiary, #8886);
+}
+.fnri-skill-edit-group h3 { padding-bottom: 3px; }
+.fnri-skill-edit-row small { display: block; font-size: .75rem; overflow-wrap: anywhere; }
+.fnri-skill-edit-dice button { flex: 1 1 auto; padding: 0 3px; margin: 0; }
+.fnri-skill-edit-dice button[aria-pressed="true"] { background: var(--color-warm-2, #9a762c); color: white; }
+.fnri-skill-edit-dice .fnri-skill-manual-die { opacity: .65; }
+.fnri-skill-edit-formula { grid-column: 2 / -1; display: none; }
+.fnri-skill-show-formulas .fnri-skill-edit-formula { display: block; }
+.fnri-skill-editor .fnri-skill-edit-custom {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) 3.5rem 3.25rem 1.7rem;
+  gap: 4px; align-items: center;
+}
+.fnri-skill-editor input, .fnri-skill-editor select { min-width: 0; max-width: 100%; }
+@media (max-width: 520px) {
+  .fnri-skill-editor .fnri-skill-edit-row { grid-template-columns: minmax(0, 1fr) minmax(0, 8.5rem) 2.5rem; }
+  .fnri-skill-editor .fnri-skill-edit-custom { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 2.5rem; }
+}

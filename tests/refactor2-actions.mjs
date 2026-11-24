@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync, readdirSync} from 'node:fs';
 import {useItem} from '../module/equipment/item-use.mjs';
 import {declareAction} from '../module/rolls/action-declaration.mjs';
 import {standaloneIntervention} from '../module/damage/standalone-intervention.mjs';
@@ -82,6 +83,53 @@ const bladeManual=await executeAbilityFromChat(bladePublication,'manual-use',{sk
 assert.ok(bladeManual.getFlag(ID,'manualAction'));
 assert.equal(actor.system.resources.magic.current,3);
 console.log('PASS invocation entrypoints: PC/NPC announcements without selectors, independent Blade accounting');
+
+// A blank level-1 Warlock can open and publish the original Compendium cards.
+const {CLASSES, WARLOCK_SPELL_IDS}=await import('../module/data/classes.mjs');
+const {missingClassAbilityRows}=await import('../module/sheets/class-abilities.mjs');
+const abilitiesPath=new URL('../packs/_source/abilities/', import.meta.url);
+const cardData=readdirSync(abilitiesPath).map(file=>JSON.parse(readFileSync(new URL(file,abilitiesPath),'utf8')));
+const catalog=cardData.filter(data=>CLASSES.warlock.abilityIds.includes(data.flags[ID].contentId));
+assert.equal(catalog.length,7);
+let openedCard, ownedCreations=0;
+const cardFromData=data=>({...data,id:data._id,documentName:'Item',
+  getFlag(scope,key){return this.flags?.[scope]?.[key];},
+  toObject(){return structuredClone(data);},sheet:{render:()=>{openedCard=data._id;}}});
+game.packs=new Map([[`${ID}.abilities`,{getIndex:async()=>({contents:catalog}),
+  getDocument:async id=>cardFromData(catalog.find(data=>data._id===id))}]]);
+const warlock={...actor,id:'warlock',uuid:'Actor.warlock',system:{...actor.system,className:'Колдун'},items:new Map()};
+Object.defineProperty(warlock.items,'contents',{get(){return [...this.values()];}});
+warlock.createEmbeddedDocuments=async (type,[data])=>{
+  assert.equal(type,'Item');
+  const card={...cardFromData(data),parent:warlock,uuid:warlock.uuid+'.Item.'+data._id};
+  ownedCreations++;
+  warlock.items.set(card.id,card);
+  return [card];
+};
+const warlockSheet=new FastNRICharacterSheet({actor:warlock});
+const actions=sheetOptions(FastNRICharacterSheet).actions;
+const rows=await missingClassAbilityRows(warlock);
+assert.equal(rows.length,7);
+const spell=WARLOCK_SPELL_IDS[0];
+const button={closest:()=>({dataset:{classContentId:spell}})};
+await actions.openItem.call(warlockSheet,null,button);
+assert.equal(openedCard,catalog.find(data=>data.flags[ID].contentId===spell)._id);
+assert.equal(ownedCreations,0,'viewing a class card does not write');
+game.settings.get=()=> 'gm';
+await actions.publishAbility.call(warlockSheet,null,button);
+const publishedSpell=[...messages.values()].at(-1);
+assert.deepEqual(publishedSpell.whisper,['gm']);
+assert.match(publishedSpell.content,/Мистический заряд/);
+assert.equal(ownedCreations,1);
+assert.equal((await missingClassAbilityRows(warlock)).length,6);
+await actions.publishAbility.call(warlockSheet,null,button);
+assert.equal(ownedCreations,1,'a subsequent publication reuses the existing owned Item');
+game.settings.get=()=> 'blind';
+await actions.restActor.call(warlockSheet,null,{isConnected:true});
+assert.equal([...messages.values()].at(-1).blind,true,'the Rest report uses the chat mode');
+game.settings.get=()=> 'public';
+assert.deepEqual(await missingClassAbilityRows(actor),[]);
+console.log('PASS class spells: six original spells and Double Invocation, read-only view, owned publication without duplicates, current chat mode');
 
 // Every common action works without targets; the full route publishes native
 // checks or declarations, and does not silently apply their consequences.

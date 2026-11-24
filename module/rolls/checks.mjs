@@ -1,3 +1,4 @@
+import {currentMessageMode, resolveMessageMode} from '../data/chat-visibility.mjs';
 import {finishCardAccounting,normalizedCardActionId} from '../data/ability-accounting.mjs';
 import {cardEffectLinks} from '../effects/chat-effect-links.mjs';
 import {prepareRoll,finalizeRollEffects,visibleRollInfluences,fixedRollComponents} from "./roll-context.mjs";
@@ -7,7 +8,7 @@ import {CHECK_DEFENSES,selectedTargetSnapshot} from './attack-properties.mjs';
 /** Fast NRI stage 3: safe, transparent wrappers around Foundry v14 Roll.
  * This file does not determine outcomes, attacks, damage or resource costs.
  */
-export const MESSAGE_MODES = new Set(["public", "gm", "blind", "self", "ic"]);
+export {MESSAGE_MODES, resolveMessageMode} from '../data/chat-visibility.mjs';
 
 const finiteOrZero = value => (typeof value === "number" && Number.isFinite(value)) ? value : 0;
 const safeText = value => String(value ?? "")
@@ -30,16 +31,11 @@ export function itemFormula(item) {
   return String(item?.system?.rollFormula ?? "").trim();
 }
 
-export function resolveMessageMode(selected, defaultMode = "public") {
-  if (MESSAGE_MODES.has(selected)) return selected;
-  return MESSAGE_MODES.has(defaultMode) ? defaultMode : "public";
-}
-
 export async function postRoll(options) {
   return (await postCheckRoll(options))?.roll ?? null;
 }
 
-export async function postCheckRoll({ formula, label, actor = null, mode = "public", isIntervention=false,
+export async function postCheckRoll({ formula, label, actor = null, mode, isIntervention=false,
   attackKind=null,targetDefense=null,selfDefenseRule=null, kind='ability', skillId=null,
   formulaForActor=null, skipPreroll=false, sourceItem=null, actionId=null, accountingItem=null,
   defenseStat=null,weaponItem=null,difficulty=null,execution=null,audienceMessage=null,
@@ -55,17 +51,22 @@ export async function postCheckRoll({ formula, label, actor = null, mode = "publ
   if (!expression) throw new Error("empty-formula");
   if (typeof Roll.validate === "function" && !Roll.validate(expression)) throw new Error("invalid-formula");
   const sharedActionId=normalizedCardActionId(actionId);
-  const target = declaredTargets ? selectedTargetSnapshot(declaredTargets,targetDefense) : null;
+  const roll = await new Roll(expression, context.actor?.getRollData?.() ?? {}).evaluate();
+  const visibilityMode = audienceMessage ? (audienceMessage.blind ? 'blind' :
+    (audienceMessage.whisper?.length ? 'gm' : 'public')) : resolveMessageMode(mode, currentMessageMode());
+  const targets = declaredTargets && ['public', 'ic'].includes(visibilityMode) && !recordRecipient
+    ? declaredTargets.filter(token => (token?.document ?? token)?.hidden !== true)
+    : declaredTargets;
+  const target = targets ? selectedTargetSnapshot(targets,targetDefense) : null;
   const targetDifficulty = target?.status === 'one'
-    ? target.difficulty + (targetDifficultyModifier?.(declaredTargets[0]) ?? 0) : null;
+    ? target.difficulty + (targetDifficultyModifier?.(targets[0]) ?? 0) : null;
   const targetDifficulties = new Map();
   if (compareEachTarget && usesTargetDefense) {
-    for (const token of declaredTargets) {
+    for (const token of targets) {
       const snapshot = selectedTargetSnapshot([token],targetDefense);
       if (snapshot.uuid) targetDifficulties.set(snapshot.uuid,snapshot.difficulty);
     }
   }
-  const roll = await new Roll(expression, context.actor?.getRollData?.() ?? {}).evaluate();
   const naturalD20 = naturalAttackingD20(roll);
   const resolved = resolveCheckDegree({total:roll.total,naturalD20,
     difficulty:Number.isFinite(difficulty) ? difficulty : targetDifficulty});
@@ -80,8 +81,6 @@ export async function postCheckRoll({ formula, label, actor = null, mode = "publ
   const recipient = recordRecipient ? declaredTargets[0] : null;
   const chatResult = result && (recipient?.document ?? recipient)?.hidden === true
     ? {...result,targetUuid:null} : result;
-  const visibilityMode=audienceMessage ? (audienceMessage.blind ? 'blind' :
-    (audienceMessage.whisper?.length ? 'gm' : 'public')) : resolveMessageMode(mode);
   const speaker = actor ? ChatMessage.getSpeaker({ actor }) : ChatMessage.getSpeaker();
   const audience=audienceMessage ? {whisper:[...(audienceMessage.whisper??[])],blind:!!audienceMessage.blind} : {};
   const messageData = {
@@ -108,7 +107,7 @@ export async function postCheckRoll({ formula, label, actor = null, mode = "publ
   // the user's current roll-mode preference.
   const message=audienceMessage ? await ChatMessage.create({
     ...await roll.toMessage(messageData,{create:false,messageMode:'public'}),...audience
-  }) : await roll.toMessage(messageData,{messageMode:resolveMessageMode(mode)});
+  }) : await roll.toMessage(messageData,{messageMode:visibilityMode});
   await finalizeRollEffects(context,message);
   await finishCardAccounting({actor,item:accountingItem??sourceItem,message,isIntervention,actionId:sharedActionId,execution});
   return {roll, message, result, targetResults};
