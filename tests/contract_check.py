@@ -68,11 +68,11 @@ for name in ('character','npc'):
         assert 'data-row-field="kind"' in src
         assert 'data-action="addSpecialization"' in src
     else:
-        assert 'data-action="openSkillEditor"' in src and 'data-action="toggleCharacterEditor"' in src
+        assert 'data-action="openSkillEditor"' in src and 'data-action="toggleCharacterEditor"' not in src
         assert src.count("data-fnri-hp-math")==2
         assert 'data-resource="hpCurrent"' not in src and 'data-resource="hpTemp"' not in src
         assert 'data-fnri-dice-picker' not in src
-        assert '{{#if characterEditing}}' in src
+        assert 'characterEditing' not in src
         editor=(root/'module/sheets/skill-editor.mjs').read_text()
         assert 'DialogV2.wait' in editor and "button('reset'" in editor and "button('addSpecialization'" in editor
     assert 'data-row-field="itemId"' not in src

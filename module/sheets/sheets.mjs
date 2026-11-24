@@ -334,7 +334,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   _applyConfigurationLock() {
-    applySheetLock(this.element, this.configurationLocked);
+    applySheetLock(this.element, this.configurationLocked || !this.isEditable);
     const button=this.element?.querySelector?.('[data-action="toggleSheetLock"]');
     if (!button) return;
     const label=localized(this.configurationLocked?'SheetLock.unlock':'SheetLock.lock');
@@ -1574,11 +1574,13 @@ export class FastNRICharacterSheet extends ActorBase {
     if (!racialState(this.actor).races.length && !this.actor.items.contents.some(racialPropertyRule)) return;
     try {
       await openRacialPropertyEditor(this.actor, {add: async card => {
-        if (!this.isEditable) return;
+        if (!this.isEditable || this.configurationLocked) return;
         const selection = await chooseRacialSubproperty(card);
+        if (!this.isEditable || this.configurationLocked) return;
         const added = await this._queueWrite(() => addRacialProperty(this.actor, card, selection));
         if (added && selection && changesAncestry(added)) await syncInnateProperties(this.actor);
       }, remove: async id => {
+        if (!this.isEditable || this.configurationLocked) return;
         const item = this.actor.items.get(id);
         if (!racialPropertyRule(item)) return;
         const sync = changesAncestry(item);

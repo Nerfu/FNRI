@@ -93,7 +93,7 @@
 {{#if showAdditionalRacialProperties}}
 <div class="fnri-racial-properties fnri-racial-additional">
   <strong>{{localize "FASTNRI.RacialProperties.additional"}}</strong>
-  <button type="button" class="fnri-racial-edit" data-action="editRacialProperties">{{localize 'FASTNRI.RacialProperties.edit'}}</button>
+  {{#if editable}}<button type="button" class="fnri-racial-edit" data-action="editRacialProperties">{{localize 'FASTNRI.RacialProperties.edit'}}</button>{{/if}}
   <ul class="fnri-racial-tags">
     {{#each additionalRacialProperties}}
       <li>{{#if this.configurable}}
@@ -141,7 +141,7 @@
  <button type="button" data-action="deleteEffect" data-id="{{this.id}}" title="{{localize 'FASTNRI.Actions.deleteEffect'}}"><i class="fa-solid fa-trash"></i></button>{{/if}}</li>
  {{else}}<li class="fnri-muted">{{localize "FASTNRI.Hints.noEffects"}}</li>{{/each}}</ul>
  </details><details class="fnri-panel fnri-collapsible" data-fnri-section="resources" {{#if sections.resources}}open{{/if}}><summary>{{localize "FASTNRI.Sections.resources"}}</summary><div class="fnri-row-head">
-    <button type="button" data-action="addResource">{{localize "FASTNRI.Actions.addResource"}}</button></div>
+    {{#if editable}}<button type="button" data-action="addResource">{{localize "FASTNRI.Actions.addResource"}}</button>{{/if}}</div>
     <div class="fnri-entry fnri-resource-row" data-fnri-resource="potions">
       <span>{{localize "FASTNRI.Potions.name"}}</span>
       {{#if editable}}<button type="button" data-action="adjustResource" data-resource="potions" data-delta="-1" title="{{localize 'FASTNRI.Actions.decreaseResource'}}" aria-label="{{localize 'FASTNRI.Actions.decreaseResource'}}">−</button>{{else}}<span></span>{{/if}}
@@ -149,7 +149,7 @@
       <span class="fnri-resource-slash">/</span><span class="fnri-resource-max">{{potions.max}}</span>
       {{#if editable}}<button type="button" data-action="adjustResource" data-resource="potions" data-delta="1" title="{{localize 'FASTNRI.Actions.increaseResource'}}" aria-label="{{localize 'FASTNRI.Actions.increaseResource'}}">+</button>{{else}}<span></span>{{/if}}
       <span></span>
-      <label class="fnri-resource-warning">{{localize "FASTNRI.CharacterEditor.potionBase"}} <input type="text" class="fnri-number" name="system.potionsBaseMax" data-dtype="Number" data-integer="true" value="{{basePotionMax}}"></label>
+      <label class="fnri-resource-warning">{{localize "FASTNRI.CharacterEditor.potionBase"}} <input type="text" class="fnri-number" name="system.potionsBaseMax" data-dtype="Number" data-integer="true" value="{{basePotionMax}}" {{#unless editable}}disabled{{/unless}}></label>
       {{#if potions.over}}<small class="fnri-racial-warning fnri-resource-warning">{{localize "FASTNRI.Potions.over"}}</small>{{/if}}
     </div>
     <div class="fnri-stack">{{#each resourceRows}}
