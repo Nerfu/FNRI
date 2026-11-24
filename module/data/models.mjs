@@ -23,7 +23,7 @@ function checkEntrySchema() {
   // the row, not restrictions on number of rows or its freely editable dice.
   // The old numeric value survives for possible stage-2 draft data; it is not
   // silently interpreted as a dice formula.
-  return new F.SchemaField({ name: text(), kind: text(), catalogId: text(), dice: text(), modifier: number(), value: number() });
+  return new F.SchemaField({ name: text(), kind: text(), catalogId: text(), group: text(), dice: text(), modifier: number(), value: number() });
 }
 
 function customSlotSchema() {
