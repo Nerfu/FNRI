@@ -1,3 +1,4 @@
+import {applySheetLock} from './sheet-lock.mjs';
 import { BASIC_SKILLS, BASIC_SKILLS_BY_ROW_ID, SKILL_GROUPS } from '../data/skills-catalog.mjs';
 import { canMoveSkillDie, resolveSkillAllocation } from '../data/skill-allocation.mjs';
 import { classDefinition } from '../data/classes.mjs';
@@ -166,7 +167,8 @@ export async function openSkillEditor(sheet, actions) {
   let pending = Promise.resolve();
   let openFormula = null;
   let latestInput = null;
-  await DialogV2.wait({
+  let syncLock;
+  try { await DialogV2.wait({
     window: {title: loc('CharacterEditor.skills')}, position: {width: 560},
     content: `<div class="fnri-skill-editor" data-skill-editor>${skillEditorMarkup(sheet.actor)}</div>`,
     rejectClose: false, buttons: [{action: 'done', label: loc('CharacterEditor.done')}],
@@ -174,6 +176,9 @@ export async function openSkillEditor(sheet, actions) {
       const root = dialog.element.querySelector('[data-skill-editor]');
       if (!root || root.dataset.bound) return;
       root.dataset.bound = 'true';
+      syncLock=()=>applySheetLock(root,!!sheet.configurationLocked || !sheet.isEditable);
+      sheet._syncSkillEditorLock=syncLock;
+      syncLock();
 
       function refresh() {
         if (!root.isConnected) return;
@@ -184,6 +189,7 @@ export async function openSkillEditor(sheet, actions) {
         const expanded = [...root.querySelectorAll('details[open]')].map(detail => detail.dataset.skillDisclosure);
         const scroll = root.querySelector('.fnri-skill-edit-body').scrollTop;
         root.innerHTML = skillEditorMarkup(sheet.actor, openFormula);
+        syncLock();
         for (const detail of root.querySelectorAll('details')) detail.open = expanded.includes(detail.dataset.skillDisclosure);
         const next = focusKey && [...root.querySelectorAll(fields)].find(element => key(element) === focusKey);
         // Keep a text draft if an earlier asynchronous edit refreshed the editor
@@ -198,7 +204,7 @@ export async function openSkillEditor(sheet, actions) {
 
       function run(operation, redraw = true) {
         pending = pending.then(async () => {
-          if (!sheet.isEditable) return;
+          if (!sheet.isEditable || sheet.configurationLocked) return;
           await operation();
           await sheet._flushWrites();
           if (redraw) refresh();
@@ -213,6 +219,7 @@ export async function openSkillEditor(sheet, actions) {
         if (event.target.matches('input[type="text"]')) latestInput = {field: event.target, value: event.target.value};
       });
       root.addEventListener('change', event => {
+        if (!sheet.isEditable || sheet.configurationLocked) return;
         const target = event.target;
         if (latestInput?.field === target) latestInput = null;
         if (target.matches('[data-skill-die]')) {
@@ -248,7 +255,7 @@ export async function openSkillEditor(sheet, actions) {
       });
       root.addEventListener('click', event => {
         const pressed = event.target.closest('[data-skill-action]');
-        if (!pressed) return;
+        if (!pressed || !sheet.isEditable || sheet.configurationLocked) return;
         event.preventDefault();
         const {skillAction, id, die} = pressed.dataset;
         const commands = {
@@ -268,7 +275,9 @@ export async function openSkillEditor(sheet, actions) {
         if (Object.hasOwn(commands, skillAction)) run(commands[skillAction]);
       });
     }
-  });
+  }); } finally {
+    if (sheet._syncSkillEditorLock===syncLock) delete sheet._syncSkillEditorLock;
+  }
   await pending;
   await sheet._flushWrites();
 }

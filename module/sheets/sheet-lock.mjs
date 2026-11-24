@@ -4,10 +4,15 @@ const CONFIG_ACTIONS = new Set([
   'openSkillEditor','resetSkillDice','addSkill','addSpecialization','removeSkill',
   'addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'
 ]);
+const SKILL_LIST_ACTIONS = new Set(['addSkill','addSpecialization','removeSkill','removeSpecialization']);
+export function hideWhenLocked(control) {
+  const d=control?.dataset??{};
+  return SKILL_LIST_ACTIONS.has(d.action) || SKILL_LIST_ACTIONS.has(d.skillAction) || d.skillAction==='remove';
+}
 const LIVE_FIELDS = new Set(['system.hp.current','system.hp.temp','system.potionsUsed','system.wealth','system.notes']);
 export function configurationControl(control) {
   const d=control?.dataset??{};
-  if (CONFIG_ACTIONS.has(d.action)) return true;
+  if (CONFIG_ACTIONS.has(d.action) || hideWhenLocked(control) || d.skillAction!==undefined || d.skillDie!==undefined || d.skillUpgrade!==undefined || d.skillFormula!==undefined) return true;
   if (d.action==='createItem') return d.type==='ability';
   if (d.action==='deleteItem') return Boolean(control.closest?.('[data-fnri-panel="abilities"]'));
   if (d.fnriDicePicker!==undefined || d.fnriCustomDice!==undefined) return true;
@@ -20,6 +25,15 @@ export function configurationControl(control) {
 export function applySheetLock(root, locked) {
   if (!root) return;
   for (const control of root.querySelectorAll('input,select,textarea,button')) {
+    if (locked && hideWhenLocked(control)) {
+      if (!control.hidden) {
+        control.hidden=true;
+        control.dataset.fnriLockHidden='true';
+      }
+    } else if (control.dataset.fnriLockHidden==='true') {
+      control.hidden=false;
+      delete control.dataset.fnriLockHidden;
+    }
     if (locked && configurationControl(control)) {
       if (!control.disabled) {
         control.disabled=true;

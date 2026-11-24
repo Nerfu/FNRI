@@ -335,6 +335,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   _applyConfigurationLock() {
     applySheetLock(this.element, this.configurationLocked || !this.isEditable);
+    this._syncSkillEditorLock?.();
     const button=this.element?.querySelector?.('[data-action="toggleSheetLock"]');
     if (!button) return;
     const label=localized(this.configurationLocked?'SheetLock.unlock':'SheetLock.lock');

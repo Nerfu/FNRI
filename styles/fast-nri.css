@@ -750,3 +750,6 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 /* Local configuration lock: keep the geometry; no alternate sheet layout. */
 .fast-nri-v14.fast-nri-actor .fnri-config-locked input[data-fnri-lock-disabled],
 .fast-nri-v14.fast-nri-actor.fnri-config-locked input[data-fnri-lock-disabled] { opacity: 1; background: transparent; box-shadow: none; }
+
+/* Remove list-editing affordances only while the local sheet lock is closed. */
+.fnri-config-locked [data-fnri-lock-hidden='true'] { display: none !important; }
