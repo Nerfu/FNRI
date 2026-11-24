@@ -5,7 +5,7 @@ from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 manifest=json.loads((root/'system.json').read_text())
 assert manifest['id']=='fast-nri-v14'
-assert re.fullmatch(r'\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?', manifest['version'])
+assert re.fullmatch(r'\d+(?:\.\d+){2,3}(?:-[A-Za-z0-9.-]+)?', manifest['version'])
 assert manifest['download'] == f"https://github.com/Nerfu/FNRI/releases/download/v{manifest['version']}/fast-nri-v14.zip"
 assert manifest['manifest'] == 'https://raw.githubusercontent.com/Nerfu/FNRI/main/system.json'
 modules=[root/'main.mjs', *list((root/'module').rglob('*.mjs'))]

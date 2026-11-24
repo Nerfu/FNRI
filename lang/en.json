@@ -879,7 +879,7 @@
       "move": "move",
       "release": "Return to pool",
       "manualLabel": "manual",
-      "useAssigned": "Use the assigned die",
+      "useAssigned": "Clear custom formula",
       "emptyPool": "No free dice",
       "outsideSkillList": "Outside allowed skills",
       "poolChanged": "The allocation changed. Choose a die again.",

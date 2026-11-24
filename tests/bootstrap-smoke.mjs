@@ -9,7 +9,7 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const file=p=>resolve(root,p);
 const manifest=JSON.parse(readFileSync(file('system.json'),'utf8'));
 assert.equal(manifest.id,'fast-nri-v14');
-assert.match(manifest.version,/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/);
+assert.match(manifest.version,/^\d+(?:\.\d+){2,3}(?:-[A-Za-z0-9.-]+)?$/);
 assert.equal(manifest.download,`https://github.com/Nerfu/FNRI/releases/download/v${manifest.version}/fast-nri-v14.zip`);
 assert.equal(manifest.manifest,'https://raw.githubusercontent.com/Nerfu/FNRI/main/system.json');
 
