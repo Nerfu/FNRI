@@ -1,0 +1,24 @@
+{
+  "name": "Сумеречное зрение",
+  "type": "ability",
+  "system": {
+    "description": "Тусклый свет не даёт штрафа, Темнота даёт −4 вместо −10.",
+    "notes": "Рулбук 7.0 · Освещённость и зрение",
+    "tags": "особое зрение",
+    "mechanics": {
+      "racialProperty": {
+        "universal": true
+      },
+      "passive": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "visionKind": "low-light",
+      "contentId": "fnri7.rulebook.vision.low-light",
+      "source": "Fast NRI 7.0 rulebook.md / Виды зрения"
+    }
+  },
+  "_id": "fci2dlmuqvlvcjvf",
+  "effects": []
+}

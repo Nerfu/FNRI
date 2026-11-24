@@ -1,0 +1,24 @@
+{
+  "name": "Устойчивый",
+  "type": "ability",
+  "_id": "fnri5420eb428304",
+  "system": {
+    "description": "Ваш общий предел Зелий увеличен на 1.",
+    "category": "Свойство Человека",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "human"
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.ustoichivyi",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Устойчивый"
+    }
+  },
+  "effects": []
+}

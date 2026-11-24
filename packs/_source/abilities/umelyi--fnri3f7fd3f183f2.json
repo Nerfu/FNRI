@@ -1,0 +1,34 @@
+{
+  "name": "Умелый",
+  "type": "ability",
+  "_id": "fnri3f7fd3f183f2",
+  "system": {
+    "description": "Врождённое свойство Человека. Получите два дополнительных Куба навыков d6.",
+    "category": "Свойство Человека",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "human"
+        ]
+      },
+      "skillDice": {
+        "grants": [
+          {
+            "size": 6
+          },
+          {
+            "size": 6
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.umelyi",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Умелый"
+    }
+  },
+  "effects": []
+}

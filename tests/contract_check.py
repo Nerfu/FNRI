@@ -34,14 +34,22 @@ for language in ['en','ru']:
 for hbs in (root/'templates').glob('*.hbs'):
     src=hbs.read_text()
     assert src.count('{{')==src.count('}}'),f'Unbalanced Handlebars tokens: {hbs.name}'
-    assert 'name="' in src and 'fnri-body' in src
+    if hbs.name in ('character.hbs', 'npc.hbs', 'item.hbs'):
+        assert 'name="' in src and 'fnri-body' in src
+    elif hbs.name == 'effects-panel.hbs':
+        assert 'data-effect-uuid' in src
+    else:
+        assert hbs.name in {'actor-actions.hbs','actor-standard-action.hbs','actor-core-skill.hbs','actor-short-rest.hbs','token-ruler-label.hbs'}, f'Unclassified template: {hbs.name}'
 for name in ('character','npc'):
     src=(root/'templates'/f'{name}.hbs').read_text()
-    assert src.count('data-action="fnriSwitchTab"')==5
-    assert src.count('data-fnri-target=')==5
-    assert src.count('data-fnri-panel=')==5
+    src=src.replace('{{> fnri-actor-actions}}',(root/'templates'/'actor-actions.hbs').read_text())
+    tabs=['characteristics','actions','skills','abilities','inventory','description']
+    if name=='character':
+        tabs.append('journal')
+    assert re.findall(r'data-action="fnriSwitchTab" data-fnri-target="([^"]+)"',src)==tabs
+    assert re.findall(r'data-fnri-panel="([^"]+)"',src)==tabs
     assert 'data-action="tab"' not in src
-    assert src.count('fnri-tab-content')==5
+    assert src.count('fnri-tab-content')==len(tabs)
     assert 'data-action="createItem"' in src
     assert 'name="system.equipment.leftHand"' not in src
     assert 'name="system.equipment.rightHand"' not in src
@@ -49,29 +57,39 @@ for name in ('character','npc'):
     assert 'data-action="attackUnarmed"' in src
     assert 'data-action="attackEquipped"' in src
     assert 'data-example=' not in src
-    assert 'data-row-collection="skills"' in src
     assert 'data-row-collection="resources"' in src
-    assert 'data-row-field="dice"' in src
-    assert 'data-fnri-dice-picker="skill"' in src
-    assert 'data-fnri-dice-picker="specialization"' in src
-    assert 'data-fnri-custom-dice' in src
-    assert 'this.skillDiceOptions' in src and 'this.specializationDiceOptions' in src
-    assert 'data-row-field="kind"' in src
-    assert 'data-action="addSpecialization"' in src
+    if name=='npc':
+        assert 'data-row-collection="skills"' in src
+        assert 'data-row-field="dice"' in src
+        assert 'data-fnri-dice-picker="skill"' in src
+        assert 'data-fnri-dice-picker="specialization"' in src
+        assert 'data-fnri-custom-dice' in src
+        assert 'this.skillDiceOptions' in src and 'this.specializationDiceOptions' in src
+        assert 'data-row-field="kind"' in src
+        assert 'data-action="addSpecialization"' in src
+    else:
+        assert 'data-action="openSkillEditor"' in src and 'data-action="toggleCharacterEditor"' in src
+        assert src.count("data-fnri-hp-math")==2
+        assert 'data-resource="hpCurrent"' not in src and 'data-resource="hpTemp"' not in src
+        assert 'data-fnri-dice-picker' not in src
+        assert '{{#if characterEditing}}' in src
+        editor=(root/'module/sheets/skill-editor.mjs').read_text()
+        assert 'DialogV2.wait' in editor and "btn('reset'" in editor and "btn('addSpecialization'" in editor
     assert 'data-row-field="itemId"' not in src
     assert 'name="system.hp.current"' in src
     assert src.index('fnri-persistent') < src.index('fnri-tabs')
     assert src.index('name="system.hp.current"') < src.index('fnri-tabs')
-    assert src.rindex('name="system.hp.current"') > src.index('fnri-tabs')
+    assert (src.rindex('name="system.hp.current"') > src.index('fnri-tabs')) == (name=='npc')
     assert src.index('name="system.defenses.awareness"') > src.index('fnri-tabs')
-    assert src.count('name="system.hp.current"') == 2
+    assert src.count('name="system.hp.current"') == (3 if name=='npc' else 2)
     assert 'data-fnri-target="characteristics"' in src
     assert 'data-fnri-panel="characteristics"' in src
     assert 'fnri-summary-stats' in src and src.count('fnri-summary-stat"') == 4
     assert 'name="name"' in src[src.index('data-fnri-panel="characteristics"'):]
     assert 'data-fnri-message-mode' not in src
-    assert 'data-action="toggleQuickHp"' in src
-    assert 'data-fnri-quick-hp' in src and 'data-fnri-save-state' in src
+    assert ('data-action="toggleQuickHp"' in src) == (name=='npc')
+    assert ('data-fnri-quick-hp' in src) == (name=='npc')
+    assert 'data-fnri-save-state' in src
     assert 'data-fnri-skill-filter' in src
     assert 'data-fnri-skill-group-content' in src and 'data-fnri-skill-entry' in src
     assert 'data-action="rollAbility"' in src
@@ -118,4 +136,4 @@ with tempfile.TemporaryDirectory() as folder:
         assert all(p.startswith('fast-nri-v14/') and '/mnt/' not in p for p in paths)
         assert not any('/tests/' in p or '/docs/' in p for p in paths)
         assert len(paths)==len(set(paths))
-print(f'PASS: {len(modules)} JS module(s), RU/EN localization, 5 tabs, persistent header, dynamic version, paths, and {len(files)} runtime file(s) in temporary ZIP')
+print(f'PASS: {len(modules)} JS module(s), RU/EN localization, PC/NPC tabs, persistent header, dynamic version, paths, and {len(files)} runtime source file(s) in temporary ZIP')

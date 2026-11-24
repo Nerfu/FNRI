@@ -1,0 +1,59 @@
+{
+  "name": "Крепкий хвост",
+  "type": "ability",
+  "_id": "fnri3470482e09a1",
+  "system": {
+    "description": "Вы получаете «Удар хвостом», безоружную ближнюю атаку со свойством «Сокрушение». Урон от Провала до Большого успеха: 0 / 1d6 / 1d6+1d6 / 1d6+1d6+2.",
+    "category": "Свойство Драконообразного",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "draconic"
+        ]
+      },
+      "unarmedAttack": {
+        "mode": "option",
+        "name": "Удар хвостом",
+        "damageType": "физический",
+        "damageProfile": {
+          "A": "1d6",
+          "B": "1d6",
+          "C": 2
+        },
+        "properties": "Воздействие, Атака, Ближняя атака, Сокрушение"
+      },
+      "attack": {
+        "outcomes": [
+          {
+            "kind": "choice",
+            "minEffectDegree": "great",
+            "afterDamage": true,
+            "options": [
+              "Отбросить на 1 клетку",
+              "Сбить с ног"
+            ],
+            "choiceEffects": [
+              {},
+              {
+                "effectRefs": [
+                  {
+                    "contentId": "fnri7.rulebook.condition.prone",
+                    "effectId": "f7Status00000001"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.krepkij-khvost",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Крепкий хвост"
+    }
+  },
+  "effects": []
+}

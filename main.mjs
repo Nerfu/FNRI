@@ -1,6 +1,38 @@
+import {registerGameReroll} from './module/rolls/game-reroll.mjs';
+import {registerAbilityChat,publishAbility,abilityExecutions,abilityExecution,executeAbilityFromChat} from './module/abilities/ability-chat.mjs';
+import {registerTempHpManualEdits,registerTempHpWorldTime,readTempHpState,grantTempHp,removeTempHpLayer,tempHpMax,planTempHpExpiration} from './module/damage/temporary-hp-layers.mjs';
+import {FastNRICombat} from './module/combat/fnri-combat.mjs';
+import {FastNRITokenRuler} from './module/spatial/token-ruler.mjs';
+import {applyCardDamageWithResponse} from './module/damage/hp-actions.mjs';
+import {coverAllyDice, planCoverAlly} from './module/damage/damage-core.mjs';
+import {planResponsiveDamage} from './module/damage/responsive-healing.mjs';
+import {retryPeriodicOutbox} from './module/damage/periodic-turn.mjs';
+import {registerDeathLifecycle,reconcileDeathEffects,planDeathTransition,deathStateOf} from './module/damage/death-lifecycle.mjs';
+import {initiateCounteraction} from './module/damage/counteraction.mjs';
+import {createPeriodicDamageEffect,preparePeriodicDamage} from './module/effects/periodic-effect.mjs';
+import {readPeriodicData,orderedPeriodicEffects,declaredPeriodicDefenses,inspectDamageDefenseSources,previewDeclaredDamageDefenses,calculatePeriodicTick,planPeriodicHp,periodicEndPlan} from './module/damage/periodic-damage.mjs';
+import {abilityAccountingStatus,retryCardAccounting,restActor,createCardActionId} from './module/data/ability-accounting.mjs';
+import {findProjectionActor,findProjectionActors,projectionActorsForAbility,linkProjectionActor,unlinkProjectionActor,resolveSpellOrigin,isProjectionToken,projectionCaster,projectionSpatialPreview} from './module/projection/projection.mjs';
+import {useItem,inspectItemUse} from './module/equipment/item-use.mjs';
+import {attackOutcomePreview,attackOutcomeForDamageCard} from './module/equipment/attack-outcomes.mjs';
+import {prepareAttackOutcomeDecision,applyAttackOutcomeEffects,undoAttackOutcomeEffects,prepareDamageCardOutcomes} from './module/equipment/attack-outcome-application.mjs';
+import {sendWeaponDamage} from './module/weapon/weapon-attack.mjs';
+import {itemCapabilities,equipmentDefensePreview,equipmentSkillBonusPreview,spellFocusPreview} from './module/equipment/item-properties.mjs';
+import {standardAction,rollStandardAction,STANDARD_ACTIONS} from './module/rolls/standard-actions.mjs';
+import {registerCheckLinks} from './module/rolls/check-links.mjs';
+import {registerActorJournal} from './module/data/actor-journal.mjs';
+import {registerPrivateAreaSourceCleanup} from './module/data/private-area-source.mjs';
+import {registerAreaFollowUpButtons} from './module/damage/area-attack.mjs';
+import {registerChatEffectDrag} from './module/effects/chat-effect-links.mjs';
+import {registerEffectsPanel} from './module/effects/effects-panel.mjs';
+import {registerFreeHp} from './module/damage/free-hp.mjs';
 import {registerRollEditor} from './module/damage/roll-editor.mjs';
 import {registerDamageChatControls} from './module/damage/damage-chat.mjs';
+import {registerDamageRecovery,ensureDamageRecovery} from './module/abilities/damage-recovery.mjs';
 import {registerWeaponChatControls} from "./module/weapon/weapon-attack.mjs";
+import {registerClassLifecycle} from './module/data/class-lifecycle.mjs';
+import {registerRacialSettings} from "./module/data/racial-properties.mjs";
+import {registerRacialPropertyLifecycle} from "./module/sheets/racial-property-lifecycle.mjs";
 /**
  * Fast NRI 7.0 — Foundry VTT v14 system initialization.
  * The subtype data models and sheets are registered during the init hook.
@@ -18,6 +50,14 @@ import {
 const SYSTEM_ID = "fast-nri-v14";
 
 Hooks.once("init", () => {
+  registerCheckLinks();
+  registerRacialSettings();
+  registerRacialPropertyLifecycle();
+  registerClassLifecycle();
+  // Foundry native _onEndTurn executes only on designated GM.
+  CONFIG.Combat.documentClass = FastNRICombat;
+  CONFIG.Combat.initiative.formula = "1d20";
+  CONFIG.Token.rulerClass = FastNRITokenRuler;
   Object.assign(CONFIG.Actor.dataModels ??= {}, {
     character: CharacterModel,
     npc: NPCModel
@@ -51,8 +91,68 @@ Hooks.once("init", () => {
   });
 
   registerWeaponChatControls();
+  registerAbilityChat();
+  registerGameReroll();
   registerRollEditor();
+  registerFreeHp();
   registerDamageChatControls();
+  registerDamageRecovery();
+  registerEffectsPanel();
+  registerChatEffectDrag();
+  registerActorJournal();
+  registerPrivateAreaSourceCleanup();
+  registerAreaFollowUpButtons();
+  registerTempHpManualEdits();
+  registerTempHpWorldTime();
+  registerDeathLifecycle();
+  // The approved Rest action is shared by the sheet button and this public system API.
+  game.system.api ??= {};
+  game.system.api.restActor = restActor;
+  game.system.api.abilityAccountingStatus = abilityAccountingStatus;
+  game.system.api.retryCardAccounting = retryCardAccounting;
+  // Card-first ability flow: publication is free; execution and application are separate.
+  Object.assign(game.system.api,{publishAbility,abilityExecutions,abilityExecution,executeAbilityFromChat});
+  // Optional internal context for multi-message card uses. No new UI.
+  game.system.api.createCardActionId = createCardActionId;
+  // Read-only baseline action definitions and optional re-use of the standard check.
+  // These do not add buttons, assign Items, or spend turn actions.
+  game.system.api.standardAction = standardAction;
+  game.system.api.standardActions = STANDARD_ACTIONS;
+  game.system.api.rollStandardAction = rollStandardAction;
+  game.system.api.initiateCounteraction = initiateCounteraction;
+  game.system.api.applyCardDamageWithResponse = applyCardDamageWithResponse;
+  Object.assign(game.system.api,{coverAllyDice,planCoverAlly});
+  game.system.api.ensureDamageRecovery = ensureDamageRecovery;
+  game.system.api.planResponsiveDamage = planResponsiveDamage;
+  Object.assign(game.system.api,{readTempHpState,tempHpMax,grantTempHp,removeTempHpLayer,planTempHpExpiration});
+  // Stage 3C: native Combat end-turn bridge, separate periodic markers and calculations.
+  Object.assign(game.system.api, {createPeriodicDamageEffect,preparePeriodicDamage,
+    readPeriodicData,orderedPeriodicEffects,declaredPeriodicDefenses,
+    inspectDamageDefenseSources,previewDeclaredDamageDefenses,calculatePeriodicTick,planPeriodicHp,periodicEndPlan,retryPeriodicOutbox,
+    reconcileDeathEffects,planDeathTransition,deathStateOf});
+  // Game cards are shipped as Foundry-native system compendiums.
+  // Import and dragging use Foundry core APIs; there is no custom importer.
+  Object.assign(game.system.api,{findProjectionActor,findProjectionActors,projectionActorsForAbility,
+    linkProjectionActor,unlinkProjectionActor,resolveSpellOrigin,
+    isProjectionToken,projectionCaster,projectionSpatialPreview});
+  // Engine-only item support; target Actor is supplied explicitly by the caller.
+  // No new sheet button, confirmation, or unapproved chat presentation.
+  game.system.api.useItem = useItem;
+  game.system.api.inspectItemUse = inspectItemUse;
+  game.system.api.attackOutcomePreview = attackOutcomePreview;
+  game.system.api.attackOutcomeForDamageCard = attackOutcomeForDamageCard;
+  // Explicit owner-directed consequence resolution: never moves scene tokens.
+  game.system.api.prepareAttackOutcomeDecision = prepareAttackOutcomeDecision;
+  game.system.api.prepareDamageCardOutcomes = prepareDamageCardOutcomes;
+  game.system.api.applyAttackOutcomeEffects = applyAttackOutcomeEffects;
+  game.system.api.undoAttackOutcomeEffects = undoAttackOutcomeEffects;
+  // Explicit opt-in for voluntary native-die rerolls. Not a new chat UI.
+  game.system.api.weaponDamageWithReroll = (message, degree) =>
+    sendWeaponDamage(message,degree,{rerollLowWeaponDice:true});
+  game.system.api.itemCapabilities = itemCapabilities;
+  game.system.api.equipmentDefensePreview = equipmentDefensePreview;
+  game.system.api.equipmentSkillBonusPreview = equipmentSkillBonusPreview;
+  game.system.api.spellFocusPreview = spellFocusPreview;
   console.info("Fast NRI 7.0 | sheets and combat chat controls registered");
 });
 
@@ -83,10 +183,10 @@ Hooks.once("ready", () => {
     const missing = report.filter(x => !x.present);
     if (missing.length) {
       const details = missing.map(x => x.documentName + ":" + x.subtype).join(", ");
-      ui.notifications?.warn("Fast NRI: некоторые листы не зарегистрированы (" + details + "). Сообщите об этом разработчику.");
+      ui.notifications?.warn(game.i18n.format('FASTNRI.Hints.sheetRegistrationMissing', {details}));
     }
   } catch (error) {
     console.error("Fast NRI 7.0 | sheet diagnostics failed", error);
-    ui.notifications?.warn("Fast NRI: не удалось проверить регистрацию листов. Подробности в консоли Foundry.");
+    ui.notifications?.warn(game.i18n.localize('FASTNRI.Hints.sheetDiagnosticsFailed'));
   }
 });

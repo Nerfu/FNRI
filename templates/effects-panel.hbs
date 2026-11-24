@@ -1,0 +1,17 @@
+<section class="fnri-effects-panel-content">
+{{#if hasActor}}
+  {{#if effects.length}}
+    <div class="fnri-effect-panel-entries" role="group" aria-label="{{title}}">
+      {{#each effects as |effect|}}
+        <div class="fnri-effect-panel-entry{{#if effect.isItemEffect}} fnri-effect-from-item{{/if}}"
+             data-action="effectClick" data-actor-uuid="{{effect.actorUuid}}" data-effect-uuid="{{effect.uuid}}"
+             title="{{effect.name}}{{#if effect.description}} · {{effect.description}}{{/if}}{{#if effect.duration}} · {{effect.duration}}{{/if}}{{#if effect.hasEffectLevel}} · {{@root.levelLabel}}: {{effect.effectLevel}}{{/if}}{{#if effect.hasStrength}} · {{@root.strengthLabel}}: {{effect.strength}}{{/if}}{{#if effect.hasMagnitude}} · {{@root.magnitudeLabel}}: {{effect.magnitude}}{{/if}}{{#if effect.isItemEffect}} · {{@root.itemLabel}}: {{effect.origin}}{{/if}} · {{@root.shiftHint}}{{#if effect.editable}} · {{@root.leftHint}} · {{@root.rightHint}}{{/if}}">
+          <img class="fnri-effect-panel-icon" src="{{effect.icon}}" alt="{{effect.name}}">
+          {{#if effect.hasStrength}}<span class="fnri-effect-panel-strength" aria-label="{{@root.strengthLabel}}">{{effect.strength}}</span>{{/if}}
+          {{#if effect.isItemEffect}}<span class="fnri-effect-panel-item-mark" aria-label="{{@root.itemLabel}}">⛓</span>{{/if}}
+        </div>
+      {{/each}}
+    </div>
+  {{/if}}
+{{/if}}
+</section>

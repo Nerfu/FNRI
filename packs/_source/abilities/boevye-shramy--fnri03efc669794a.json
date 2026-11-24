@@ -1,0 +1,32 @@
+{
+  "name": "Боевые шрамы",
+  "type": "ability",
+  "_id": "fnri03efc669794a",
+  "system": {
+    "description": "Получите Куб навыка Запугивание d6.",
+    "category": "Свойство Орка",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "orc"
+        ]
+      },
+      "skillDice": {
+        "grants": [
+          {
+            "size": 6,
+            "skill": "intimidation"
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.boevye-shramy",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Боевые шрамы"
+    }
+  },
+  "effects": []
+}

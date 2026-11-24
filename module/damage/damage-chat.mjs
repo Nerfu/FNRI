@@ -1,9 +1,13 @@
+import {canReadChatContent} from '../data/chat-visibility.mjs';
+import {renderAreaChat} from './area-attack.mjs';
 /** A single view over version-2 damage snapshots, including linked interventions. */
 import {damageDisplay} from './damage-core.mjs';
 import {applyCardDamage,renderHpReport} from './hp-actions.mjs';
 import {initiateIntervention} from './interventions.mjs';
 import {messageIntervention} from '../rolls/attack-properties.mjs';
 import {highlightDiceResults} from './dice-highlights.mjs';
+import {renderCoverAlly} from './cover-ally.mjs';
+import {isCurrentDirectedCoverSource} from './cover-ally-state.mjs';
 const ID='fast-nri-v14';
 const l=k=>game.i18n.localize('FASTNRI.Damage.'+k);
 const own=m=>game.user?.isGM || m.isAuthor;
@@ -14,15 +18,18 @@ function actionButton(label,action) {
   // No visible button is disabled. An in-flight guard avoids duplicate writes,
   // without turning the control grey or changing its availability.
   let pending=false;
-  b.addEventListener('click',async()=>{if(pending)return;pending=true;
-    try{await action();}catch(error){console.error('Fast NRI | damage action failed',error);ui.notifications?.error(l('error'));}
+  b.addEventListener('click',async(event)=>{if(pending)return;pending=true;
+    try{await action(event);}catch(error){console.error('Fast NRI | damage action failed',error);ui.notifications?.error(l('error'));}
     finally{pending=false;}});
   return b;
 }
 
 export function renderDamageCard(message,html) {
+  if(!canReadChatContent(message)||!html?.querySelector)return;
   const card=message?.getFlag?.(ID,'weaponDamage');
-  if(!card || card.version!==2 || !html?.querySelector)return;
+  if(renderCoverAlly(message,html))return;
+  if(renderAreaChat(message,html))return;
+  if(!card || card.version!==2)return;
   // On document updates Foundry may reuse the chat element. Rebuild this view
   // from flags so a GM override immediately adds/removes its intervention button.
   html.querySelector('[data-fnri-damage-card]')?.remove?.();
@@ -54,10 +61,10 @@ export function renderDamageCard(message,html) {
   const chain=(card.history??[]).filter(h=>h.action==='intervention');
   if(chain.length)container.append(element('small','fnri-damage-history',chain.map(h=>h.name??(h.source==='builtin:selfDefense'?l('selfDefense'):
     (h.source??l('intervention')))).join(' → ')));
-  // An intervention result does not expose an intervention action at all;
-  // never show a permanently disabled button. A GM override reverses this.
-  if(!messageIntervention(message)) {
-    const intervene=actionButton(l('intervention'),()=>initiateIntervention(message));
+  // The latest defensive result may still be followed by Cover Ally.
+  // Other interventions keep the existing GM override and menu rules.
+  if(!messageIntervention(message) || isCurrentDirectedCoverSource(message)) {
+    const intervene=actionButton(l('intervention'),event=>initiateIntervention(message,{skipPreroll:!!event?.shiftKey}));
     intervene.classList.add('fnri-intervene-button');
     container.append(intervene);
   }

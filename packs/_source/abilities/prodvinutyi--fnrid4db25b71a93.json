@@ -1,0 +1,30 @@
+{
+  "name": "Продвинутый",
+  "type": "ability",
+  "_id": "fnrid4db25b71a93",
+  "system": {
+    "description": "Повысьте на одну категорию один имеющийся Куб навыка d6 и один d8. Нельзя дважды повысить один куб.",
+    "category": "Свойство Человека",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "human"
+        ]
+      },
+      "skillDice": {
+        "upgrades": [
+          6,
+          8
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.prodvinutyi",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Продвинутый"
+    }
+  },
+  "effects": []
+}

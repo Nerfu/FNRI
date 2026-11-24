@@ -13,6 +13,35 @@
     }
   },
   "FASTNRI": {
+    "CharacterChoice": {
+      "choose": "Choose",
+      "clear": "Clear selection",
+      "raceFirst": "Choose an ancestry first",
+      "standardArmor": "Standard armor"
+    },
+    "GameReroll": {
+      "autoReroll": "Auto-reroll",
+      "catalystHint": "Held weapons are used; participants determine proficiency and energy compatibility.",
+      "currentDice": "Dice after reroll",
+      "traitHint": "New values immediately replace the originals. When off: right-click damage roll → Reroll",
+      "sweeping": "Sweeping",
+      "catalyst": "Catalyst",
+      "title": "Reroll",
+      "noToken": "Select a character token.",
+      "multipleTokens": "Select exactly one token.",
+      "noOptions": "The selected character has no reroll opportunities for this message.",
+      "opportunity": "Reroll opportunity",
+      "die": "Select a die",
+      "select": "Select",
+      "damage": "Damage",
+      "exhausted": "No uses remaining",
+      "keepResult": "The new result is mandatory.",
+      "newTotal": "Corrected total",
+      "manualFollowup": "If the source card was not updated, correct it manually. Participants resolve degrees and already applied consequences themselves.",
+      "sourceChanged": "The source roll changed. Open the menu again.",
+      "selectionChanged": "Token selection changed.",
+      "failed": "Reroll failed."
+    },
     "Sheets": {
       "character": "Character Sheet",
       "npc": "NPC Sheet",
@@ -103,6 +132,7 @@
       "characteristics": "Characteristics"
     },
     "Hints": {
+      "combatResourceRecoveryFailed": "Some class resources could not be updated at combat start. Check them manually.",
       "dropItems": "Drag an item or ability from the Foundry directory or Compendium into this area.",
       "noItems": "No embedded cards yet",
       "deprecated": "Deprecated",
@@ -114,20 +144,30 @@
       "missingItem": "Missing or unavailable item",
       "clearMissingEquipment": "An equipped item is missing. Select “—” or another item to clear the reference.",
       "invalidNumber": "Enter a valid number (decimal dot or comma).",
+      "hpMath": "Number: set HP; +5 / -5: adjust current value; 18-4+2: calculate.",
       "saveFailed": "Changes were not saved. Retry or check your ownership permissions.",
+      "restFailed": "Rest failed",
+      "restUnavailable": "Rest is unavailable: this actor cannot be modified.",
+      "restChatFailed": "Rest completed, but the chat message could not be posted.",
       "rollFailed": "Invalid formula or roll failure. Check console.",
       "unsavedRoll": "A field was not saved. Correct it before rolling.",
       "invalidEffect": "Choose an attribute and enter a valid numeric adjustment.",
       "emptyRollFormula": "Enter a roll formula in the card.",
       "effectDisabled": "disabled",
       "noEffects": "No active effects",
-      "transferEffect": "transfers"
+      "transferEffect": "transfers",
+      "applyEffectTitle": "Apply a new effect to the selected character",
+      "sheetRegistrationMissing": "Some Fast NRI sheets are not registered ({details}). Please report this to the developer.",
+      "sheetDiagnosticsFailed": "Could not inspect Fast NRI sheet registration. See the Foundry console for details.",
+      "ambiguousAbilityWeapon": "Weapon for this ability is ambiguous. You may still roll, but weapon properties are not included; set weaponId on the card."
     },
     "Actions": {
       "openItem": "Open card",
       "addSkill": "Add skill",
       "removeSkill": "Remove skill",
       "addResource": "Add resource",
+      "decreaseResource": "Decrease by 1",
+      "increaseResource": "Increase by 1",
       "removeResource": "Remove resource",
       "createAbility": "Create ability",
       "deleteItem": "Delete item",
@@ -143,14 +183,204 @@
       "editHp": "Edit HP",
       "rollAbility": "Roll ability",
       "equip": "Equip",
-      "unequip": "Unequip"
+      "unequip": "Unequip",
+      "applyEffect": "Apply effect",
+      "restChat": "has rested well",
+      "restHp": "HP restored",
+      "restTemp": "Temporary HP cleared",
+      "restResources": "Resources restored",
+      "restAbilities": "Abilities refreshed",
+      "restEffects": "Effects removed",
+      "restAlreadyFull": "Everything was already restored",
+      "restUnnamedResource": "Resource",
+      "rest": "Rest"
+    },
+    "SheetActions": {
+      "standalone": "Execute independently",
+      "manualConsequences": "Players and GM resolve consequences manually.",
+      "itemHeal": "Healing",
+      "itemTemp": "Temporary HP",
+      "itemResource": "Restore resource",
+      "itemEffect": "Apply effect",
+      "itemStackWarning": "Item consumption was not recorded. Check quantity or charges; use is not blocked.",
+      "declare": "Declare in chat",
+      "maneuvers": "Maneuvers",
+      "movement": "Movement",
+      "assistance": "Aid and Preparation",
+      "interventions": "Interventions",
+      "shortRest": "Short Rest",
+      "open": "Open description",
+      "useItem": "Use",
+      "reloadItem": "Reload",
+      "noSource": "No applicable card found in chat.",
+      "chooseSource": "Choose a card",
+      "selectTarget": "Choose a target",
+      "openAttacks": "Open attacks",
+      "itemManual": "Resolve the item’s consequences manually using its card.",
+      "agreedMovement": "Willing Movement",
+      "cards": {
+        "move": {
+          "name": "Move",
+          "description": "Move your token up to its Speed, accounting for terrain, occupied spaces and control."
+        },
+        "standingJump": {
+          "name": "Standing Jump",
+          "description": "Spend 1 Movement. Jump up to 2 squares to an available space. You cannot jump over a standing creature."
+        },
+        "runningJump": {
+          "name": "Running Jump",
+          "description": "After moving at least 1 square, jump straight ahead up to 3 squares into an available space as part of the same Move. You cannot jump over a standing creature."
+        },
+        "climb": {
+          "name": "Climb",
+          "description": "Spend 1 Movement. Check Athletics against the surface difficulty. Great, full and partial success allow 3, 2 and 1 squares respectively. Failure gives no movement. A natural 1 causes a fall."
+        },
+        "step": {
+          "name": "Step",
+          "description": "Spend 1 Movement to enter an adjacent available square. You cannot enter difficult terrain. Stepping does not trigger movement or control-exit Interventions."
+        },
+        "stand": {
+          "name": "Stand",
+          "description": "Spend 1 Movement. Remove Prone in the selected token’s effect panel."
+        },
+        "dash": {
+          "name": "Dash",
+          "description": "Spend 1 Impact to gain 1 additional Movement."
+        },
+        "swapPlaces": {
+          "name": "Swap Places",
+          "description": "The initiator spends 1 Impact and a willing adjacent ally spends 1 Intervention. Resolve Interventions triggered by the initiator first, then swap simultaneously. Neither participant can be Large or larger. Both must fit their new spaces."
+        },
+        "prepare": {
+          "name": "Prepare",
+          "description": "Spend 1 Impact. Mark 1 additional Intervention until the start of your next turn."
+        },
+        "aidAlly": {
+          "name": "Help an Ally",
+          "description": "Spend 1 Impact. You need a free hand or a two-handed weapon and an adjacent ally who is neither Grappled nor Immobilized. With a willing conscious ally, or on a successful Forceful Pull, move them 1 square to an available space next to you or leave them in place. A conscious ally may stand."
+        },
+        "forceAidAlly": {
+          "name": "Forceful Pull",
+          "description": "Check Athletics against the ally’s Fortitude. If the ally is unconscious, reduce difficulty by 5."
+        },
+        "freeAlly": {
+          "name": "Free an Ally",
+          "description": "Check Athletics against the grappler’s Fortitude. On success, end one selected Grapple affecting the adjacent ally."
+        },
+        "trip": {
+          "name": "Trip",
+          "description": "Make a Maneuver against the target’s Reflex. Apply Prone according to the final degree."
+        },
+        "grapple": {
+          "name": "Grapple",
+          "description": "Make a Maneuver against the target’s Fortitude. Apply Grappled according to the final degree."
+        },
+        "escape": {
+          "name": "Escape",
+          "description": "Choose Athletics or Acrobatics and target the grappler. Check against its Fortitude. On success, end one selected Grapple."
+        },
+        "reposition": {
+          "name": "Reposition",
+          "description": "Make a Maneuver against the target’s Fortitude. Move the token manually according to the final degree."
+        },
+        "shove": {
+          "name": "Shove",
+          "description": "Make a Maneuver against the target’s Fortitude. Move the token away manually according to the final degree."
+        },
+        "slip": {
+          "name": "Slip Through",
+          "description": "During movement, check Acrobatics against the selected enemy’s Reflex. Resolve further movement and Quick Strike according to the final degree and formation."
+        },
+        "hide": {
+          "name": "Hide",
+          "description": "Select enemies without direct line of sight. Compare one Stealth check against each enemy’s Awareness. On success, resolve invisibility and the unknown space separately for that enemy."
+        },
+        "firstAid": {
+          "name": "First Aid",
+          "description": "Choose one adjacent recipient. Check Medicine against difficulty 5. On success, the recipient recovers 1d4 HP. Once per encounter per recipient."
+        },
+        "distract": {
+          "name": "Distract",
+          "description": "Check Deception against the Awareness of an enemy who can see you. On success, apply Off Guard through the end of the target’s next turn."
+        },
+        "demoralize": {
+          "name": "Demoralize",
+          "description": "Check Intimidation against the Will of a target within 10 squares. On success, apply −2 to its AC thresholds, defense stats and attacks through the end of its next turn."
+        },
+        "selfDefense": {
+          "name": "Self-Defense",
+          "description": "Make a Directed Defense against a qualifying directed attack vs. AC. Use Fortitude against melee and Reflex against ranged attacks."
+        },
+        "counteraction": {
+          "name": "Counteraction",
+          "description": "Use the defense stat checked by the triggering action. Compare the roll against the triggering total."
+        },
+        "dodge": {
+          "name": "Dodge",
+          "description": "Against a qualifying area, choose a Dodge option from the source card. Move the token manually."
+        },
+        "quickStrike": {
+          "name": "Quick Strike",
+          "description": "On a qualifying trigger, declare Quick Strike, target the provoking enemy and make a melee attack. Requires 1 Intervention."
+        },
+        "coverAlly": {
+          "name": "Cover an Ally",
+          "description": "After all Defensive actions, pick one remaining damage die for an adjacent ally. Take that damage instead without reduction or redirection. Other effects stay with the ally. Costs 1 Intervention."
+        },
+        "combatMaster": {
+          "name": "Combat Master",
+          "description": "When declaring an attack, you may increase its Combat Die by one step. Once per day."
+        },
+        "invocation": {
+          "name": "Invocation",
+          "description": "Choose one available hand and one spell. A weapon hand can use Blade; a shield hand can use Shadow Shield. Ordinary Invocation costs 1 Impact and 1 Magic Power."
+        },
+        "doubleInvocation": {
+          "name": "Double Invocation",
+          "description": "Choose one Invocation per hand and their order, or one two-handed Invocation. Choose the second target and other details after resolving the first Invocation. Use the costs on the card and in the rulebook."
+        },
+        "transferItem": {
+          "name": "Transfer an Item",
+          "description": "Choose one type of item and an amount for an adjacent ally. After resolving any triggered Interventions, move the items to their inventory. This action cannot transfer weapons or Shields from the held equipment system."
+        },
+        "reload": {
+          "name": "Reload Firearm",
+          "description": "Choose a carried unloaded firearm you are proficient with. It becomes loaded when you finish this activity."
+        },
+        "bindWounds": {
+          "name": "Bind Wounds",
+          "description": "Requires Medicine. Restore all ordinary HP to yourself or one participant in the Short Rest."
+        },
+        "fieldRecovery": {
+          "name": "Field Recovery",
+          "description": "Restore all ordinary HP to up to 10 participating allies, including yourself."
+        },
+        "recoverResource": {
+          "name": "Recover Strength",
+          "description": "Restore 1 point of one of your class resources. Warlocks restore all class resources to their maxima."
+        },
+        "endEffect": {
+          "name": "End an Effect",
+          "description": "Choose a persistent effect on one participant. If it has a difficulty, make the required check and remove it on success. Otherwise remove it immediately."
+        }
+      },
+      "itemRoll": "Roll"
+    },
+    "CheckLinks": {
+      "climb": "Climb",
+      "difficulty": "DC {value}",
+      "oneToken": "Select one token for this check.",
+      "noActor": "Select a token you own or use your assigned character.",
+      "editDescription": "Edit description"
     },
     "Tabs": {
+      "actions": "Actions",
       "skills": "Skills",
       "abilities": "Abilities",
       "inventory": "Inventory",
       "description": "Description",
-      "characteristics": "Characteristics"
+      "characteristics": "Characteristics",
+      "journal": "Journal"
     },
     "SkillGroups": {
       "physical": "Physical and Stealth",
@@ -171,10 +401,10 @@
       "great": "Great success",
       "criticalNote": "Critical damage available; see calculated amount on damage card",
       "damageError": "Unable to roll damage",
-      "missingCombatDie": "Combat die is not assigned: rolling 1d20",
+      "missingCombatDie": "Combat die unavailable: formula uses only 1d20; review it before rolling",
       "unknownProficiency": "Proficiency not specified: rolling 1d20; set it on the card",
       "multipleTargets": "Multiple targets selected: no suggested degree",
-      "targetWithoutAC": "Three AC thresholds unavailable: choose damage manually",
+      "targetWithoutAC": "AC thresholds unavailable; degree not determined",
       "level": "Weapon level",
       "grip": "Hands (Rulebook notation)",
       "distance": "Distance (Rulebook notation)",
@@ -189,7 +419,7 @@
       "legacyFields": "Numeric fields from older cards",
       "damageProfile": "Strict damage profile A / B / +C",
       "propertyRules": "Property rules stored on this card",
-      "manualPropertyHint": "Properties, defenses, resources, and HP are resolved manually for now. Spellcasting weapons do not get physical damage buttons.",
+      "manualPropertyHint": "Not all weapon properties are resolved automatically. Spellcasting weapons have no weapon-damage buttons.",
       "kindUnknown": "Unspecified",
       "melee": "Melee",
       "ranged": "Ranged",
@@ -207,6 +437,7 @@
       "unarmedSlot": "Unarmed",
       "other": "Other items",
       "secondHandRequired": "A second free hand is required",
+      "freeHandRequired": "At least one free hand is required",
       "chooseUnarmed": "Choose unarmed attack",
       "cleanMissing": "Clear missing references",
       "cardOptions": "Item attack and slot",
@@ -219,6 +450,21 @@
       "unarmedReplace": "Card rule",
       "replace": "Preferred variant (base remains available)",
       "unarmedOption": "Additional option"
+    },
+    "PeriodicDamage": {
+      "damage": "damage",
+      "resistance": "Resistance",
+      "vulnerability": "Vulnerability",
+      "removalCheck": "Removal check",
+      "removed": "Effect removed",
+      "remains": "Effect remains",
+      "immunity": "Immunity",
+      "zero": "No damage dealt",
+      "duration": "Duration expired",
+      "skipCheck": "Trait skips the removal check",
+      "deathCounter": "Death counter",
+      "deathTick": "−1 for this tick",
+      "privateRecovery": "Periodic damage was processed. Private result details are unavailable after a reload."
     },
     "Damage": {
       "editRoll": "Edit roll",
@@ -239,6 +485,7 @@
       "intervention": "Intervention",
       "apply": "Apply damage",
       "critical": "Critical",
+      "counteraction": "Counteraction",
       "selfDefense": "Self-Defense",
       "selectToken": "Choose token",
       "select": "Select",
@@ -354,7 +601,25 @@
       "restoreAll": "Restore all",
       "selectDiceFirst": "Select dice first",
       "excludedCount": "Excluded",
-      "restoredCount": "Restored"
+      "restoredCount": "Restored",
+      "selectRecipient": "Choose HP recipient",
+      "noRecipient": "No Actor available for HP changes. Select a writable token or use an Actor sheet.",
+      "recipientToken": "token",
+      "recipientActor": "Actor",
+      "tokenNotSelected": "No token selected",
+      "applyFreeHp": "Apply HP",
+      "applyPartialDice": "Apply selected dice",
+      "hpChannel": "HP channel",
+      "selectRoll": "Select roll",
+      "manualFormulaCorrection": "Nonlinear formula: enter the total correction manually. Dice edits do not automatically recalculate the total.",
+      "partialDefenseIncomplete": "Some defenses or contributions in a nonlinear formula require manual review.",
+      "selectPublishedAmount": "Select a published amount",
+      "manualAmount": "Enter an amount manually",
+      "partialDiceHint": "Fixed numbers are not added automatically. Resistance, vulnerability and the damage penalty apply only to damage. Check adjustments for the selected dice.",
+      "partialPreview": "Calculate",
+      "partialImmuneDice": "Dice removed by immunity",
+      "selectOneToken": "Select one token",
+      "selectHpChannel": "Choose the HP channel"
     },
     "Builtin": {
       "readOnly": "Built-in ability. View only; cannot be edited or deleted.",
@@ -377,6 +642,246 @@
       "selfDefenseNpcFormula": "1d20 + selected defense + attack modifier",
       "selfDefenseResolution": "Natural 1: failure. Success when the defense total meets or exceeds the triggering action: against a directed attack vs. AC, remove one highest remaining damage die and lower its Effect degree by 1. Natural 20: completely cancel the action, except when the triggering attack also rolled a natural 20, in which case defense is a normal success.",
       "selfDefenseLimits": "Reach attacks remain melee. Self-Defense is unavailable against an area of effect. A specific card may replace the chosen defense, Combat Die, or another explicitly named part. Apply direct held-item modifiers; do not add AC."
+    },
+    "EffectPanel": {
+      "Title": "Effects",
+      "FromItem": "Item effect",
+      "LeftHint": "Left click: increase Effect strength if specified",
+      "RightHint": "Right click: decrease Effect strength or remove",
+      "Empty": "No active effects",
+      "NoPermission": "You cannot modify this effect",
+      "ActionFailed": "Could not modify the effect",
+      "ShiftHint": "Shift + left click: edit",
+      "Level": "Effect level",
+      "Strength": "Effect strength",
+      "Magnitude": "Effect magnitude",
+      "EditParameters": "Effect parameters",
+      "ParametersHelp": "Effect level, Effect strength and Effect magnitude are independent. Empty means unspecified. At strength 0 the effect is removed or disabled according to its parent document.",
+      "Duration": "Foundry duration",
+      "DurationNote": "Edits total duration from the original start, not time remaining. Does not restart the effect.",
+      "DurationValue": "Duration value",
+      "DurationUnits": "Duration units",
+      "Unit_years": "Years",
+      "Unit_months": "Months",
+      "Unit_days": "Days",
+      "Unit_hours": "Hours",
+      "Unit_minutes": "Minutes",
+      "Unit_seconds": "Seconds",
+      "Unit_rounds": "Rounds",
+      "Unit_turns": "Turns",
+      "Save": "Save",
+      "NativeEditor": "Open Foundry editor",
+      "Cancel": "Cancel",
+      "ChangeRows": "Attribute changes",
+      "NoChangeRows": "This effect has no change rows. Add them using the native effect editor.",
+      "UnknownChange": "Unknown attribute",
+      "ReboundWarning": "Native edit detected; calculation unlinked for safety",
+      "Auto": "Auto",
+      "ChangeFormula": "Formula",
+      "ChangeValue": "Value",
+      "FormulaHelp": "Each row is independent. Auto locks the computed value, not the formula. Use @strength, @effectLevel, @magnitude, @actor.system.PATH and arithmetic/functions min/max/round/floor/ceil/abs/clamp. Without a formula, the value remains editable.",
+      "DurationUnchanged": "Keep current duration unit",
+      "AfterApplication": "After applying",
+      "OwnershipChanged": "Permissions to edit this effect have changed. Reopen the editor.",
+      "ParametersChanged": "Effect parameters have changed. Reopen the editor.",
+      "ChangesChanged": "Effect changes were edited elsewhere. Reopen the editor to avoid overwriting them.",
+      "FormulaPartialFailure": "Some effect formulas could not be evaluated; previous values were preserved. Open the effect editor."
+    },
+    "Preroll": {
+      "title": "Prepare roll",
+      "total": "Final formula",
+      "extra": "Additional components",
+      "add": "Add",
+      "value": "Value",
+      "comment": "Comment",
+      "optional": "Optional",
+      "remove": "Remove",
+      "roll": "Roll",
+      "cancel": "Cancel",
+      "component": "Component",
+      "manual": "Manual component",
+      "invalid": "Invalid roll component",
+      "calculating": "Calculating…",
+      "effect": "Effect",
+      "fromCard": "From card",
+      "replaceDie": "Replace die",
+      "baseRoll": "Base roll",
+      "hiddenInfluence": "Hidden influence",
+      "fixedComponent": "Fixed component",
+      "consumeFailed": "Could not remove the one-use effect after the roll. Please check it manually.",
+      "cardModifier": "Card modifier",
+      "card": "Card",
+      "rollFormula": "Roll formula",
+      "baseFormula": "Base formula",
+      "modifier": "Modifier",
+      "activation": "Activation",
+      "weaponTraits": "Weapon properties"
+    },
+    "Journal": {
+      "hp": "HP",
+      "temp": "Temporary HP",
+      "unnamedResource": "Resource",
+      "maximum": "maximum",
+      "added": "Resource added",
+      "removed": "Resource removed",
+      "ability": "Ability",
+      "manual": "Manual changes",
+      "automatic": "Change",
+      "cooldown": "Cooldown",
+      "limitedUse": "Used (limited frequency)",
+      "seconds": "sec",
+      "reset": "Availability reset",
+      "empty": "No journal entries yet",
+      "hpMax": "Maximum HP",
+      "rest": "Rest",
+      "rounds": "rounds",
+      "restored": "Restored",
+      "allResourcesAndAbilities": "All resources and abilities",
+      "abilities": "Abilities"
+    },
+    "RacialProperties": {
+      "title": "Ancestry traits",
+      "edit": "Edit",
+      "owned": "Selected traits",
+      "remove": "Remove ancestry trait",
+      "search": "Search by name",
+      "description": "Show description",
+      "cancel": "Close",
+      "choose": "Choose a variant",
+      "noneToAdd": "No matching traits.",
+      "unavailable": "Unable to open ancestry traits.",
+      "addConfirm": "Add",
+      "duplicate": "The character already has this ancestry trait.",
+      "wrongRace": "This trait is outside the character’s ancestries.",
+      "limitReached": "This exceeds the recommended ancestry trait count.",
+      "innateLocked": "This innate trait is protected by the world settings.",
+      "racialAncestryFilter": "Restrict traits by ancestry",
+      "racialAncestryFilterHint": "Offers universal traits and traits from the character’s ancestries.",
+      "racialChoiceLimit": "Limit selected ancestry traits",
+      "racialChoiceLimitHint": "Uses the primary ancestry’s selection limit. Innate traits do not count.",
+      "racialAllowInnateRemoval": "Allow removal of innate traits",
+      "racialAllowInnateRemovalHint": "Innate traits are still granted automatically when selecting an ancestry.",
+      "showAll": "Show all racial properties",
+      "selectedCount": "Selected properties",
+      "limitExceeded": "Racial property limit exceeded"
+    },
+    "AbilityChat": {
+      "toChat": "Post to chat",
+      "noDescription": "No description provided",
+      "dailyRemaining": "Daily uses left: {remaining}",
+      "noDailyUses": "no daily uses remaining",
+      "roundCooldown": "cooldown: {rounds} round(s)",
+      "insufficient": "resource may be insufficient",
+      "unavailable": "resource missing or unavailable",
+      "unassignedIntervention": "Intervention resource not configured",
+      "missingExecution": "Execution option unavailable",
+      "missingFormula": "Execution formula is missing",
+      "missingEffect": "Effect template not found",
+      "noTargetPermission": "No selected target with update permission",
+      "missingRoll": "Original roll not found",
+      "actionFailed": "Action failed",
+      "applyTemporaryHp": "Apply temporary HP",
+      "applyEffect": "Apply effect",
+      "ambiguousResource": "multiple matching resources",
+      "temporaryHpResult": "Temporary HP",
+      "expiredTemporaryHp": "Temporary HP from this use have already expired. The original deadline is retained; adjust HP manually if needed.",
+      "projectionActorsLabel": "Linked Actors",
+      "projectionActorMissing": "No linked Actor",
+      "shadowShield": "Shadow Shield"
+    },
+    "AttackAugment": {
+      "wrongAttackKind": "This ability requires a melee attack",
+      "requiresWeapon": "This ability requires a held weapon",
+      "wrongWeapon": "The selected weapon does not meet the ability requirement",
+      "weaponNotHeld": "The weapon is not held in a hand",
+      "insufficientResource": "Resource may be insufficient",
+      "ambiguousResource": "Resource name is ambiguous",
+      "missingResource": "Resource was not found on the character"
+    },
+    "Projection": {
+      "actorKind": "Projection Actor",
+      "owner": "Owner Actor",
+      "unlinked": "No caster linked",
+      "linkedActors": "Linked Projection Actors",
+      "noneLinked": "No Actors linked yet",
+      "dropHint": "Drop a Projection Actor from the Actors directory here",
+      "open": "Open Actor",
+      "unlink": "Unlink without deleting Actor",
+      "fullSheet": "Show full sheet",
+      "shortSheet": "Compact Projection sheet",
+      "permission": "Insufficient native Foundry permissions to edit this link",
+      "actorOnly": "Drop a world Actor from the Foundry Actors directory",
+      "existingOwner": "Current link",
+      "transferTitle": "Transfer Projection",
+      "transferQuestion": "Transfer this Actor to this ability? The previous link is removed but Actor and tokens are preserved.",
+      "linked": "Projection Actor linked",
+      "linkFailed": "Could not change Projection link",
+      "changedDuringDialog": "The link changed while the dialog was open. Try again.",
+      "tokenHpHint": "Unlinked tokens keep their own HP",
+      "acHint": "AC follows the linked caster when present"
+    },
+    "DamageRecovery": {
+      "cancelledSpellExtra": "Declared spell cancelled: additional +1 Magic Power after confirmation"
+    },
+    "MovementRuler": {
+      "one": "{count} cell",
+      "other": "{count} cells"
+    },
+    "InterventionOptions": {
+      "showAll": "Show All Interventions",
+      "method": "Option",
+      "insufficient": "not enough: {resource}",
+      "none": "No Interventions are available.",
+      "dodgeStep": "Dodge · Step Aside (1 square)",
+      "dodgeLeap": "Dodge · Leap Away (2 squares, Prone)"
+    },
+    "CoverAlly": {
+      "name": "Cover Ally",
+      "chooseAlly": "Choose an ally",
+      "chooseDie": "Choose a damage die",
+      "unavailable": "No eligible ally has a damage die remaining.",
+      "changed": "The damage card or chosen die changed. Check the current result.",
+      "heading": "Cover Ally · {defender} covers {ally}",
+      "detail": "{die} → {value} damage to {defender}"
+    },
+    "AreaIntervention": {
+      "followUp": "Intervention follow-up",
+      "reduction": "{target} · reduce the attack degree by {amount}",
+      "naturalOne": "natural 1: no movement, Knocked Down",
+      "leap": "Leap: 2 squares, Knocked Down",
+      "step": "Dodge: 1 square",
+      "safe": "safe square",
+      "inside": "remained in the area",
+      "knockedDown": "Knocked Down"
+    },
+    "Potions": {
+      "name": "Potions",
+      "over": "Daily potion limit exceeded",
+      "receive": "Record potion receipt",
+      "received": "Potion receipt recorded",
+      "alreadyReceived": "This potion was already recorded for this character",
+      "receiptFailed": "Potion receipt failed; use the receipt button or correct the resource manually."
+    },
+    "SkillAllocation": {
+      "traditionLabel": "Magical tradition",
+      "tradition": "Choose a magical tradition",
+      "free": "Free dice",
+      "reset": "Clear all dice",
+      "restricted": "Die assigned outside its allowed skills:",
+      "invalidUpgrade": "Invalid die upgrade",
+      "mandatoryOverride": "Mandatory die changed:",
+      "manualOverride": "Manual deviation from dice pool:",
+      "freeDie": "Unassigned die"
+    },
+    "CharacterEditor": {
+      "edit": "Edit character",
+      "exit": "Exit editor",
+      "skills": "Edit skills",
+      "done": "Done",
+      "base": "Base value",
+      "potionBase": "Base potion limit",
+      "sources": "Dice sources",
+      "custom": "Custom formula"
     }
   }
 }

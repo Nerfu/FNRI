@@ -1,0 +1,30 @@
+{
+  "name": "Мастер боя",
+  "type": "ability",
+  "_id": "fnri7285150994e6",
+  "system": {
+    "description": "Частота: 1 раз в день. При объявлении атаки можете повысить используемый в ней Куб боя на одну категорию.",
+    "category": "Свойство Человека",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "human"
+        ]
+      },
+      "combatDieUpgrade": true,
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.master-boia",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Мастер боя"
+    }
+  },
+  "effects": []
+}

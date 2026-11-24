@@ -1,0 +1,101 @@
+{
+  "name": "Тяжёлый молот",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 2. Категория: Молоты.\nВладение по списку: Воин.\nРуки: 2. Дистанция: ближняя.\nСвойства: Сокрушение.\nУрон по степеням: `1d8` / `1d8+1d8` / `1d8+1d8+6`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "2",
+    "hands": 2,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 2,
+    "category": "Молоты",
+    "proficiencyClasses": "Воин",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Сокрушение",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d8",
+      "B": "1d8",
+      "C": 6
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 2
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Воин"
+        ],
+        "properties": [
+          "Сокрушение"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Сокрушение": "**Большой успех:** после нанесения урона отбросьте цель на 1 клетку от себя или Сбейте её с ног.\n\nЭто связанный автоматический Манёвр. Примените общие правила связанных автоматических Манёвров. Отбрасывание является принудительным перемещением."
+      },
+      "attack": {
+        "outcomes": [
+          {
+            "kind": "choice",
+            "minEffectDegree": "great",
+            "options": [
+              "Отбросить на 1 клетку",
+              "Сбить с ног"
+            ],
+            "afterDamage": true
+          }
+        ],
+        "traitOptions": [
+          {
+            "id": "crushing",
+            "label": "Сокрушение",
+            "summary": "На Большом успехе выбор отбрасывания/сбивания; вручную",
+            "defaultEnabled": true,
+            "effect": {
+              "outcomes": [
+                {
+                  "kind": "choice",
+                  "minEffectDegree": "great",
+                  "options": [
+                    "Отбросить на 1 клетку",
+                    "Сбить с ног"
+                  ],
+                  "choiceEffects": [
+                    {},
+                    {
+                      "effectRefs": [
+                        {
+                          "contentId": "fnri7.rulebook.condition.prone",
+                          "effectId": "f7Status00000001"
+                        }
+                      ]
+                    }
+                  ],
+                  "afterDamage": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.011",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci0wdpe0cb4dmz2",
+  "effects": []
+}

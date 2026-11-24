@@ -2,7 +2,7 @@
   "id": "fast-nri-v14",
   "title": "Fast NRI 7.0",
   "description": "Отдельная игровая система Fast NRI 7.0 для Foundry VTT 14",
-  "version": "0.1.14",
+  "version": "0.2.0",
   "compatibility": {
     "minimum": 14,
     "verified": 14
@@ -41,6 +41,43 @@
   "socket": false,
   "type": "system",
   "manifest": "https://raw.githubusercontent.com/Nerfu/FNRI/main/system.json",
-  "download": "https://github.com/Nerfu/FNRI/releases/download/v0.1.14/fast-nri-v14.zip",
-  "url": "https://github.com/Nerfu/FNRI"
+  "download": "https://github.com/Nerfu/FNRI/releases/download/v0.2.0/fast-nri-v14.zip",
+  "url": "https://github.com/Nerfu/FNRI",
+  "packs": [
+    {
+      "name": "weapons",
+      "label": "Оружие",
+      "path": "packs/weapons",
+      "type": "Item",
+      "system": "fast-nri-v14"
+    },
+    {
+      "name": "equipment",
+      "label": "Снаряжение",
+      "path": "packs/equipment",
+      "type": "Item",
+      "system": "fast-nri-v14"
+    },
+    {
+      "name": "conditions",
+      "label": "Состояния и обстоятельства",
+      "path": "packs/conditions",
+      "type": "Item",
+      "system": "fast-nri-v14"
+    },
+    {
+      "name": "abilities",
+      "label": "Способности",
+      "path": "packs/abilities",
+      "type": "Item",
+      "system": "fast-nri-v14"
+    },
+    {
+      "name": "projections",
+      "label": "Шаблоны существ",
+      "path": "packs/projections",
+      "type": "Actor",
+      "system": "fast-nri-v14"
+    }
+  ]
 }

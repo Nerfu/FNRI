@@ -1,0 +1,70 @@
+{
+  "name": "Двуручный меч",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Мечи.\nВладение по списку: Воин.\nРуки: 2. Дистанция: ближняя.\nСвойства: Уверенное.\nУрон по степеням: `1d8` / `1d8+1d12` / `1d8+1d12+6`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "2",
+    "hands": 2,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 1,
+    "category": "Мечи",
+    "proficiencyClasses": "Воин",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Уверенное",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d8",
+      "B": "1d12",
+      "C": 6
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 2
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Воин"
+        ],
+        "properties": [
+          "Уверенное"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Уверенное": "Если Защитное действие должно удалить один или несколько кубов урона этой атаки, вместо обычного правила выбора удаляйте указанное количество кубов по одному, каждый раз выбирая самый маленький оставшийся куб.\n\nЭто свойство заменяет только порядок выбора удаляемых кубов; количество удаляемых кубов не меняется."
+      },
+      "attack": {
+        "defenseRemovalOrder": "lowest",
+        "traitOptions": [
+          {
+            "id": "reliable",
+            "label": "Уверенное",
+            "summary": "При защитном удалении сначала наименьшие кубы",
+            "defaultEnabled": true,
+            "effect": {
+              "defenseRemovalOrder": "lowest"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.014",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci088grf687s48x",
+  "effects": []
+}

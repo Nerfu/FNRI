@@ -1,3 +1,6 @@
+import {installTemplateMock} from './foundry-test-helpers.js';
+import {acceptPreroll} from './foundry-test-helpers.js';
+import {sheetOptions} from './foundry-test-helpers.js';
 import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
 import {resolve} from 'node:path';
@@ -15,14 +18,15 @@ let currentMode='gm';
 globalThis.game={i18n:{localize},settings:{get(scope,key){assert.equal(scope,'core');assert.equal(key,'messageMode');return currentMode;}}};
 let warnings=0,errors=0;
 globalThis.ui={notifications:{warn(){warnings++;},error(){errors++;}}};
-const DialogV2={confirm:async()=>true};
+const DialogV2={confirm:async()=>true,wait:acceptPreroll};
 class SheetMock {constructor({actor,item,editable=true}={}){this.actor=actor;this.item=item;this.isEditable=editable;}async _prepareContext(){return {}}async _onRender(){}}
 globalThis.foundry={applications:{api:{HandlebarsApplicationMixin:Parent=>Parent,DialogV2},sheets:{ActorSheetV2:SheetMock,ItemSheetV2:SheetMock}}};
+installTemplateMock();
 const source=resolve('module/sheets/sheets.mjs');
 const {FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet}=await import(pathToFileURL(source).href);
 const entry={name:'Незаметность',kind:'specialization',dice:'2d6',modifier:2,value:45};
 const effectRows=[];
-const actor={documentName:'Actor',id:'a1',type:'character',system:{skills:{sample:entry}},
+const actor={getFlag(){return undefined;},documentName:'Actor',id:'a1',type:'character',system:{skills:{sample:entry}},
  effects:{get(id){return effectRows.find(e=>e.id===id);},get contents(){return effectRows;}},
  getRollData(){return {hello:'world'}}
 };
@@ -44,7 +48,7 @@ sheet.element={querySelector(sel){
  if(sel==='[data-fnri-effect-amount]')return {value:'2'};
  return null;
 }};
-const actions=FastNRICharacterSheet.DEFAULT_OPTIONS.actions;
+const actions=sheetOptions(FastNRICharacterSheet).actions;
 await actions.rollSkill.call(sheet,null,{dataset:{id:'sample'}});
 assert.equal(rolls[0].expression,'1d20 + (2d6) + (2)');
 assert.equal(rolls[0].opts.messageMode,'gm');
@@ -85,7 +89,7 @@ itemSheet.element={querySelector(sel){
  if(sel==='[name="system.rollFormula"]')return {value:'1d4+3'};
  return null;
 }};
-const itemActions=FastNRIItemSheet.DEFAULT_OPTIONS.actions;
+const itemActions=sheetOptions(FastNRIItemSheet).actions;
 await itemActions.itemRoll.call(itemSheet,null,{});
 assert.equal(rolls[2].expression,'1d4+3');
 assert.equal(rolls[2].opts.messageMode,'self');
@@ -102,6 +106,9 @@ actor.system.defenses={awareness:1,reflex:5,fortitude:3,will:9};
 const baseSystem={skills:{sample:{...entry,modifier:1}},defenses:{...actor.system.defenses,will:7}};
 actor.toObject=source=>{assert.equal(source,true);return {system:baseSystem};};
 entry.modifier=3;
+const playContext=await sheet._prepareContext({});
+assert.equal(playContext.system.defenses.will,9);
+sheet._characterEditing=true;
 const context=await sheet._prepareContext({});
 assert.equal(context.system.defenses.will,7,'form field must use source, not AE-adjusted value');
 assert.equal(context.effectiveSystem.defenses.will,9,'display uses prepared Actor');

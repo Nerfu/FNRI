@@ -1,0 +1,30 @@
+{
+  "name": "Стёганая",
+  "type": "armor",
+  "system": {
+    "description": "Стёганая. Пороги КЗ: 7 / 13 / 17. Итог включает один бонус КЗ класса и применимые прямые модификаторы.",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "броня",
+    "ac": {
+      "partial": 7,
+      "success": 13,
+      "great": 17
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "armor"
+      },
+      "armor": {
+        "classBonusRequired": true
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.030",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci2o3i46wzyqvwk",
+  "effects": []
+}

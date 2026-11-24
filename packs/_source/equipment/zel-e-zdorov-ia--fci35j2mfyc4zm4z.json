@@ -1,0 +1,40 @@
+{
+  "name": "Зелье здоровья",
+  "type": "gear",
+  "system": {
+    "description": "> **Свойства:** Использование предмета, Манипуляция, Зелье.  \n> **Цель:** вы или соседний союзник.\n\nЦель восстанавливает `1d4+2 HP`.\n\nКоличество доступных Зелий здоровья не ограничено. Получение его эффекта учитывается в общем пределе Зелий.",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "зелье, расходник",
+    "category": "Зелье",
+    "quantity": 1,
+    "mechanics": {
+      "equipment": {
+        "slot": "other"
+      },
+      "use": {
+        "consume": {
+          "field": "quantity",
+          "amount": 1
+        },
+        "operations": [
+          {
+            "kind": "healHp",
+            "formula": "1d4+2"
+          }
+        ],
+        "manual": ""
+      },
+      "potion": {
+        "limitPerDayText": "Общий предел Зелий получателя; счётчик обновляется при получении эффекта и Отдыхе."
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.040",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci35j2mfyc4zm4z",
+  "effects": []
+}

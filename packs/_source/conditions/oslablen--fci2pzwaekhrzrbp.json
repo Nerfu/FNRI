@@ -1,0 +1,51 @@
+{
+  "name": "Ослаблен",
+  "type": "item",
+  "system": {
+    "description": "После применения Защит уменьшите на `2` итоговый физический урон от атак оружием ближнего боя, Безоружных атак и атак оружием категории **Луки**.\n\nЕсли источник не указывает отдельное завершение, состояние заканчивается по общему правилу завершения длительных эффектов.",
+    "notes": "Рулбук 7.0 · Состояния · справочная карточка и шаблон ActiveEffect",
+    "tags": "состояние",
+    "mechanics": {
+      "condition": {
+        "id": "weakened",
+        "rulesRef": "rulebook.md#состояния",
+        "application": "explicit",
+        "mechanicalAutomation": "pending",
+        "duration": "source-defined-or-manual"
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "f7Status00000006",
+      "name": "Ослаблен",
+      "img": "icons/svg/aura.svg",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-weakened"
+      ],
+      "description": "После применения Защит уменьшите на `2` итоговый физический урон от атак оружием ближнего боя, Безоружных атак и атак оружием категории **Луки**.\n\nЕсли источник не указывает отдельное завершение, состояние заканчивается по общему правилу завершения длительных эффектов.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "weakened",
+          "requiresManualResolution": true,
+          "rulesRef": "rulebook.md#состояния"
+        }
+      }
+    }
+  ],
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.condition.weakened",
+      "source": "Fast NRI 7.0 rulebook.md / Состояния"
+    }
+  },
+  "_id": "fci2pzwaekhrzrbp"
+}

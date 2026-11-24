@@ -1,0 +1,29 @@
+{
+  "name": "Драконьи крылья",
+  "type": "ability",
+  "_id": "fnric1e7612dcb93",
+  "system": {
+    "description": "При Прыжке с места или с разбега можете перепрыгнуть на 2 клетки больше обычного. Ваш третий, верхний порог КЗ увеличен на 2.",
+    "category": "Свойство Драконообразного",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "draconic"
+        ]
+      },
+      "characterContributions": {
+        "ac": {
+          "great": 2
+        }
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.drakoni-krylia",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Драконьи крылья"
+    }
+  },
+  "effects": []
+}

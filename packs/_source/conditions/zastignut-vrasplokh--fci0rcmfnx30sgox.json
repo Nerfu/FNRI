@@ -1,0 +1,51 @@
+{
+  "name": "Застигнут врасплох",
+  "type": "item",
+  "system": {
+    "description": "Существо получает `−2` ко всем трём порогам КЗ и ко всем защитным характеристикам: Внимательности, Рефлексу, Стойкости и Воле. Несколько причин состояния не складываются.\n\nШтраф к защитным характеристикам применяется везде, где используется их текущее значение, включая Сложность направленных проверок и проверки Защитных действий, которые добавляют соответствующую характеристику.",
+    "notes": "Рулбук 7.0 · Состояния · справочная карточка и шаблон ActiveEffect",
+    "tags": "состояние",
+    "mechanics": {
+      "condition": {
+        "id": "offguard",
+        "rulesRef": "rulebook.md#состояния",
+        "application": "explicit",
+        "mechanicalAutomation": "pending",
+        "duration": "source-defined-or-manual"
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "f7Status00000004",
+      "name": "Застигнут врасплох",
+      "img": "icons/svg/aura.svg",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-offguard"
+      ],
+      "description": "Существо получает `−2` ко всем трём порогам КЗ и ко всем защитным характеристикам: Внимательности, Рефлексу, Стойкости и Воле. Несколько причин состояния не складываются.\n\nШтраф к защитным характеристикам применяется везде, где используется их текущее значение, включая Сложность направленных проверок и проверки Защитных действий, которые добавляют соответствующую характеристику.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "offguard",
+          "requiresManualResolution": true,
+          "rulesRef": "rulebook.md#состояния"
+        }
+      }
+    }
+  ],
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.condition.offguard",
+      "source": "Fast NRI 7.0 rulebook.md / Состояния"
+    }
+  },
+  "_id": "fci0rcmfnx30sgox"
+}

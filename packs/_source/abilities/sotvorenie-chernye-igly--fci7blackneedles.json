@@ -1,0 +1,96 @@
+{
+  "name": "Сотворение: Чёрные иглы",
+  "type": "ability",
+  "_id": "fci7blackneedles",
+  "system": {
+    "description": "Сотворение: Чёрные иглы — 1 уровень. Инвокация двумя руками; две свободные руки. Стоимость: 3 Магические силы. Область действия — линия длиной 8 клеток от источника. Проверка 1d20 + Куб боя против КЗ каждого существа. Один общий набор 2d6 физического урона. Большой успех: оба куба и Кровотечение 1d6. Успех: удаляется наименьший куб. Частичный успех: удаляется наибольший куб. Провал: урон 0. Клетки области и Уворот разрешаются участниками.",
+    "tags": "Заклинание, Сотворение, Атака, Область действия",
+    "category": "Заклинание Колдуна",
+    "cost": "Инвокация: 3 Магические силы",
+    "effect": "Физический 2d6; Большой успех — Кровотечение 1d6.",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "two-hands",
+          "label": "Инвокация двумя руками",
+          "type": "attack",
+          "attack": {
+            "kind": "magic",
+            "targetDefense": "ac",
+            "attackKind": "ranged",
+            "damageType": "физический",
+            "properties": "Заклинание, Сотворение, Атака, Область действия",
+            "damageProfile": {
+              "failure": "0",
+              "partial": "1d6",
+              "success": "1d6",
+              "great": "2d6"
+            },
+            "outcomes": [
+              {
+                "kind": "periodicDamage",
+                "minEffectDegree": "great",
+                "formula": "1d6",
+                "periodicName": "Кровотечение",
+                "traits": [
+                  "Физический",
+                  "Кровотечение"
+                ]
+              }
+            ],
+            "areaDamageProfile": {
+              "failure": {
+                "remove": [
+                  "all"
+                ]
+              },
+              "partial": {
+                "remove": [
+                  "highest"
+                ]
+              },
+              "success": {
+                "remove": [
+                  "lowest"
+                ]
+              },
+              "great": {
+                "remove": []
+              }
+            }
+          },
+          "accounting": {
+            "resourceCosts": [
+              {
+                "resourceName": "Магическая сила",
+                "amount": 3,
+                "kind": "class"
+              }
+            ]
+          }
+        }
+      ],
+      "attack": {
+        "outcomes": [
+          {
+            "kind": "periodicDamage",
+            "minEffectDegree": "great",
+            "formula": "1d6",
+            "periodicName": "Кровотечение",
+            "traits": [
+              "Физический",
+              "Кровотечение"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.warlock.black-needles",
+      "source": "Fast NRI 7.0 rulebook.md / Сотворение: Чёрные иглы"
+    }
+  },
+  "effects": []
+}

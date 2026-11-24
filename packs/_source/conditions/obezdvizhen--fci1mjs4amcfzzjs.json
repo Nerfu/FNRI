@@ -1,0 +1,51 @@
+{
+  "name": "Обездвижен",
+  "type": "item",
+  "system": {
+    "description": "Существо не может совершать действия со свойством **Движение**. Это не запрещает Телепортацию: действие Телепортации можно совершить, если выполнены все остальные его требования. Действия без свойства Движение остаются доступными.\n\nЕсли источник не указывает отдельное завершение, состояние заканчивается по общему правилу завершения длительных эффектов.",
+    "notes": "Рулбук 7.0 · Состояния · справочная карточка и шаблон ActiveEffect",
+    "tags": "состояние",
+    "mechanics": {
+      "condition": {
+        "id": "immobilized",
+        "rulesRef": "rulebook.md#состояния",
+        "application": "explicit",
+        "mechanicalAutomation": "pending",
+        "duration": "source-defined-or-manual"
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "f7Status00000003",
+      "name": "Обездвижен",
+      "img": "icons/svg/aura.svg",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-immobilized"
+      ],
+      "description": "Существо не может совершать действия со свойством **Движение**. Это не запрещает Телепортацию: действие Телепортации можно совершить, если выполнены все остальные его требования. Действия без свойства Движение остаются доступными.\n\nЕсли источник не указывает отдельное завершение, состояние заканчивается по общему правилу завершения длительных эффектов.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "immobilized",
+          "requiresManualResolution": true,
+          "rulesRef": "rulebook.md#состояния"
+        }
+      }
+    }
+  ],
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.condition.immobilized",
+      "source": "Fast NRI 7.0 rulebook.md / Состояния"
+    }
+  },
+  "_id": "fci1mjs4amcfzzjs"
+}

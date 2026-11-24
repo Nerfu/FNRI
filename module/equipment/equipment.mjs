@@ -107,3 +107,10 @@ export function hasFreeSecondHand(system, slot) {
   const e = system?.equipment ?? {};
   return slot === 'leftHand' ? !e.rightHand : slot === 'rightHand' ? !e.leftHand : false;
 }
+
+/** Advisory only: a 1+ weapon needs its other hand free for an ordinary attack.
+ * The sheet must show the warning, not suppress an otherwise valid roll. */
+export function needsSecondHandWarning(system, item, slot = itemSlot(item?.id, system)) {
+  return itemGrip(item) === '1+' && item?.type === 'weapon' &&
+    slot?.kind === 'hand' && !hasFreeSecondHand(system, slot.positions[0]);
+}

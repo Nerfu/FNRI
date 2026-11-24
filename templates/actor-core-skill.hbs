@@ -1,0 +1,22 @@
+ <div class="fnri-entry fnri-skill-row fnri-core-skill-row" data-fnri-skill-entry data-fnri-dice-assigned="{{#if this.hasDice}}true{{else}}false{{/if}}">
+   <span class="fnri-core-skill-name">
+   {{#if this.namedActions}}
+     <button type="button" class="fnri-skill-actions-toggle" data-action="toggleSkillActions" data-id="{{this.id}}" title="{{this.description}}" aria-expanded="{{#if this.actionsExpanded}}true{{else}}false{{/if}}">{{this.name}}</button>
+   {{else}}<span title="{{this.description}}">{{this.name}}</span>{{/if}}
+   </span>
+   {{#if @root.pcSkillView}}<strong>{{#if this.dice}}{{this.dice}}{{else}}—{{/if}}</strong><span>{{this.effectiveModifier}}</span>{{else}}
+   <label>{{localize "FASTNRI.Fields.dice"}}
+     <select data-fnri-dice-picker="skill" data-row-id="{{this.id}}" {{#unless @root.editable}}disabled{{/unless}}>
+     {{#each this.skillDiceOptions}}<option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>{{/each}}
+     </select>
+     <input type="text" class="fnri-custom-dice" data-fnri-custom-dice data-row-collection="skills" data-row-id="{{this.id}}" data-row-field="dice" value="{{this.dice}}" placeholder="2d6 + 1d8" aria-label="{{localize 'FASTNRI.Fields.customDice'}}" {{#unless this.hasCustomDice}}hidden{{/unless}} {{#unless @root.editable}}disabled{{/unless}}>
+   </label>
+   <label>{{localize "FASTNRI.Fields.checkModifier"}}<input class="fnri-number" type="text" inputmode="decimal" data-row-collection="skills" data-row-id="{{this.id}}" data-row-field="modifier" value="{{this.modifier}}" {{#unless @root.editable}}disabled{{/unless}}>{{#if this.hasEffectiveModifier}}<small class="fnri-effective">{{localize "FASTNRI.Fields.effective"}}: {{this.effectiveModifier}}</small>{{/if}}</label>
+   {{/if}}
+   <button type="button" data-action="rollSkill" data-id="{{this.id}}" title="{{localize 'FASTNRI.Actions.rollSkill'}}"><i class="fa-solid fa-dice-d20"></i></button>
+   {{#if this.namedActions}}
+     <ul class="fnri-sheet-actions fnri-skill-actions" data-fnri-skill-actions {{#unless this.actionsExpanded}}hidden{{/unless}}>
+       {{#each this.namedActions}}{{> fnri-actor-standard-action}}{{/each}}
+     </ul>
+   {{/if}}
+ </div>

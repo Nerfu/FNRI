@@ -1,0 +1,56 @@
+{
+  "name": "Праща",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Пращи.\nВладение по списку: Друид, Разбойник.\nРуки: `1+`. Дистанция: 5.\nСвойства: —.\nУрон по степеням: `1d4` / `1d4+1d6` / `1d4+1d6+3`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "`1+`",
+    "hands": 1,
+    "reach": 1,
+    "range": 5,
+    "distance": "5",
+    "level": 1,
+    "category": "Пращи",
+    "proficiencyClasses": "Друид, Разбойник",
+    "proficiencyMode": "auto",
+    "attackKind": "ranged",
+    "properties": "",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d4",
+      "B": "1d6",
+      "C": 3
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 1
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "5",
+        "proficiencyList": [
+          "Друид",
+          "Разбойник"
+        ],
+        "properties": [],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {},
+      "attack": {
+        "traitOptions": []
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.019",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci1xuonro7f9ppy",
+  "effects": []
+}

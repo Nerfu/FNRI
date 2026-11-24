@@ -1,3 +1,5 @@
+import {installTemplateMock} from './foundry-test-helpers.js';
+import {sheetOptions} from './foundry-test-helpers.js';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {BASE_SELF_DEFENSE} from '../module/data/core-actions.mjs';
@@ -17,6 +19,7 @@ globalThis.foundry={applications:{api:{
   HandlebarsApplicationMixin(Parent){return class extends Parent{};},
   DialogV2:{prompt:async opts=>{shown.push(opts);return 'ok';}}
 },sheets:{ActorSheetV2:SheetMock,ItemSheetV2:SheetMock}}};
+installTemplateMock();
 const {FastNRICharacterSheet,FastNRINPCSheet}=await import('../module/sheets/sheets.mjs');
 assert.equal(BASE_SELF_DEFENSE.id,'builtin:selfDefense');
 assert.equal(BASE_SELF_DEFENSE.nameKey,'Damage.selfDefense');
@@ -38,7 +41,7 @@ for (const [type,Sheet] of [['character',FastNRICharacterSheet],['npc',FastNRINP
   assert.equal(ctx.builtinSelfDefense.id,'builtin:selfDefense');
   assert.equal(ctx.builtinSelfDefense.name,'Самозащита');
   assert.equal(ctx.abilityItems.length,0,'built-in ability is not an owned Item');
-  const action=Sheet.DEFAULT_OPTIONS.actions.viewBuiltinSelfDefense;
+  const action=sheetOptions(Sheet).actions.viewBuiltinSelfDefense;
   assert.equal(typeof action,'function');
   const button={closest:sel=>sel==='[data-fnri-builtin-action]'?{dataset:{fnriBuiltinAction:BASE_SELF_DEFENSE.id}}:null};
   await action.call(sheet,null,button);
@@ -56,10 +59,14 @@ for (const [type,Sheet] of [['character',FastNRICharacterSheet],['npc',FastNRINP
   await action.call(sheet,null,{closest:()=>null});
   assert.equal(shown.length,type==='character'?1:2,'only the built-in action may open this dialog');
   const html=readFileSync(new URL(`../templates/${type==='npc'?'npc':'character'}.hbs`,import.meta.url),'utf8');
-  const row=html.split('{{#each abilityItems}}')[0].split('<li class="fnri-item-row fnri-builtin-action"')[1];
-  assert.ok(row,'built-in ability must be above the owned-item list');
-  assert.match(row,/data-action="viewBuiltinSelfDefense"/);
-  assert.doesNotMatch(row,/data-action="deleteItem"|data-action="rollAbility"|data-item-id=/);
+  assert.ok(html.includes('{{> fnri-actor-actions}}'));
+  const section=ctx.actionSections.flatMap(s=>s.cards).find(c=>c.builtinId===BASE_SELF_DEFENSE.id);
+  assert.ok(section,'built-in ability must be in actions');
+  assert.equal(section.context,true);
+  const row=readFileSync(new URL('../templates/actor-standard-action.hbs',import.meta.url),'utf8');
+  assert.match(row,/data-action="openInterventionSource"/);
+  assert.match(row,/data-action="openSheetAction"/);
+  assert.doesNotMatch(row,/data-action="deleteItem"|data-item-id=/);
   assert.match(html,/\{\{#each abilityItems\}\}/,'owned abilities are still displayed');
 }
 for(const [code,locale] of [['ru',ru],['en',en]]){

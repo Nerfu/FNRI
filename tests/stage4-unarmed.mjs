@@ -1,4 +1,6 @@
+import {acceptPreroll} from './foundry-test-helpers.js';
 import assert from 'node:assert/strict';
+import {readFileSync,readdirSync} from 'node:fs';
 import { BASE_UNARMED_ATTACK } from '../module/data/core-actions.mjs';
 import { resolveUnarmedAction,unarmedExpression,sendUnarmedAttack } from '../module/rolls/unarmed.mjs';
 import { damageFormulaForDegree } from '../module/weapon/weapon-attack.mjs';
@@ -30,6 +32,7 @@ class RollMock{
 globalThis.Roll=RollMock;
 globalThis.ChatMessage={getSpeaker({actor}={}){return actor?{alias:'Герой'}:{};}};
 globalThis.game={user:{targets:new Set()},settings:{get(){return 'public'}},i18n:{localize:x=>x}};
+globalThis.foundry={applications:{api:{DialogV2:{wait:acceptPreroll}}}};
 const attack=await sendUnarmedAttack(actor);
 assert.equal(attack.flags['fast-nri-v14'].weaponAttack.sourceKind,'unarmed');
 assert.equal(attack.flags['fast-nri-v14'].weaponAttack.profile.C,3);
@@ -43,3 +46,20 @@ const vanilla={...actor,items:{contents:[]}};
 const base=await sendUnarmedAttack(vanilla);
 assert.equal(base.flags['fast-nri-v14'].weaponAttack.profile.C,1);
 console.log('PASS: always-available unarmed, card-based override, NPC modifier, target highlight, no target');
+
+// Approved dragonborn warning: use actual compendium cards, not synthetic profiles.
+const loadCard=stem=>{const dir=new URL('../packs/_source/abilities/',import.meta.url);const file=readdirSync(dir).find(n=>n.startsWith(stem+'--'));const item=JSON.parse(readFileSync(new URL(file,dir),'utf8'));return {...item,id:item._id,uuid:`Actor.X.Item.${item._id}`};};
+const claws=loadCard('kogti-drakonoobraznogo'),tail=loadCard('krepkij-khvost');
+actor.items.contents=[claws,tail];actor.items.get=id=>actor.items.contents.find(i=>i.id===id);
+const clawChoice=`item:${claws.id}`,tailChoice=`item:${tail.id}`;
+const warnings=[];globalThis.ui={notifications:{warn:text=>warnings.push(text)}};
+for(const equipment of [{leftHand:'',rightHand:''},{leftHand:'sword',rightHand:''},{leftHand:'',rightHand:'shield'},{leftHand:'sword',rightHand:'shield'},{leftHand:'staff',rightHand:'staff'}]){
+ actor.system.equipment=equipment;const occupied=!!equipment.leftHand&&!!equipment.rightHand;
+ assert.equal(resolveUnarmedAction(actor,clawChoice).freeHandWarning,occupied);
+ assert.ok(!resolveUnarmedAction(actor,tailChoice).freeHandWarning);assert.ok(!resolveUnarmedAction(actor,'base').freeHandWarning);
+ const before=warnings.length;const result=await sendUnarmedAttack(actor,{choice:clawChoice,skipPreroll:true});
+ assert.equal(warnings.length,before+Number(occupied));assert.deepEqual(result.flags['fast-nri-v14'].weaponAttack.profile,{A:'1d6',B:'1d8',C:6});
+}
+const before=warnings.length;await sendUnarmedAttack(actor,{choice:tailChoice,skipPreroll:true});await sendUnarmedAttack(actor,{choice:'base',skipPreroll:true});assert.equal(warnings.length,before);
+assert.ok(warnings.every(w=>w==='FASTNRI.Equipment.freeHandRequired'));
+console.log('PASS: canonical Claws advisory for two occupied hands, including two-handed weapon; attacks remain available, tail and base unchanged');

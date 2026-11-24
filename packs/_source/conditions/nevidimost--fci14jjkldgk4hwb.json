@@ -1,0 +1,48 @@
+{
+  "name": "Невидимость",
+  "type": "item",
+  "system": {
+    "description": "По известной или выбранной клетке Невидимой цели направленная атака получает Штраф помехи −10.",
+    "notes": "Рулбук 7.0 · Штрафы помехи / Освещённость и зрение",
+    "tags": "условие атаки",
+    "mechanics": {
+      "condition": {
+        "id": "invisible",
+        "application": "explicit",
+        "duration": "manual"
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "f7Hindrance00005",
+      "name": "Невидимость",
+      "img": "icons/svg/aura.svg",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-invisible"
+      ],
+      "description": "По известной или выбранной клетке Невидимой цели направленная атака получает Штраф помехи −10.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "invisible",
+          "rulesRef": "rulebook.md#штрафы-помехи"
+        }
+      }
+    }
+  ],
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.hindrance.invisible",
+      "source": "Fast NRI 7.0 rulebook.md / Штрафы помехи"
+    }
+  },
+  "_id": "fci14jjkldgk4hwb"
+}

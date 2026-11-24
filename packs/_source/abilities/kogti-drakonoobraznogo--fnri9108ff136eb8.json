@@ -1,0 +1,39 @@
+{
+  "name": "Когти",
+  "type": "ability",
+  "_id": "fnri9108ff136eb8",
+  "system": {
+    "description": "Вы получаете «Когти», безоружную ближнюю атаку со свойством «Смертельное». Требуется хотя бы одна свободная рука. Физический урон от Провала до Большого успеха: 0 / 1d6 / 1d8+1d6 / 1d6+1d8+6.",
+    "category": "Свойство Драконообразного",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "draconic"
+        ]
+      },
+      "unarmedAttack": {
+        "mode": "option",
+        "name": "Когти",
+        "damageType": "физический",
+        "damageProfile": {
+          "A": "1d6",
+          "B": "1d8",
+          "C": 6
+        },
+        "properties": "Воздействие, Атака, Ближняя атака, Смертельное",
+        "requiresFreeHand": true
+      },
+      "attack": {
+        "greatSelfDefenseModifier": -10
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.kogti-drakonoobraznogo",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Когти"
+    }
+  },
+  "effects": []
+}

@@ -25,10 +25,11 @@ class N {constructor(tag){this.tag=tag;this.children=[];this.dataset={};this.tex
   append(...args){this.children.push(...args);}querySelector(s){return s==='.message-content'?this:null;}
   addEventListener(name,fn){this.events??={};this.events[name]=fn;}}
 globalThis.document={createElement:tag=>new N(tag)};
-globalThis.game={user:{id:'gm',isGM:true},i18n:{localize:key=>key.split('.').at(-1)}};
-function msgFor(card){return {flags:{[ID]:{weaponDamage:structuredClone(card)}},isAuthor:true,
+const messages=new Map();let messageCounter=0;
+globalThis.game={user:{id:'gm',isGM:true},messages:{get:id=>messages.get(id),get contents(){return [...messages.values()]}},i18n:{localize:key=>key.split('.').at(-1)}};
+function msgFor(card){const msg={id:`source${++messageCounter}`,flags:{[ID]:{weaponDamage:structuredClone(card)}},isAuthor:true,
   getFlag(system,key){return this.flags[system]?.[key];},canUserModify(){return true;},
-  async update(obj){for(const [key,val] of Object.entries(obj))this.flags[ID][key.split('.').at(-1)]=val;}};}
+  async update(obj){for(const [key,val] of Object.entries(obj))this.flags[ID][key.split('.').at(-1)]=val;}};messages.set(msg.id,msg);return msg;}
 function layout(message){const root=new N('div');renderDamageCard(message,root);return root.children[0];}
 const ordinary=layout(msgFor(source));
 assert.equal(ordinary.children[2].children[0].textContent,'total: 22');

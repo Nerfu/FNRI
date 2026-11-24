@@ -1,0 +1,26 @@
+{
+  "name": "Щит дварфа",
+  "type": "ability",
+  "_id": "fnri0f309bfa0701",
+  "system": {
+    "description": "Пока вы удерживаете Щит, бонус КЗ, который он даёт вам благодаря свойству **Защитное**, увеличен на `1`.",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "dwarf"
+        ]
+      },
+      "characterContributions": {
+        "heldShieldAc": 1
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.shchit-dvarfa",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Щит дварфа"
+    }
+  },
+  "effects": []
+}

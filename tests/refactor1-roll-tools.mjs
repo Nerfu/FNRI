@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import {applyRollCorrection,addDamageToMessage,nativeRollView,rollSnapshot,rollChoices,chooseRollView,registerRollEditor,executeRollEditorAction,getEditorParts,renderRollEditorContent} from '../module/damage/roll-editor.mjs';
+import {registerFreeHp,selectableDice,calculateSelectedDice,readyHp} from '../module/damage/free-hp.mjs';
+const ID='fast-nri-v14',messages=new Map(),hooks=[];
+globalThis.game={user:{id:'gm',isGM:true},messages,i18n:{localize:k=>k}};
+globalThis.Hooks={on:(name,callback)=>{if(name==='getChatMessageContextOptions')hooks.push(callback);}};
+function doc(id,flags={},rolls=[]){const message={id,rolls,flags:{[ID]:flags},getFlag(s,k){return this.flags[s]?.[k];},canUserModify(){return true;},async update(patch){for(const [k,v] of Object.entries(patch))this.flags[ID][k.split('.').at(-1)]=structuredClone(v);}};messages.set(id,message);return message;}
+const die=(faces,...values)=>({faces,results:values.map(result=>({result,active:true}))});
+const d1=die(6,2,5),d2=die(8,4),native=doc('multi',{},[{formula:'2d6 + 2',total:9,dice:[d1],terms:[d1,{operator:'+'},{number:2}]},{formula:'1d8',total:4,dice:[d2],terms:[d2]}]);
+const initial=structuredClone(native.rolls);
+assert.deepEqual(rollChoices(native).map(c=>c.id),['0','1']);
+globalThis.foundry={applications:{api:{DialogV2:{input:async()=>({roll:'1'})}}}};
+const second=await chooseRollView(native);
+await applyRollCorrection(second,{partId:'die-1',action:'set',value:7});
+assert.equal(native.getFlag(ID,'rollEditNative1').currentTotal,7);
+assert.equal(native.getFlag(ID,'rollEdit'),undefined);
+await applyRollCorrection(nativeRollView(native,0),{partId:'die-2',action:'exclude'});
+assert.equal(native.getFlag(ID,'rollEdit').currentTotal,4);
+await applyRollCorrection(nativeRollView(native,0),{partId:'die-2',action:'restore'});
+assert.equal(native.getFlag(ID,'rollEdit').currentTotal,9);
+await addDamageToMessage(second,{kind:'fixed',value:3});
+assert.equal(native.getFlag(ID,'rollEditNative1').currentTotal,10);
+globalThis.Roll=class{constructor(formula){this.formula=formula;} async evaluate(){this.total=6;this.dice=[die(6,6)];return this;}};
+await addDamageToMessage(second,{kind:'die',faces:6,count:1,damageType:'physical',traits:['fire']});
+assert.equal(native.getFlag(ID,'rollEditNative1').currentTotal,16);
+assert.equal(getEditorParts(second).at(-1).damageType,'physical');
+assert.equal(getEditorParts(second).at(-1).traits[0],'fire');
+await executeRollEditorAction(second,{partId:'die-1',action:'reroll'});
+assert.equal(native.getFlag(ID,'rollEditNative1').currentTotal,15);
+assert.deepEqual(native.rolls,initial,'all native Roll documents remain unchanged');
+// Nonlinear terms may be corrected manually, never by an invented linear delta.
+const complexDie=die(6,4);const complex=doc('complex',{},[{formula:'2 * 1d6',total:8,dice:[complexDie],terms:[{number:2},{operator:'*'},complexDie]}]);
+assert.equal(rollSnapshot(complex).manualTotalOnly,true);
+await applyRollCorrection(complex,{partId:'die-1',action:'set',value:5});
+assert.equal(complex.getFlag(ID,'rollEdit').currentTotal,8);
+await applyRollCorrection(complex,{partId:'offset',action:'set',value:2});
+assert.equal(complex.getFlag(ID,'rollEdit').currentTotal,10);
+await addDamageToMessage(complex,{kind:'fixed',value:3});
+assert.equal(complex.getFlag(ID,'rollEdit').currentTotal,13,'explicit new component adds to manual total');
+assert.match(renderRollEditorContent(complex),/manualFormulaCorrection/);
+assert.equal(calculateSelectedDice(complex,['die-1'],{}, {kind:'heal'}).complete,false);
+// Signed additive terms retain their contribution to the roll.
+const neg=die(6,3);const negative=doc('negative',{},[{total:7,dice:[neg],terms:[{number:10},{operator:'-'},neg]}]);
+await applyRollCorrection(negative,{partId:'die-1',action:'exclude'});
+assert.equal(negative.getFlag(ID,'rollEdit').currentTotal,10);
+// Area root: only its shared damage dice change, not target data or native rolls.
+const targetRows=[{uuid:'Scene.s.Token.t1',initialDegree:'success'},{uuid:'Scene.s.Token.t2',initialDegree:'partial'}];
+const area=doc('area',{weaponDamage:{version:2,revision:0,parts:[{id:'a',kind:'die',faces:6,value:2,original:2,damageType:'physical'}],areaAttack:{version:1,targets:targetRows},adjustments:{},history:[]}},[{formula:'1d20',total:12,dice:[die(20,12)]}]);
+assert.deepEqual(rollChoices(area).map(c=>c.id),['damage','0']);
+await applyRollCorrection(area,{partId:'a',action:'set',value:5});
+assert.deepEqual(area.getFlag(ID,'weaponDamage').areaAttack.targets,targetRows);
+assert.equal(area.rolls[0].total,12);
+assert.equal(readyHp(area),null,'not the area pool mistaken for a target result');
+// Independent context-menu permissions; no GM-only editor called for a player.
+registerRollEditor();registerFreeHp();const opts=[];for(const hook of hooks)hook({},opts);
+assert.equal(opts.length,3);assert.equal(new Set(opts.map(o=>o.label)).size,3);
+const el={dataset:{messageId:native.id},closest(){return this;}};
+assert.deepEqual(opts.map(o=>o.visible(el)),[true,true,true]);
+game.user.isGM=false;
+assert.deepEqual(opts.map(o=>o.visible(el)),[false,true,true]);
+await assert.rejects(applyRollCorrection(native,{partId:'die-1',action:'set',value:4}),/Only GM/);
+await assert.rejects(addDamageToMessage(native,{kind:'fixed',value:1}),/Only GM/);
+assert.equal(selectableDice(second).length,2);
+native.isContentVisible=false;assert.deepEqual(opts.map(o=>o.visible(el)),[false,false,false]);
+assert.deepEqual(selectableDice(native),[]);
+assert.throws(()=>calculateSelectedDice(native,['die-1'],{},{}),/Unreadable/);
+console.log('PASS refactor 1: native/multiple Rolls, signed and nonlinear formulas, independent area data, original Roll, separate menus and GM-only');

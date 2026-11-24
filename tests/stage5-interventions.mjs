@@ -1,3 +1,4 @@
+import {acceptPreroll} from './foundry-test-helpers.js';
 import assert from 'node:assert/strict';
 import {selfDefenseFormula,initiateIntervention,availableInterventions} from '../module/damage/interventions.mjs';
 const actor={name:'Страж',uuid:'Actor.x',type:'character',system:{defenses:{fortitude:3,reflex:5,will:6},combatDie:'d8'},
@@ -8,7 +9,7 @@ assert.equal(selfDefenseFormula(actor,'ranged').expression,'1d20 + 5 + 1d8');
 assert.equal(selfDefenseFormula({type:'npc',system:{defenses:{fortitude:2},attackModifier:4}},'melee').expression,'1d20 + 2 + 4');
 actor.items=[{id:'a',uuid:'Actor.x.Item.a',name:'Защита союзника',type:'ability',
   system:{trigger:'Вмешательство',rollFormula:'1d20+2'}}];
-globalThis.game={user:{id:'gm',isGM:true},i18n:{localize:k=>k}};
+globalThis.game={user:{id:'gm',isGM:true,getFlag(){return false;},async setFlag(){}},i18n:{localize:k=>k}};
 assert.equal(availableInterventions(actor).length,2);
 const ID='fast-nri-v14';let seq=0;
 const messages=[];
@@ -29,12 +30,29 @@ class RollMock {
 }
 globalThis.Roll=RollMock;
 globalThis.canvas={tokens:{controlled:[token]}};
-globalThis.game={user:{id:'gm',isGM:true},i18n:{localize:k=>k}};
+globalThis.game={user:{id:'gm',isGM:true,getFlag(){return false;},async setFlag(){}},i18n:{localize:k=>k}};
 let warning=null;globalThis.ui={notifications:{warn(s){warning=s;},error(s){throw Error(s)}}};
 globalThis.ChatMessage={getSpeaker(){return {actor:'x'}},create:async data=>msg(data)};
-globalThis.foundry={applications:{api:{DialogV2:{input:async ({content})=>
-  content.includes('name="choice"')?{choice:String(choice)}:
-  content.includes('name="defense"')?{defense:'will'}:{part:'C'},confirm:async()=>true}}}};
+// Emulate the real dynamic choice menu, including its render callback.
+globalThis.Option=class {constructor(text,value){this.text=text;this.value=value;}};
+game.messages={contents:messages,get:id=>messages.find(m=>m.id===id)};
+game.settings={get:()=> 'public'};
+game.i18n.format=k=>k;
+RollMock.prototype.toMessage=async function(data){return msg({...data,rolls:[this.toJSON()]});};
+globalThis.foundry={applications:{api:{DialogV2:{wait:acceptPreroll,input:async ({content,render})=>{
+  if(content.includes('name="choice"')){
+    assert.doesNotMatch(content,/<select/);
+    assert.ok(content.indexOf('data-fnri-intervention-show-all') < content.indexOf('data-fnri-button-choices'),'show-all switch precedes choices');
+    const input={value:''};
+    const list={ownerDocument:{createElement(tag){return {tag,setAttribute(k,v){this[k]=v;}};}},replaceChildren(...buttons){this.buttons=buttons;}};
+    const toggle={checked:false},label={};
+    render(null,{element:{querySelector(q){return q==='input[name="choice"]'?input:q==='[data-fnri-button-choices]'?list:q==='[data-fnri-intervention-show-all]'?toggle:label;}}});
+    list.buttons[choice]?.onclick?.();
+    return {choice:input.value};
+  }
+  if(content.includes('name="defense"'))return {defense:'will'};
+  return {part:'C'};
+},confirm:async()=>true}}}};
 const newCard=await initiateIntervention(root);
 const result=newCard.getFlag(ID,'weaponDamage');
 assert.equal(result.previousMessageId,root.id);
@@ -45,16 +63,17 @@ assert.equal(result.effectDegree,'success');
 assert.equal(result.intervention.initiatorActorUuid,'Actor.x');
 assert.equal(result.history.length,1);
 natural=20;total=30;
-const cancel=await initiateIntervention(root);
+const fresh=msg({flags:{[ID]:{weaponDamage:structuredClone(root.getFlag(ID,'weaponDamage'))}}});
+const cancel=await initiateIntervention(fresh);
 assert.equal(cancel.getFlag(ID,'weaponDamage').cancelled,true);
 assert.equal(cancel.getFlag(ID,'weaponDamage').attackTotal,18);
 choice=1;natural=8;total=9;
-assert.equal(await initiateIntervention(newCard),null,'intervention cannot create a further intervention');
-assert.equal(warning,'FASTNRI.Damage.interventionBlocked');
-newCard.flags[ID].interventionOverride=false; // GM reopened intervention window
+// A second intervention must remain executable independently; the linked card is not mutated.
+choice=0;
 const unautomated=await initiateIntervention(newCard);
-assert.equal(unautomated.getFlag(ID,'weaponDamage').effectDegree,'success','unknown intervention is not guessed');
-assert.equal(unautomated.getFlag(ID,'weaponDamage').previousMessageId,newCard.id);
+assert.ok(unautomated,'standalone intervention remains available');
+assert.equal(newCard.getFlag(ID,'weaponDamage').effectDegree,'success');
+assert.equal((unautomated.message??unautomated).getFlag(ID,'weaponDamage'),undefined);
 // Unknown incoming attack kind opens defense-stat choice instead of silently using Fortitude.
 const unknown=msg({flags:{[ID]:{weaponDamage:{...root.getFlag(ID,'weaponDamage'),attackKind:null}}}});
 choice=0;natural=10;total=17;

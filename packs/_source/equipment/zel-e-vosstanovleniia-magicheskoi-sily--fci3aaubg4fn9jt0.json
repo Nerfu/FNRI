@@ -1,0 +1,52 @@
+{
+  "name": "Зелье восстановления магической силы",
+  "type": "gear",
+  "system": {
+    "description": "> **Свойства:** Использование предмета, Манипуляция, Зелье.  \n> **Цель:** вы или соседний союзник.\n\nВолшебник восстанавливает `2` Волшебной силы, а Колдун — `2` Магической силы.\n\nНа другие классы Зелье не действует. Ресурс нельзя восстановить выше обычного максимума.",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "зелье, расходник",
+    "category": "Зелье",
+    "quantity": 1,
+    "mechanics": {
+      "equipment": {
+        "slot": "other"
+      },
+      "use": {
+        "consume": {
+          "field": "quantity",
+          "amount": 1
+        },
+        "operations": [
+          {
+            "kind": "restoreResource",
+            "resourceName": "Волшебная сила",
+            "amount": 2,
+            "classes": [
+              "Волшебник"
+            ]
+          },
+          {
+            "kind": "restoreResource",
+            "resourceName": "Магическая сила",
+            "amount": 2,
+            "classes": [
+              "Колдун"
+            ]
+          }
+        ],
+        "manual": ""
+      },
+      "potion": {
+        "limitPerDayText": "Общий предел Зелий получателя; счётчик обновляется при получении эффекта и Отдыхе."
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.041",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci3aaubg4fn9jt0",
+  "effects": []
+}

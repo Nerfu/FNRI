@@ -1,0 +1,58 @@
+{
+  "name": "Эльфийский эрудит",
+  "type": "ability",
+  "_id": "fnri15755f8081c5",
+  "system": {
+    "description": "Получите три дополнительных Куба навыков d6. Каждый назначьте одному навыку из списка: Общество, Природа, Мистика, Религия или Аркана.",
+    "category": "Свойство Эльфа",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "elf"
+        ]
+      },
+      "skillDice": {
+        "grants": [
+          {
+            "size": 6,
+            "allowed": [
+              "society",
+              "nature",
+              "mysticism",
+              "religion",
+              "arcana"
+            ]
+          },
+          {
+            "size": 6,
+            "allowed": [
+              "society",
+              "nature",
+              "mysticism",
+              "religion",
+              "arcana"
+            ]
+          },
+          {
+            "size": 6,
+            "allowed": [
+              "society",
+              "nature",
+              "mysticism",
+              "religion",
+              "arcana"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.elfiiskii-erudit",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Эльфийский эрудит"
+    }
+  },
+  "effects": []
+}

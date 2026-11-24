@@ -1,4 +1,10 @@
+import {initialSkillAllocation,prepareSkillAllocation} from "./skill-allocation.mjs";
+import {prepareClassBaseStats} from "./classes.mjs";
+import {preparePermanentRacialStats} from "./character-contributions.mjs";
+import { prepareRoleDefenses } from "./roles.mjs";
 import { initialSkillEntries } from "./skills-catalog.mjs";
+import { prepareConditionDefenses } from "../effects/condition-calculations.mjs";
+import {projectionCaster} from "../projection/projection.mjs";
 /**
  * Fast NRI 7.0 — editable document data models.
  * Stage 2 adds unrestricted skill/specialization entries, resource lists,
@@ -25,7 +31,7 @@ function customSlotSchema() {
 }
 
 function resourceSchema() {
-  return new F.SchemaField({ name: text(), current: number(), max: number() });
+  return new F.SchemaField({ name: text(), current: number(), max: number(), kind: text() });
 }
 
 function actorSchema() {
@@ -33,6 +39,7 @@ function actorSchema() {
     notes: text(),
     description: text(),
     wealth: text(),
+    potionsUsed: new F.NumberField({required: false, integer: true, initial: 0, nullable: true}),
     level: integer(),
     race: text(),
     className: text(),
@@ -64,12 +71,34 @@ function actorSchema() {
 }
 
 export class CharacterModel extends T {
-  static defineSchema() { return actorSchema(); }
+  static defineSchema() { return {...actorSchema(), role:text(), potionsBaseMax:integer(), classTradition:text(), skillAllocation:new F.ObjectField({required:false,initial:initialSkillAllocation})}; }
+  prepareBaseData() {
+    super.prepareBaseData();
+    prepareClassBaseStats(this);
+    prepareSkillAllocation(this);
+  }
+  prepareDerivedData() {
+    super.prepareDerivedData();
+    preparePermanentRacialStats(this);
+    prepareRoleDefenses(this);
+    prepareConditionDefenses(this);
+  }
 }
 
 export class NPCModel extends T {
   static defineSchema() {
     return { ...actorSchema(), rank: text(), role: text(), weight: number(), attackModifier: number() };
+  }
+  prepareDerivedData() {
+    super.prepareDerivedData();
+    prepareConditionDefenses(this);
+    const caster=projectionCaster(this.parent);
+    const ac=caster?.system?.ac;
+    if(ac && [ac.partial,ac.success,ac.great].every(Number.isFinite)){
+      this.ac.partial=ac.partial;
+      this.ac.success=ac.success;
+      this.ac.great=ac.great;
+    }
   }
 }
 

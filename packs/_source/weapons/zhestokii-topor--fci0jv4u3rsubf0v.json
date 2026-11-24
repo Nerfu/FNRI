@@ -1,0 +1,120 @@
+{
+  "name": "Жестокий топор",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 2. Категория: Топоры.\nВладение по списку: Воин.\nРуки: 2. Дистанция: ближняя.\nСвойства: Травмирующее.\nУрон по степеням: `1d6` / `1d6+1d8` / `1d6+1d8+5`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "2",
+    "hands": 2,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 2,
+    "category": "Топоры",
+    "proficiencyClasses": "Воин",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Травмирующее",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d6",
+      "B": "1d8",
+      "C": 5
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 2
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Воин"
+        ],
+        "properties": [
+          "Травмирующее"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Травмирующее": "- **Успех:** цель Замедлена и Ослаблена.\n- **Большой успех:** дополнительно получает **Кровотечение `1d6`** со свойствами **Физический, Кровотечение**."
+      },
+      "attack": {
+        "outcomes": [
+          {
+            "kind": "condition",
+            "minEffectDegree": "success",
+            "conditions": [
+              "Замедлен",
+              "Ослаблен"
+            ],
+            "afterDamage": true
+          },
+          {
+            "kind": "periodicDamage",
+            "minEffectDegree": "great",
+            "formula": "1d6",
+            "traits": [
+              "Физический",
+              "Кровотечение"
+            ],
+            "afterDamage": true
+          }
+        ],
+        "traitOptions": [
+          {
+            "id": "wounding",
+            "label": "Травмирующее",
+            "summary": "Последствия по итоговой степени Эффекта; подсказка",
+            "defaultEnabled": true,
+            "effect": {
+              "outcomes": [
+                {
+                  "kind": "condition",
+                  "minEffectDegree": "success",
+                  "conditions": [
+                    "Замедлен",
+                    "Ослаблен"
+                  ],
+                  "effectRefs": [
+                    {
+                      "contentId": "fnri7.rulebook.condition.slowed",
+                      "effectId": "f7Status00000005"
+                    },
+                    {
+                      "contentId": "fnri7.rulebook.condition.weakened",
+                      "effectId": "f7Status00000006"
+                    }
+                  ],
+                  "afterDamage": true
+                },
+                {
+                  "kind": "periodicDamage",
+                  "minEffectDegree": "great",
+                  "formula": "1d6",
+                  "traits": [
+                    "Физический",
+                    "Кровотечение"
+                  ],
+                  "afterDamage": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.009",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci0jv4u3rsubf0v",
+  "effects": []
+}

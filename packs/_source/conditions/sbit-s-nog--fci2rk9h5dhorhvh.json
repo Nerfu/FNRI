@@ -1,0 +1,51 @@
+{
+  "name": "Сбит с ног",
+  "type": "item",
+  "system": {
+    "description": "Существо лежит, застигнуто врасплох, не создаёт угрозу, не входит в строй и считается пересечённой местностью для прохода через его клетку.\n\nСостояние прекращается действием [«Встать»](#встать).",
+    "notes": "Рулбук 7.0 · Состояния · справочная карточка и шаблон ActiveEffect",
+    "tags": "состояние",
+    "mechanics": {
+      "condition": {
+        "id": "prone",
+        "rulesRef": "rulebook.md#состояния",
+        "application": "explicit",
+        "mechanicalAutomation": "pending",
+        "duration": "source-defined-or-manual"
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "f7Status00000001",
+      "name": "Сбит с ног",
+      "img": "icons/svg/aura.svg",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-prone"
+      ],
+      "description": "Существо лежит, застигнуто врасплох, не создаёт угрозу, не входит в строй и считается пересечённой местностью для прохода через его клетку.\n\nСостояние прекращается действием [«Встать»](#встать).",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "prone",
+          "requiresManualResolution": true,
+          "rulesRef": "rulebook.md#состояния"
+        }
+      }
+    }
+  ],
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.condition.prone",
+      "source": "Fast NRI 7.0 rulebook.md / Состояния"
+    }
+  },
+  "_id": "fci2rk9h5dhorhvh"
+}

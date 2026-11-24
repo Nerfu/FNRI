@@ -1,0 +1,121 @@
+{
+  "name": "Одноручный топор",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Топоры.\nВладение по списку: Воин, Егерь.\nРуки: 1. Дистанция: ближняя.\nСвойства: Травмирующее.\nУрон по степеням: `1d6` / `1d6+1d6` / `1d6+1d6+3`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "1",
+    "hands": 1,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 1,
+    "category": "Топоры",
+    "proficiencyClasses": "Воин, Егерь",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Травмирующее",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d6",
+      "B": "1d6",
+      "C": 3
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 1
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Воин",
+          "Егерь"
+        ],
+        "properties": [
+          "Травмирующее"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Травмирующее": "- **Успех:** цель Замедлена и Ослаблена.\n- **Большой успех:** дополнительно получает **Кровотечение `1d6`** со свойствами **Физический, Кровотечение**."
+      },
+      "attack": {
+        "outcomes": [
+          {
+            "kind": "condition",
+            "minEffectDegree": "success",
+            "conditions": [
+              "Замедлен",
+              "Ослаблен"
+            ],
+            "afterDamage": true
+          },
+          {
+            "kind": "periodicDamage",
+            "minEffectDegree": "great",
+            "formula": "1d6",
+            "traits": [
+              "Физический",
+              "Кровотечение"
+            ],
+            "afterDamage": true
+          }
+        ],
+        "traitOptions": [
+          {
+            "id": "wounding",
+            "label": "Травмирующее",
+            "summary": "Последствия по итоговой степени Эффекта; подсказка",
+            "defaultEnabled": true,
+            "effect": {
+              "outcomes": [
+                {
+                  "kind": "condition",
+                  "minEffectDegree": "success",
+                  "conditions": [
+                    "Замедлен",
+                    "Ослаблен"
+                  ],
+                  "effectRefs": [
+                    {
+                      "contentId": "fnri7.rulebook.condition.slowed",
+                      "effectId": "f7Status00000005"
+                    },
+                    {
+                      "contentId": "fnri7.rulebook.condition.weakened",
+                      "effectId": "f7Status00000006"
+                    }
+                  ],
+                  "afterDamage": true
+                },
+                {
+                  "kind": "periodicDamage",
+                  "minEffectDegree": "great",
+                  "formula": "1d6",
+                  "traits": [
+                    "Физический",
+                    "Кровотечение"
+                  ],
+                  "afterDamage": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.007",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci2lnjcerzaqlht",
+  "effects": []
+}

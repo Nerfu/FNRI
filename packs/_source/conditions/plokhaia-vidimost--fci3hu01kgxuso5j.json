@@ -1,0 +1,48 @@
+{
+  "name": "Плохая видимость",
+  "type": "item",
+  "system": {
+    "description": "При направленной атаке по этой цели применяется Штраф помехи −4.",
+    "notes": "Рулбук 7.0 · Штрафы помехи / Освещённость и зрение",
+    "tags": "условие атаки",
+    "mechanics": {
+      "condition": {
+        "id": "poor-visibility",
+        "application": "explicit",
+        "duration": "manual"
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "f7Hindrance00002",
+      "name": "Плохая видимость",
+      "img": "icons/svg/aura.svg",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-poor-visibility"
+      ],
+      "description": "При направленной атаке по этой цели применяется Штраф помехи −4.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "poor-visibility",
+          "rulesRef": "rulebook.md#штрафы-помехи"
+        }
+      }
+    }
+  ],
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.hindrance.poor-visibility",
+      "source": "Fast NRI 7.0 rulebook.md / Штрафы помехи"
+    }
+  },
+  "_id": "fci3hu01kgxuso5j"
+}

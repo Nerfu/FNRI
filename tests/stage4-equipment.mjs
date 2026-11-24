@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {equipmentKind,itemGrip,itemSlot,planEquipmentChange,hasFreeSecondHand}
+import {equipmentKind,itemGrip,itemSlot,planEquipmentChange,hasFreeSecondHand,needsSecondHandWarning}
   from '../module/equipment/equipment.mjs';
 import {isPhysicalOtherItemAttack} from '../module/weapon/weapon-attack.mjs';
 const make=(id,type='weapon',grip='1',more={})=>({id,type,system:{grip,...more}});
@@ -33,7 +33,11 @@ assert.deepEqual(itemSlot('great',sys).positions,['leftHand','rightHand']);
 equip(bow);assert.equal(sys.equipment.leftHand,'bow');assert.equal(sys.equipment.rightHand,'');
 assert.equal(hasFreeSecondHand(sys,'leftHand'),true);
 equip(shield);assert.equal(hasFreeSecondHand(sys,'leftHand'),false);
+assert.equal(needsSecondHandWarning(sys,bow),true,'a 1+ weapon held beside a shield warns');
+assert.equal(needsSecondHandWarning(sys,sword),false,'ordinary 1-hand weapons do not warn');
+assert.equal(needsSecondHandWarning(sys,shield),false,'shields do not warn');
 equip(shield,false);assert.equal(sys.equipment.rightHand,'');
+assert.equal(needsSecondHandWarning(sys,bow),false,'warning disappears when hand becomes free');
 equip(great);equip(great,false);assert.equal(sys.equipment.leftHand,'');assert.equal(sys.equipment.rightHand,'');
 equip(armor);assert.equal(sys.equipment.armor,'armor');
 equip(ring);assert.equal(itemSlot('ring',sys).kind,'other');assert.equal(sys.equipment.leftHand,'');

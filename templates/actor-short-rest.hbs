@@ -1,0 +1,8 @@
+{{#if shortRestActions}}
+<details class="fnri-panel fnri-collapsible">
+  <summary>{{localize "FASTNRI.SheetActions.shortRest"}}</summary>
+  <ul class="fnri-sheet-actions">
+    {{#each shortRestActions}}{{> fnri-actor-standard-action}}{{/each}}
+  </ul>
+</details>
+{{/if}}

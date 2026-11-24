@@ -1,0 +1,68 @@
+{
+  "name": "Серп",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Серпы.\nВладение по списку: Воин, Друид, Колдун.\nРуки: 1. Дистанция: ближняя.\nСвойства: Подвижное.\nУрон по степеням: `1d6` / `1d6+1d6` / `1d6+1d6+4`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "1",
+    "hands": 1,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 1,
+    "category": "Серпы",
+    "proficiencyClasses": "Воин, Друид, Колдун",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Подвижное",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d6",
+      "B": "1d6",
+      "C": 4
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 1
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Воин",
+          "Друид",
+          "Колдун"
+        ],
+        "properties": [
+          "Подвижное"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Подвижное": "Один раз в свой ход перед атакой этим оружием можете выполнить Шаг свободным действием.\n\nСвойство не действует в чужой ход и при атаке-Вмешательстве."
+      },
+      "attack": {
+        "traitOptions": [
+          {
+            "id": "mobile",
+            "label": "Подвижное",
+            "summary": "Можно сделать Шаг перед атакой в свой ход; вручную",
+            "defaultEnabled": false
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.018",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci1tlral2uzm64d",
+  "effects": []
+}

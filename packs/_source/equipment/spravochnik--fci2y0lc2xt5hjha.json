@@ -1,0 +1,36 @@
+{
+  "name": "Справочник",
+  "type": "gear",
+  "system": {
+    "description": "При приобретении выберите один навык: Аркана, Мистика, Природа, Религия или Общество.\n\nКогда обстоятельства позволяют пользоваться Справочником, добавьте Бонус снаряжения `d6` к проверке выбранного навыка.",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "снаряжение, справочник",
+    "category": "Книги",
+    "quantity": 1,
+    "mechanics": {
+      "equipment": {
+        "slot": "other"
+      },
+      "tool": {
+        "dice": "1d6",
+        "chooseSkillOnAcquisition": true,
+        "skills": [
+          "Аркана",
+          "Мистика",
+          "Природа",
+          "Религия",
+          "Общество"
+        ],
+        "requiresCircumstances": true
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.036",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci2y0lc2xt5hjha",
+  "effects": []
+}

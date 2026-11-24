@@ -1,0 +1,30 @@
+{
+  "name": "Кольчуга",
+  "type": "armor",
+  "system": {
+    "description": "Кольчуга. Пороги КЗ: 7 / 15 / 19. Итог включает один бонус КЗ класса и применимые прямые модификаторы.",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "броня",
+    "ac": {
+      "partial": 7,
+      "success": 15,
+      "great": 19
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "armor"
+      },
+      "armor": {
+        "classBonusRequired": true
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.031",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci2jbqf6qwggy8j",
+  "effects": []
+}

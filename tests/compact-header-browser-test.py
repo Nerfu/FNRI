@@ -3,6 +3,7 @@
 Static representative actor data, not a running Foundry installation.
 """
 from pathlib import Path
+from browser_test_helpers import expand_actor_template
 import re
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
@@ -15,10 +16,13 @@ translations={
 }
 
 def preview(actor_type):
-    source=(root/'templates'/f'{actor_type}.hbs').read_text()
+    source=expand_actor_template(root,f'{actor_type}.hbs')
     assert source.count('class="fnri-summary-stat"')==4
-    assert source.count('name="system.hp.current"')==2
-    assert source.rindex('name="system.hp.current"') > source.index('fnri-tabs')
+    assert source.count('name="system.hp.current"')==(1 if actor_type=='character' else 2)
+    if actor_type=='character':
+      assert source.index('name="system.hp.current"') < source.index('fnri-tabs')
+    else:
+      assert source.rindex('name="system.hp.current"') > source.index('fnri-tabs')
     # Render exactly the header portion; detailed fields are checked in template.
     s=source[:source.index('<nav class="fnri-tabs"')]
     for key, val in translations.items():
@@ -26,7 +30,7 @@ def preview(actor_type):
     for key,val in {'actor.name':'Боб','actor.img':'', 'summary.hp':'18 / 25', 'summary.ac':'10 / 18 / 22',
                     'summary.combatDie':'d10', 'summary.speed':'7','summary.tempHP':'+3',
                     'system.className':'Воин','system.level':'3','system.role':'Герой', 'system.rank':'1',
-                    'system.hp.current':'18','system.hp.max':'25','system.hp.temp':'3'}.items():
+                    'system.hp.current':'18','system.hp.max':'25','system.hp.temp':'3','rawHp.current':'18','rawHp.temp':'3'}.items():
       s=s.replace('{{'+key+'}}',val)
     # Remove Handlebars directives but preserve representative editable header controls.
     s=re.sub(r'{{[#/][^}]*}}','',s)

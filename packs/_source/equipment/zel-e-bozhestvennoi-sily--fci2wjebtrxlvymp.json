@@ -1,0 +1,44 @@
+{
+  "name": "Зелье божественной силы",
+  "type": "gear",
+  "system": {
+    "description": "> **Свойства:** Использование предмета, Манипуляция, Зелье.  \n> **Цель:** вы или соседний союзник.\n\nКлерик восстанавливает `1` Божественную силу.\n\nНа другие классы Зелье не действует. Божественную силу нельзя восстановить выше обычного максимума.",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "зелье, расходник",
+    "category": "Зелье",
+    "quantity": 1,
+    "mechanics": {
+      "equipment": {
+        "slot": "other"
+      },
+      "use": {
+        "consume": {
+          "field": "quantity",
+          "amount": 1
+        },
+        "operations": [
+          {
+            "kind": "restoreResource",
+            "resourceName": "Божественная сила",
+            "amount": 1,
+            "classes": [
+              "Клерик"
+            ]
+          }
+        ],
+        "manual": ""
+      },
+      "potion": {
+        "limitPerDayText": "Общий предел Зелий получателя; счётчик обновляется при получении эффекта и Отдыхе."
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.042",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci2wjebtrxlvymp",
+  "effects": []
+}

@@ -1,0 +1,112 @@
+{
+  "name": "Разрушение: Похищение",
+  "type": "ability",
+  "system": {
+    "description": "Разрушение: Похищение — 1 уровень.\nСвойства: Заклинание, Разрушение, Атака, Дистанционная атака.\nТребование: одна свободная рука. Цель: одно существо в дистанции заклинаний.\nПроверка: 1d20 + Куб боя против КЗ цели.\nУрон по степени атаки: 0 / 1d4 / 2d4 / 3d4 магического. Урон игнорирует Устойчивость и временные HP.\nЕсли окончательная степень Эффекта не Провал и цель фактически получила урон, восстановите HP в размере наибольшего выпавшего куба и Магическую силу в размере 1 / 2 / 3 по степени Эффекта.\nПохищение заклинания: за 1 Вмешательство и 1 Магическую силу против объявленного вражеского Заклинания. При Успехе степени Эффекта заклинание отменяется, а при его отмене восстановите дополнительно 1 Магическую силу.",
+    "notes": "Рулбук 7.0 · Колдун · Похищение · отдельная карточка восстановления после применения урона",
+    "tags": "Заклинание, Разрушение, Атака, Дистанционная атака",
+    "category": "Заклинание Колдуна",
+    "cost": "Инвокация или Вмешательство при Похищении заклинания",
+    "effect": "Магический урон мимо Устойчивости и временных HP, затем восстановление после подтверждённого урона.",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "invocation",
+          "label": "Инвокация",
+          "type": "attack",
+          "attack": {
+            "kind": "magic",
+            "targetDefense": "ac",
+            "attackKind": "ranged",
+            "damageType": "магический",
+            "properties": "Заклинание, Разрушение, Атака, Дистанционная атака",
+            "damageProfile": {
+              "failure": "0",
+              "partial": "1d4",
+              "success": "2d4",
+              "great": "3d4"
+            },
+            "damageRules": {
+              "ignoreResistance": true,
+              "ignoreTempHp": true
+            }
+          },
+          "onDamageApplied": {
+            "kind": "drain",
+            "resourceName": "Магическая сила",
+            "resourceByEffectDegree": {
+              "failure": 0,
+              "partial": 1,
+              "success": 2,
+              "great": 3
+            },
+            "hpFrom": "maxDamageDie",
+            "requiresHpLoss": true
+          },
+          "accounting": {
+            "resourceCosts": [
+              {
+                "resourceName": "Магическая сила",
+                "amount": 1,
+                "kind": "class"
+              }
+            ]
+          }
+        },
+        {
+          "id": "steal-spell",
+          "label": "Похищение заклинания",
+          "type": "attack",
+          "attack": {
+            "kind": "magic",
+            "targetDefense": "ac",
+            "attackKind": "ranged",
+            "damageType": "магический",
+            "properties": "Заклинание, Разрушение, Атака, Дистанционная атака",
+            "damageProfile": {
+              "failure": "0",
+              "partial": "1d4",
+              "success": "2d4",
+              "great": "3d4"
+            },
+            "damageRules": {
+              "ignoreResistance": true,
+              "ignoreTempHp": true
+            }
+          },
+          "onDamageApplied": {
+            "kind": "drain",
+            "resourceName": "Магическая сила",
+            "resourceByEffectDegree": {
+              "failure": 0,
+              "partial": 1,
+              "success": 2,
+              "great": 3
+            },
+            "hpFrom": "maxDamageDie",
+            "requiresHpLoss": true,
+            "spellCancellation": true
+          },
+          "isIntervention": true,
+          "accounting": {
+            "resourceCosts": [
+              {
+                "resourceName": "Магическая сила",
+                "amount": 1,
+                "kind": "class"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.warlock.drain",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Колдуна / Разрушение: Похищение"
+    }
+  },
+  "_id": "fci3gbdrs6si22i1",
+  "effects": []
+}

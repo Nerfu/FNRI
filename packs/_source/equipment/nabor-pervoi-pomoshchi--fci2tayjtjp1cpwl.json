@@ -1,0 +1,30 @@
+{
+  "name": "Набор первой помощи",
+  "type": "gear",
+  "system": {
+    "description": "Набор первой помощи позволяет использовать действие **«Обработать раны»**.",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "инструменты, медицина",
+    "category": "Инструменты",
+    "quantity": 1,
+    "mechanics": {
+      "equipment": {
+        "slot": "other"
+      },
+      "tool": {
+        "allowsAction": "Обработать раны",
+        "healingBonusHp": 2,
+        "skill": "Медицина",
+        "difficulty": 10
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.037",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci2tayjtjp1cpwl",
+  "effects": []
+}

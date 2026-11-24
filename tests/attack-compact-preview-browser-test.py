@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """CSS and template smoke for the short attack profile (not a live Foundry test)."""
 from pathlib import Path
+from browser_test_helpers import expand_actor_template
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
 for name in ('character.hbs','npc.hbs'):
-    s=BeautifulSoup((root/'templates'/name).read_text(),'html.parser')
+    s=BeautifulSoup(expand_actor_template(root,name),'html.parser')
     attack=s.select_one('.fnri-attack-slots')
     assert attack, name
     assert attack.select_one('.fnri-attack-slot [data-action="attackEquipped"]')

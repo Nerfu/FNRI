@@ -1,0 +1,33 @@
+{
+  "name": "Талисман",
+  "type": "gear",
+  "system": {
+    "description": "> **Частота:** `1 раз в день` для каждого Талисмана.\n\nПосле броска любого брошенного вами куба, кроме `d20`, перебросьте один выбранный куб. Новый результат обязателен.\n\nКаждый Талисман имеет отдельное применение этой Частоты.",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "талисман",
+    "category": "Талисман",
+    "quantity": 1,
+    "mechanics": {
+      "equipment": {
+        "slot": "other"
+      },
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      },
+      "talisman": {
+        "rerollAnyDieExceptD20": true,
+        "keepNewResult": true
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.038",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci3qhyzvq94bucs",
+  "effects": []
+}

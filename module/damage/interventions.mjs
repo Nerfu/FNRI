@@ -1,11 +1,23 @@
+import {canReadChatContent} from '../data/chat-visibility.mjs';
+import {CHECK_DEFENSES, messageIntervention, DEFENSE_ABILITIES} from '../rolls/attack-properties.mjs';
+import {finishCardAccounting,normalizedCardActionId} from '../data/ability-accounting.mjs';
+import {chooseIntervention} from './intervention-menu.mjs';
+import {standaloneIntervention} from './standalone-intervention.mjs';
+import {declareAction,actionText} from '../rolls/action-declaration.mjs';
+import {chatAudience} from '../data/chat-visibility.mjs';
+import {chooseCoverAlly, coverAllyOption} from './cover-ally.mjs';
+import {coverActorKey, coverRecords, directedCoverCandidates, isCurrentDirectedCoverSource, sameCoverAudience} from './cover-ally-state.mjs';
+import {directedInterventionVariants} from '../data/intervention-variants.mjs';
 /** Chainable intervention cards. All card-owned rules are read from Item data;
  * the only built-in game action is Rulebook Self-Defense.
  */
 import {copy,selfDefenseOutcome} from './damage-core.mjs';
 import {BASE_SELF_DEFENSE} from '../data/core-actions.mjs';
 import {chooseControlledToken,actorForToken} from './hp-actions.mjs';
-import {resolveDefenseContext} from './defense-context.mjs';
-import {messageIntervention,DEFENSE_ABILITIES} from '../rolls/attack-properties.mjs';
+import {matchesDefenseChange, resolveDefenseContext} from './defense-context.mjs';
+import {counteractionFormula, initiateCounteraction} from './counteraction.mjs';
+import {ATTACK_DEGREES} from '../rolls/attack-core.mjs';
+import {prepareRoll,finalizeRollEffects,visibleRollInfluences,redactActorSourceForAudience} from '../rolls/roll-context.mjs';
 const ID='fast-nri-v14';
 const tr=k=>game.i18n.localize('FASTNRI.Damage.'+k);
 const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -13,12 +25,35 @@ const naturalD20=roll=>{const ds=(roll?.dice??[]).filter(d=>d.faces===20&&d.numb
   const n=ds.length===1?ds[0].results?.filter(r=>r.active!==false)?.[0]?.result:null;
   return Number.isInteger(n)&&n>=1&&n<=20?n:null;};
 
-export function availableInterventions(actor) {
-  const abilities=[...(actor?.items??[])].filter(i=>i.type==='ability' &&
+export function availableInterventions(actor, {card = null, tokenUuid = null, showAll = false, answered = false} = {}) {
+  if (card?.areaAttack?.version === 1) return [];
+  const abilities=[...(actor?.items?.contents??actor?.items??[])].filter(i=>i.type==='ability' &&
     (i.system?.mechanics?.intervention || i.system?.mechanics?.selfDefense?.activation==='intervention' ||
       /(?:вмешательств|intervention)/i.test(String(i.system?.trigger??''))));
-  return [{id:BASE_SELF_DEFENSE.id,name:game.i18n.localize('FASTNRI.'+BASE_SELF_DEFENSE.nameKey),builtin:true},...abilities.map(i=>
-    ({id:i.id,name:i.name,item:i,builtin:false}))];
+  const personal = !card?.originalTargetUuid || card.originalTargetUuid === tokenUuid;
+  const opposed = CHECK_DEFENSES.includes(card?.targetDefense);
+  const contextAvailable = !card?.cancelled && !answered;
+  const base = [];
+  if (!card || showAll || (contextAvailable && !opposed && personal)) {
+    base.push({id:BASE_SELF_DEFENSE.id, name:game.i18n.localize('FASTNRI.'+BASE_SELF_DEFENSE.nameKey), builtin:true});
+  }
+  if (opposed && personal && !card.cancelled && ATTACK_DEGREES.includes(card.degree) &&
+      Number.isFinite(card.attackTotal) && counteractionFormula(actor, card.targetDefense) &&
+      (showAll || contextAvailable)) {
+    base.push({id:'builtin:counteraction', name:tr('counteraction'), counteraction:true});
+  }
+  const variants = abilities.flatMap(item => directedInterventionVariants(item).flatMap(({id, label, rule}) => {
+    if (card && !showAll) {
+      const selfDefense = item.system?.mechanics?.selfDefense;
+      if (!contextAvailable || (rule?.requiresDefense && rule.requiresDefense !== (card.targetDefense ?? 'ac')) ||
+          !matchesDefenseChange(rule, card.attackKind) ||
+          (selfDefense?.activation === 'intervention' && !matchesDefenseChange(selfDefense, card.attackKind)) ||
+          (rule?.targeting === 'self' && !personal)) return [];
+    }
+    return [{id:id ? `${item.id}:${id}` : item.id, variantId:id,
+      name:label ? `${item.name} · ${label}` : item.name, item, rule, builtin:false}];
+  }));
+  return [...base, ...variants];
 }
 
 export function selfDefenseFormula(actor,attackKind,chosenStat=null) {
@@ -50,25 +85,51 @@ async function chooseTie(parts) {
   return parts.find(p=>p.id===fd?.part)??null;
 }
 
-export async function initiateIntervention(message) {
+export async function initiateIntervention(message,{skipPreroll=false,actionId=null,accountingItem=null}={}) {
+  if (!canReadChatContent(message)) return null;
   const card=message?.getFlag?.(ID,'weaponDamage');
   if(!card||card.version!==2)throw new Error('Intervention requires a component damage card');
-  if(card.parts?.some(p=>p.kind==='die'&&p.pending)){
-    ui.notifications?.warn(tr('unrolledDice'));return null;
-  }
-  if(messageIntervention(message)) {ui.notifications?.warn(tr('interventionBlocked'));return null;}
+  const pendingDice=card.parts?.some(p=>p.kind==='die'&&p.pending);
+  if(pendingDice)ui.notifications?.warn(tr('unrolledDice'));
+  const afterDefense = messageIntervention(message);
+  if(afterDefense && !isCurrentDirectedCoverSource(message))ui.notifications?.warn(tr('interventionBlocked'));
   const token=await chooseControlledToken();if(!token)return null;
   const actor=actorForToken(token);
   if(!actor) {ui.notifications?.error(tr('missingTokenActor'));return null;}
-  const abilities=availableInterventions(actor);
-  const opts=abilities.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join('');
-  const answer=await foundry.applications.api.DialogV2.input({window:{title:tr('intervention')},
-    content:`<select name="choice">${opts}</select>`,ok:{label:tr('intervention')},rejectClose:false});
-  const index=Number(answer?.choice);
-  if(!answer||!Number.isInteger(index)||index<0||index>=abilities.length)return null;
-  const selected=abilities[index];const rule=selected.item?.system?.mechanics?.intervention;
+  if (!(game.user.isGM || actor.isOwner || actor.canUserModify?.(game.user, 'update'))) {
+    ui.notifications?.warn(tr('noPermission'));return null;
+  }
+  const standalone=choice=>standaloneIntervention(actor,null,{choice,source:capturedAudience,skipPreroll,actionId,accountingItem});
+  const capturedAudience=chatAudience(message);
+  const revision=card.revision??0;
+  const answered = () => (game.messages?.contents??[]).some(result => {
+      if (!canReadChatContent(result)) return false;
+      const data = result.getFlag(ID, 'weaponDamage');
+      return (data?.previousMessageId === message.id ||
+        (card.attackMessageId && data?.attackMessageId === card.attackMessageId)) &&
+        data.intervention?.initiatorActorUuid === actor.uuid;
+    });
+  const candidates = () => answered() || coverRecords(message).some(cover => cover.defenderKey === coverActorKey(actor))
+    ? [] : directedCoverCandidates(game.messages?.get(message.id),token);
+  const choices = showAll => {
+    const cover=coverAllyOption(actor);
+    const options=pendingDice || afterDefense || coverRecords(message).length ? [] :
+      availableInterventions(actor, {card,tokenUuid:token.document?.uuid,showAll,answered:answered()});
+    if (cover && isCurrentDirectedCoverSource(message) && (showAll || candidates().length)) options.push(cover);
+    options.push({id:'standalone',name:actionText('standalone'),standalone:true});
+    return options;
+  };
+  const selected = await chooseIntervention({actor, choices, title:tr('intervention'), confirmLabel:tr('intervention')});
+  if (!selected) return null;
+  if(selected.standalone)return standalone();
+  if (selected.kind === 'coverAlly') return chooseCoverAlly({source:message,defender:token,candidates});
+  if (selected.counteraction) return initiateCounteraction(message,{target:token,skipPreroll});
+  const rule=selected.rule;
   const isDefense=selected.builtin || rule?.effect?.kind==='directedDefense' ||
     selected.item?.system?.mechanics?.selfDefense?.activation==='intervention';
+  // Invalid context must not change somebody else's attack. Execute the selected
+  // option independently instead of simulating an applicable linked defense.
+  if(card.cancelled || answered() || (isDefense && (CHECK_DEFENSES.includes(card.targetDefense) || (card.originalTargetUuid && card.originalTargetUuid!==token.document?.uuid))))return standalone(selected);
   let defenseContext=null;
   let chosenStat=null;
   if(isDefense) {
@@ -85,11 +146,23 @@ export async function initiateIntervention(message) {
   const adapted=selected.builtin ? selfDefenseFormula(actor,card.attackKind,chosenStat) :
     {expression:String(rule?.rollFormula||selected.item?.system?.rollFormula||'').trim() ||
       (isDefense?selfDefenseFormula(actor,card.attackKind,chosenStat).expression:''),warnings:[]};
+  // Card-owned penalty applies to CHECK-based defenses only, not to AC,
+  // non-check defensive effects or arbitrary other rolls.
+  const commonPenalty=isDefense && adapted.expression && Number.isFinite(card.defenseCheckModifier)
+    ? card.defenseCheckModifier : 0;
+  // Смертельное applies to the built-in Самозащита ONLY, and only
+  // when the original attack degree is Great Success. A successful prior
+  // directed defense does not rewrite the attack degree (only Effect degree).
+  const greatSelfDefensePenalty=selected.builtin && card.degree==='great' &&
+    Number.isFinite(card.greatSelfDefenseModifier) ? card.greatSelfDefenseModifier : 0;
+  const defensePenalty=commonPenalty + greatSelfDefensePenalty;
+  if(defensePenalty) adapted.expression=`(${adapted.expression}) + (${defensePenalty})`;
   const warnings=[...adapted.warnings];
   if(card.cancelled)warnings.push(tr('alreadyCancelled'));
   if(card.previousMessageId && selected.builtin)warnings.push(tr('defenseVsIntervention'));
   if(selected.builtin && card.originalTargetUuid && token.document?.uuid!==card.originalTargetUuid)
     warnings.push(tr('selfDefenseOther'));
+  if(selected.builtin && CHECK_DEFENSES.includes(card.targetDefense))warnings.push(tr('noAutomatedEffect'));
   if(!card.attackTotal && card.attackTotal!==0)warnings.push(tr('missingAttackTotal'));
   if(!selected.builtin && (!rule||!rule.effect) && !isDefense)warnings.push(tr('noAutomatedEffect'));
   if(warnings.length) {
@@ -100,23 +173,43 @@ export async function initiateIntervention(message) {
   if(adapted.expression && typeof Roll.validate==='function' && !Roll.validate(adapted.expression)) {
     ui.notifications?.error(tr('invalidFormula'));return null;
   }
-  const roll=adapted.expression?await new Roll(adapted.expression,actor.getRollData?.()??{}).evaluate():null;
+  // Share the same selection and ephemeral prepared Actor as other rolls.
+  const context=adapted.expression?await prepareRoll({actor,kind:'intervention',
+    defenseStat:chosenStat,formula:adapted.expression,skipDialog:skipPreroll,sourceItem:selected.item??null,
+    label:selected.name,formulaForActor:selected.builtin?temp=>
+      (defensePenalty ? `(${selfDefenseFormula(temp,card.attackKind,chosenStat).expression}) + (${defensePenalty})` :
+        selfDefenseFormula(temp,card.attackKind,chosenStat).expression):null}):null;
+  if(adapted.expression && context===null)return null;
+  if(context?.expression && typeof Roll.validate==='function' && !Roll.validate(context.expression))
+    throw Error('Invalid prepared intervention formula');
+  const roll=context?.expression?await new Roll(context.expression,context.actor?.getRollData?.()??{}).evaluate():null;
+  const stillLinked=()=>{const current=game.messages?.get?game.messages.get(message.id):message;return canReadChatContent(current)&&sameCoverAudience(current,capturedAudience)&&(current.getFlag(ID,'weaponDamage')?.revision??0)===revision&&!answered()&&!coverRecords(message).length;};
+  const publishIndependent=()=>declareAction({actor,item:accountingItem??selected.item??null,label:selected.name,description:selected.item?.system?.description??'',source:capturedAudience,isIntervention:true,execution:rule,actionId,roll,context});
+  if(!stillLinked())return publishIndependent();
   const next=copy(card);
   next.previousMessageId=message.id;
   next.isIntervention=true;
-  next.intervention={id:selected.id,name:selected.name,sourceUuid:selected.item?.uuid??null,
-    initiatorActorUuid:actor.uuid,initiatorTokenUuid:token.document?.uuid??null,defenseStat:chosenStat,defenseSource:defenseContext?.source??null,
-    total:roll?.total??null,naturalD20:roll?naturalD20(roll):null};
+  // Copying a message audience also copies its responsibility to withhold
+  // GM-only source UUIDs. A whisper to a player is not a GM-only whisper.
+  const redactSource=redactActorSourceForAudience(actor,message);
+  const visibleDefenseSource=redactSource && !['default','attack','unknown'].includes(defenseContext?.source)
+    ? null : (defenseContext?.source??null);
+  next.intervention={id:selected.id,name:selected.name,sourceUuid:redactSource?null:(selected.item?.uuid??null),
+    ...(selected.variantId?{variantId:selected.variantId}:{}),
+    initiatorActorUuid:actor.uuid,initiatorTokenUuid:token.document?.uuid??null,defenseStat:chosenStat,defenseSource:visibleDefenseSource,
+    total:roll?.total??null,naturalD20:roll?naturalD20(roll):null,rollInfluences:visibleRollInfluences(context,actor,
+      redactSource?'public':'gm')};
   next.revision=(next.revision??0)+1;
   next.history=[...(next.history??[])];
   let outcome=null;
-  if(roll && isDefense) {
+  if(roll && isDefense && !CHECK_DEFENSES.includes(card.targetDefense)) {
+    if(next.intervention.naturalD20===null||!Number.isFinite(roll.total))return publishIndependent();
     outcome=selfDefenseOutcome({card,defenseTotal:roll.total,naturalD20:next.intervention.naturalD20});
     if(outcome.success) {
       if(outcome.cancelled)next.cancelled=true;
       else if(outcome.choices.length) {
         const removed=await chooseTie(outcome.choices);
-        if(!removed)return null;
+        if(!removed)return publishIndependent();
         const part=next.parts.find(p=>p.id===removed.id);
         if(part)part.excluded=true;
       }
@@ -124,15 +217,22 @@ export async function initiateIntervention(message) {
     }
   }
   next.history.push({by:game.user.id,at:Date.now(),action:'intervention',source:selected.id,name:selected.name,
-    initiator:actor.uuid,defenseStat:chosenStat,defenseSource:defenseContext?.source??null,
+    initiator:actor.uuid,defenseStat:chosenStat,defenseSource:visibleDefenseSource,
     checkTotal:roll?.total??null,success:outcome?.success??null,
     cancelled:outcome?.cancelled??false});
+  const sharedActionId=normalizedCardActionId(actionId);
   const chatData={speaker:ChatMessage.getSpeaker({actor,token:token.document}),
     content:`<strong>${esc(selected.name)}</strong> · ${esc(token.name)}`+
       (roll?` · <strong>${esc(roll.total)}</strong>`:''),
-    ...(message.whisper?.length?{whisper:[...message.whisper]}:{}),
-    ...(message.blind?{blind:true}:{}),
-    flags:{[ID]:{weaponDamage:next}}};
+    whisper:Array.isArray(message.whisper)?[...message.whisper]:[],
+    blind:message.blind===true,
+    flags:{[ID]:{weaponDamage:next,
+      ...(sharedActionId?{compositeActionId:sharedActionId}:{})}}};
   if(roll)chatData.rolls=[roll.toJSON()];
-  return ChatMessage.create(chatData);
+  if (!stillLinked()) return publishIndependent();
+  const created=await ChatMessage.create(chatData);
+  await finalizeRollEffects(context,created);
+  await finishCardAccounting({actor,item:accountingItem??selected.item??null,message:created,
+    isIntervention:true,actionId:sharedActionId,execution:rule});
+  return created;
 }

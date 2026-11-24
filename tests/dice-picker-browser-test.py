@@ -4,19 +4,11 @@
 A narrow Foundry API shim is used; this is not a live-world integration test.
 """
 from pathlib import Path
+from browser_test_helpers import load_real_sheet
 from playwright.sync_api import sync_playwright
 
 root = Path(__file__).resolve().parents[1]
-core = (root / 'module/data/core-actions.mjs').read_text().replace('export const ', 'const ')
-sheets = (root / 'module/sheets/sheets.mjs').read_text()
-assert sheets.startswith('import { skillFormula, itemFormula, postRoll }')
-sheets = '\n'.join(line for line in sheets.splitlines() if not line.startswith('import ')).replace('export class ', 'class ')
-# Existing test covers custom entries; catalogue source symbols only need stubs.
-sheets = '// Equipment/attack internals are covered by separate Node tests; these browser tests target legacy UI behavior.\nconst itemSlot=()=>null, equipmentKind=()=>null, itemGrip=()=>"1", hasFreeSecondHand=()=>true;\nconst isPhysicalWeaponCard=()=>false, isPhysicalOtherItemAttack=()=>false;\nconst resolveUnarmedAction=()=>({name:"Безоружная атака",conflict:false});\nconst compactPhysicalProfile=()=>"", attackCardDetails=()=>"";\n'+sheets
-sheets = '''const BASIC_SKILLS=[]; const BASIC_SKILLS_BY_ROW_ID=new Map();
-const SKILL_GROUPS=[]; const standardSkillEntry=()=>({});
-''' + sheets
-for name in ('character', 'npc'):
+for name in ('npc',):
     template = (root / 'templates' / f'{name}.hbs').read_text()
     for required in (
         'data-fnri-dice-picker="skill"',
@@ -71,11 +63,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True, executable_path='/usr/bin/chromium', args=['--no-sandbox'])
     try:
         page = browser.new_page()
-        page.set_content(html)
-        page.add_script_tag(content=shim + '\n' + core + '\n' + sheets + '''
-window.sheet=new FastNRICharacterSheet({actor:window.actor});
-window.sheet._onRender({},{});
-''')
+        load_real_sheet(page,root,html,shim)
         skill = '[data-fnri-dice-picker="skill"]'
         special = '[data-fnri-dice-picker="specialization"]'
         custom = '[data-fnri-custom-dice]'

@@ -1,8 +1,10 @@
 /** Always-available unarmed action with selectable card-provided alternatives. */
 import { BASE_UNARMED_ATTACK } from '../data/core-actions.mjs';
-import { parseStandardPhysicalProfile } from './attack-core.mjs';
+import { bestiaryAttackExpression, parseStandardPhysicalProfile } from './attack-core.mjs';
 import { sendAttackSnapshot } from '../weapon/weapon-attack.mjs';
-import { itemSlot } from '../equipment/equipment.mjs';
+import { itemSlot, HANDS } from '../equipment/equipment.mjs';
+import { itemAttackRules } from '../equipment/item-properties.mjs';
+import { nativeUnarmedGrant } from '../data/native-unarmed-grants.mjs';
 
 const die = value => {
   const str = String(value ?? '').trim();
@@ -14,10 +16,7 @@ export function unarmedExpression(actor, override = null) {
   const explicit = String(override?.rollFormula ?? '').trim();
   if (explicit) return { expression: explicit, warning: null };
   if (actor?.type === 'npc') {
-    const mod = actor.system?.attackModifier;
-    if (typeof mod === 'number' && Number.isFinite(mod))
-      return {expression: `1d20 ${mod < 0 ? '-' : '+'} ${Math.abs(mod)}`,warning:null};
-    return { expression: '1d20', warning: null };
+    return { expression: bestiaryAttackExpression(actor) ?? '1d20', warning: null };
   }
   const combat = die(actor?.system?.combatDie);
   return { expression: combat ? `1d20 + ${combat}` : '1d20',
@@ -36,6 +35,10 @@ export const BASE_UNARMED_CHOICE = 'base';
 export const UNARMED_CHOICE_FLAG = 'selectedUnarmedAttack';
 const SYSTEM_ID = 'fast-nri-v14';
 const ITEM_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const unarmedRule = item => {
+  const mechanics = item.system?.mechanics ?? {};
+  return Object.hasOwn(mechanics, 'unarmedAttack') ? mechanics.unarmedAttack : nativeUnarmedGrant(item)?.unarmedAttack;
+};
 
 export function availableUnarmedActions(actor) {
   const base = {
@@ -45,20 +48,22 @@ export function availableUnarmedActions(actor) {
     sourceUuid: null, rollFormula: '', sourceItemId: null, mode: 'base', isIntervention:false
   };
   const cards = (actor?.items?.contents ?? []).filter(item => {
-    const rule = item.system?.mechanics?.unarmedAttack;
+    const rule = unarmedRule(item);
     if (!['replace', 'option'].includes(rule?.mode) || rule.active === false ||
         !ITEM_ID.test(String(item.id ?? '')) ||
         !parseStandardPhysicalProfile(rule.damageProfile).ok) return false;
     return item.type === 'ability' || Boolean(itemSlot(item.id, actor.system));
   }).map(item => {
-    const rule = item.system.mechanics.unarmedAttack;
+    const rule = unarmedRule(item);
     return {
       key: `item:${item.id}`, name: String(rule.name || item.name || base.name),
       damageProfile: {A: rule.damageProfile.A, B: rule.damageProfile.B, C: rule.damageProfile.C},
       damageType: String(rule.damageType || base.damageType),
       properties: String(rule.properties || base.properties),
       rollFormula: String(rule.rollFormula ?? ''), sourceUuid: item.uuid ?? null,
-      sourceItemId: item.id, mode: rule.mode, isIntervention:item.system?.mechanics?.isIntervention===true,
+      sourceItemId: item.id, mode: rule.mode,
+      freeHandWarning: rule.requiresFreeHand === true && HANDS.every(hand => Boolean(actor.system?.equipment?.[hand])),
+      isIntervention:item.system?.mechanics?.isIntervention===true,
       criticalThreshold:rule.criticalThreshold ?? item.system?.mechanics?.attack?.criticalThreshold ?? 20,
       criticalMultiplier:rule.criticalMultiplier ?? item.system?.mechanics?.attack?.criticalMultiplier ?? null
     };
@@ -87,15 +92,22 @@ export function resolveUnarmedAction(actor, choice = undefined) {
   };
 }
 
-export async function sendUnarmedAttack(actor) {
+export async function sendUnarmedAttack(actor,{skipPreroll=false,actionId=null,accountingItem=null,
+  choice=undefined,isIntervention=false,targetTokens=null}={}) {
   if (!actor) throw new Error('An Actor is required for an unarmed attack');
-  const action = resolveUnarmedAction(actor);
+  const action = resolveUnarmedAction(actor, choice);
+  if (choice !== undefined && action.key !== choice) return null;
+  const sourceItem = action.sourceItemId ? actor.items?.get?.(action.sourceItemId) : null;
   const {expression,warning} = unarmedExpression(actor, action);
+  if (action.freeHandWarning) globalThis.ui?.notifications?.warn(game.i18n.localize('FASTNRI.Equipment.freeHandRequired'));
   return sendAttackSnapshot({
     actor, name: action.name, profile: action.damageProfile, damageType: action.damageType,
     properties: action.properties, sourceUuid: action.sourceUuid,
-    expression, warning, sourceKind: 'unarmed', attackKind:'melee',
-    isIntervention:action.isIntervention,
-    criticalThreshold:action.criticalThreshold ?? 20,criticalMultiplier:action.criticalMultiplier ?? null
+    expression, warning, skipPreroll,actionId,accountingItem,sourceItem,sourceKind: 'unarmed', attackKind:'melee',
+    formulaForActor: temp=>unarmedExpression(temp,action).expression,
+    usesCombatDie:!String(action.rollFormula??'').trim() && actor.type!=='npc',
+    isIntervention:isIntervention || action.isIntervention,targetTokens,
+    criticalThreshold:action.criticalThreshold ?? 20,criticalMultiplier:action.criticalMultiplier ?? null,
+    ...itemAttackRules(sourceItem)
   });
 }

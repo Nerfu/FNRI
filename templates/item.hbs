@@ -7,6 +7,24 @@
       {{#if deprecated}}<p class="fnri-deprecated">{{localize "FASTNRI.Hints.deprecated"}}</p>{{/if}}
     </div>
   </header>
+  {{#if isProjectionAbility}}
+  <section class="fnri-panel fnri-projection-links">
+    <h3>{{localize "FASTNRI.Projection.linkedActors"}}</h3>
+    <ul class="fnri-item-list">
+    {{#each projectionActors}}
+      <li class="fnri-projection-linked">
+        <img src="{{this.img}}" alt="" width="30" height="30">
+        <span>{{this.name}}</span>
+        <button type="button" data-action="openProjectionActor" data-actor-id="{{this.id}}" title="{{localize 'FASTNRI.Projection.open'}}"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+        {{#if @root.editable}}<button type="button" data-action="unlinkProjection" data-actor-id="{{this.id}}" title="{{localize 'FASTNRI.Projection.unlink'}}"><i class="fa-solid fa-link-slash"></i></button>{{/if}}
+      </li>
+    {{else}}<li class="fnri-muted">{{localize "FASTNRI.Projection.noneLinked"}}</li>{{/each}}
+    </ul>
+    {{#if editable}}<div data-fnri-projection-drop class="fnri-projection-drop" aria-label="{{localize 'FASTNRI.Projection.dropHint'}}">
+      <i class="fa-solid fa-user-plus"></i> {{localize "FASTNRI.Projection.dropHint"}}
+    </div>{{/if}}
+  </section>
+  {{/if}}
   <section class="fnri-panel">
     <h3>{{localize "FASTNRI.Sections.roll"}}</h3>
     <label>{{localize "FASTNRI.Fields.rollFormula"}}<input type="text" name="system.rollFormula" value="{{system.rollFormula}}" placeholder="1d20 + 2d6" {{#unless editable}}disabled{{/unless}}></label>
@@ -22,8 +40,9 @@
       {{#if editable}}<button type="button" data-action="createItemEffect">{{localize "FASTNRI.Actions.createEffect"}}</button>{{/if}}
     </div>
     <ul class="fnri-item-list">{{#each itemEffects}}
-      <li class="fnri-item-row"><span>{{this.name}} {{#if this.transfer}}<small>({{localize "FASTNRI.Hints.transferEffect"}})</small>{{/if}}
-        {{#if this.disabled}}<small>({{localize "FASTNRI.Hints.effectDisabled"}})</small>{{/if}}</span>
+      <li class="fnri-item-row"><span class="fnri-draggable-effect" data-effect-id="{{this.id}}" data-item-id="{{@root.item.id}}" draggable="true" title="{{this.name}}">{{this.name}}</span>
+        {{#if this.transfer}}<small>({{localize "FASTNRI.Hints.transferEffect"}})</small>{{/if}}
+        {{#if this.disabled}}<small>({{localize "FASTNRI.Hints.effectDisabled"}})</small>{{/if}}
         <button type="button" data-action="editItemEffect" data-id="{{this.id}}"><i class="fa-solid fa-pen"></i></button>
         {{#if @root.editable}}<button type="button" data-action="toggleItemEffect" data-id="{{this.id}}"><i class="fa-solid fa-power-off"></i></button>
           <button type="button" data-action="deleteItemEffect" data-id="{{this.id}}"><i class="fa-solid fa-trash"></i></button>{{/if}}
@@ -182,7 +201,17 @@
   </section>
   <section class="fnri-panel">
     <h3>{{localize "FASTNRI.Sections.description"}}</h3>
-    <textarea name="system.description" rows="5" {{#unless editable}}disabled{{/unless}}>{{system.description}}</textarea>
+    {{#if checkDescription}}
+      <div class="fnri-check-description">{{{checkDescription}}}</div>
+      {{#if editable}}
+        <details>
+          <summary>{{localize "FASTNRI.CheckLinks.editDescription"}}</summary>
+          <textarea name="system.description" rows="5">{{system.description}}</textarea>
+        </details>
+      {{/if}}
+    {{else}}
+      <textarea name="system.description" rows="5" {{#unless editable}}disabled{{/unless}}>{{system.description}}</textarea>
+    {{/if}}
   </section>
   <section class="fnri-panel">
     <h3>{{localize "FASTNRI.Sections.notes"}}</h3>

@@ -1,0 +1,74 @@
+{
+  "name": "Длинный меч",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Мечи.\nВладение по списку: Защитник, Воин, Бард, Егерь, Колдун.\nРуки: 1. Дистанция: ближняя.\nСвойства: Уверенное.\nУрон по степеням: `1d10` / `1d10+1d4` / `1d10+1d4+4`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "1",
+    "hands": 1,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 1,
+    "category": "Мечи",
+    "proficiencyClasses": "Защитник, Воин, Бард, Егерь, Колдун",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Уверенное",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d10",
+      "B": "1d4",
+      "C": 4
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 1
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Защитник",
+          "Воин",
+          "Бард",
+          "Егерь",
+          "Колдун"
+        ],
+        "properties": [
+          "Уверенное"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Уверенное": "Если Защитное действие должно удалить один или несколько кубов урона этой атаки, вместо обычного правила выбора удаляйте указанное количество кубов по одному, каждый раз выбирая самый маленький оставшийся куб.\n\nЭто свойство заменяет только порядок выбора удаляемых кубов; количество удаляемых кубов не меняется."
+      },
+      "attack": {
+        "defenseRemovalOrder": "lowest",
+        "traitOptions": [
+          {
+            "id": "reliable",
+            "label": "Уверенное",
+            "summary": "При защитном удалении сначала наименьшие кубы",
+            "defaultEnabled": true,
+            "effect": {
+              "defenseRemovalOrder": "lowest"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.005",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci2un4v92kc3x8z",
+  "effects": []
+}

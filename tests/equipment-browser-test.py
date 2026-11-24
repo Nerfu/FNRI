@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """UI smoke for equipped border, weight, context buttons, attacks; shim, not Foundry."""
 from pathlib import Path
+from browser_test_helpers import expand_actor_template
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
 for actor in ('character','npc'):
-    src=(root/'templates'/f'{actor}.hbs').read_text()
+    src=expand_actor_template(root,f'{actor}.hbs')
     soup=BeautifulSoup(src,'html.parser')
     assert soup.select_one('[data-action="attackUnarmed"]') is not None
     assert soup.select_one('[data-action="selectUnarmedAttack"]') is not None

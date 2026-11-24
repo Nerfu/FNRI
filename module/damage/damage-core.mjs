@@ -1,7 +1,10 @@
 /** Fast NRI 7.0 — isolated, serializable damage calculations. Never mutates a Roll.
  * No implicit immunities/resistances: resolved values are supplied by cards/GM.
  */
-import {resolveDirectedEffectDegree} from '../rolls/attack-core.mjs';
+import {resolveDirectedEffectDegree,standardPhysicalPartsForDegree} from '../rolls/attack-core.mjs';
+import {magicAttackPartsForDegree} from '../rolls/magic-attack-profile.mjs';
+import {CHECK_DEFENSES} from '../rolls/attack-properties.mjs';
+import {tempHpMax,planTempHpLayers} from './temporary-hp-layers.mjs';
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 const nonNegative = n => finite(n) ? Math.max(0, n) : 0;
 export const copy = value => JSON.parse(JSON.stringify(value));
@@ -17,12 +20,16 @@ export function snapshotDamageParts(roll, definitions, {damageType='физиче
       const result=terms[index++];
       if (!result || result.faces !== def.faces || !finite(result.value))
         throw new Error(`Roll result does not match damage component ${def.id}`);
-      value=result.value;
+      value=result.value * (def.sign === -1 ? -1 : 1);
     } else value=def.value;
-    if (!finite(value) || value < 0) throw new Error('Invalid damage component');
-    return {id:def.id ?? `part-${i}`, kind:def.kind, faces:def.faces ?? null,
+    if (!finite(value) || (def.kind === 'die' && value === 0)) throw new Error('Invalid damage component');
+    return {id:def.id ?? `part-${i}`, kind:def.sign === -1 ? 'fixed' : def.kind,
+      faces:def.sign === -1 ? null : (def.faces ?? null),
       formula:def.formula, original:value, value, excluded:false,
-      damageType, traits:[...traits], source:def.source ?? null};
+      ...(def.profilePart ? {profilePart:def.profilePart} : {}),
+      ...(def.spellDamage===true?{spellDamage:true}:{}),
+      damageType:def.damageType || damageType, traits:def.partOrigin==='attackAugment' ? [] : (def.traits?.length ? [...def.traits] : [...traits]),
+      source:def.source ?? null};
   });
 }
 
@@ -39,7 +46,8 @@ export function criticalDamageRule(card) {
   const validMultiplier=Number.isFinite(multiplier) && multiplier>1 ? multiplier : 2;
   const natural=Number(card?.naturalD20);
   return {threshold,multiplier:validMultiplier,
-    triggered:Number.isInteger(natural) && natural>=threshold && natural<=20};
+    triggered:!CHECK_DEFENSES.includes(card?.targetDefense) &&
+      Number.isInteger(natural) && natural>=threshold && natural<=20};
 }
 
 /** Explicit buttons may request normal/critical damage. Without the option,
@@ -48,10 +56,20 @@ export function calculateDamage(card, {critical}={}) {
   const parts=card?.parts ?? [];
   const remaining=parts.filter(p=>!p.excluded && !p.immune && !p.pending);
   // GM die edits may exceed the die maximum, but cannot fall below 1.
-  // Fixed contributions may be signed; the net damage is floored at zero.
-  const gross=remaining.reduce((sum,p)=>sum+(finite(p.value)?p.value:0),0);
+  // A negative fixed correction is a PENALTY, never a damage die. Keep it
+  // outside the surviving damage-parts sum, so it is applied after immunity
+  // and defensive reductions, along with explicitly recorded penalties.
+  // A part can be manually excluded by the GM, but a defense selecting the
+  // biggest/smallest damage die must never select a penalty as that die.
+  // Only surviving DAMAGE parts carry types and traits into resistance and
+  // vulnerability. An explicit negative correction is a penalty, not a die;
+  // it must not keep a damage property alive by itself. A reduced-to-zero die
+  // remains a damage part and still carries its traits (Rulebook).
+  const damageParts=remaining.filter(p=>finite(p.value) && p.value>=0);
+  const gross=damageParts.reduce((sum,p)=>sum+p.value,0);
+  const partPenalty=remaining.reduce((sum,p)=>sum+(finite(p.value)?Math.max(0,-p.value):0),0);
   const a=card?.adjustments ?? {};
-  const penalty=nonNegative(a.penalty);
+  const penalty=nonNegative(a.penalty)+partPenalty;
   const criticalRule=criticalDamageRule(card);
   const multiply=typeof critical==='boolean' ? critical :
     (card?.manualCritical === null || card?.manualCritical === undefined ? criticalRule.triggered : !!card.manualCritical);
@@ -60,11 +78,11 @@ export function calculateDamage(card, {critical}={}) {
     ? manualMultiplier : criticalRule.multiplier;
   const multiplier=card?.cancelled ? 1 : (multiply ? chosenMultiplier : 1);
   const base=Math.max(0,gross-penalty);
-  const resistance=remaining.length ? nonNegative(a.resistance) : 0;
-  const vulnerability=remaining.length ? nonNegative(a.vulnerability) : 0;
+  const resistance=card?.damageRules?.ignoreResistance === true ? 0 : (damageParts.length ? nonNegative(a.resistance) : 0);
+  const vulnerability=damageParts.length ? nonNegative(a.vulnerability) : 0;
   return {gross, penalty, multiplier, resistance, vulnerability,
     total:card?.cancelled ? 0 : Math.max(0,base*multiplier-resistance)+vulnerability,
-    activeParts:remaining.length};
+    activeParts:damageParts.length};
 }
 
 /** Both displayed values use the same surviving components, penalties and defenses. */
@@ -150,11 +168,45 @@ export function appendDamageComponents(card,{kind,faces,count=1,values=[],value=
   return {next,appended};
 }
 
+function remainingDamageParts(card) {
+  return (card?.parts??[]).filter(p=>!p.excluded&&!p.immune&&!p.pending&&
+    finite(p.value)&&p.value>=0);
+}
+
+export function smallestDamageParts(card) {
+  const live=remainingDamageParts(card);
+  if(!live.length)return [];
+  const min=Math.min(...live.map(p=>nonNegative(p.value)));
+  return live.filter(p=>nonNegative(p.value)===min);
+}
+
 export function biggestDamageParts(card) {
-  const live=(card?.parts ?? []).filter(p=>!p.excluded && !p.immune && !p.pending);
+  // Damage penalties are not dice, even when the GM entered a negative
+  // fixed contribution through the existing correction interface.
+  const live=remainingDamageParts(card);
   if (!live.length) return [];
   const max=Math.max(...live.map(p=>nonNegative(p.value)));
   return live.filter(p=>nonNegative(p.value)===max);
+}
+
+/** Input is the target's own snapshot after immunity and all earlier defenses.
+ * A positive fixed damage bonus is also a damage die under the Rulebook. */
+export function coverAllyDice(card) {
+  if (!card || card.cancelled || card.parts?.some(part => part.pending)) return [];
+  return remainingDamageParts(card).filter(part => part.kind === 'die' ||
+    part.kind === 'fixed' && part.value > 0).map(({id, formula, value, damageType, traits}) =>
+    ({id, formula, value, damageType, traits:[...(traits??[])]}));
+}
+
+/** A proposal only. Keep the source Roll immutable and leave all other
+ * effects with the ally. Finish the ally's ordinary damage calculation
+ * from the returned snapshot, including defenses after the chosen die. */
+export function planCoverAlly(card, partId) {
+  const transferred = coverAllyDice(card).find(part => part.id === partId);
+  if (!transferred) return null;
+  const allyCard = copy(card);
+  allyCard.parts.find(part => part.id === partId).excluded = true;
+  return {allyCard, transferred, redirectedDamage:transferred.value};
 }
 
 export function selfDefenseOutcome({card, defenseTotal, naturalD20}={}) {
@@ -162,24 +214,68 @@ export function selfDefenseOutcome({card, defenseTotal, naturalD20}={}) {
     throw new Error('Invalid directed defense roll');
   const success=naturalD20!==1 && (naturalD20===20 || (finite(card?.attackTotal) && defenseTotal>=card.attackTotal));
   const cancelled=success && naturalD20===20 && card?.naturalD20!==20;
-  return {success,cancelled,choices:success&&!cancelled?biggestDamageParts(card):[],
+  return {success,cancelled,choices:success&&!cancelled?(card?.defenseRemovalOrder==='lowest'?smallestDamageParts(card):biggestDamageParts(card)):[],
     effectDegree:success ? resolveDirectedEffectDegree({attackDegree:card.effectDegree || card.degree,
       successfulDefenses:1,fullyCancelled:cancelled}).effectDegree : card.effectDegree||card.degree};
 }
 
-export function planHpChange(hp,amount,kind='damage') {
+/** Counteraction changes the check degree itself. Keep evaluated parts in the
+ * snapshot and deactivate the profile portions lost at the new degree. */
+export function counteractionOutcome({card, defenseTotal, naturalD20} = {}) {
+  if (!CHECK_DEFENSES.includes(card?.targetDefense) || !finite(defenseTotal) ||
+      !Number.isInteger(naturalD20) || naturalD20 < 1 || naturalD20 > 20) {
+    throw Error('Counteraction requires a check against a defense characteristic');
+  }
+  const success = naturalD20 !== 1 &&
+    (naturalD20 === 20 || (finite(card.attackTotal) && defenseTotal >= card.attackTotal));
+  const degree = success ? resolveDirectedEffectDegree({
+    attackDegree:card.degree,successfulDefenses:1,fullyCancelled:naturalD20 === 20
+  }).effectDegree : card.degree;
+  const next = copy(card);
+  if (!success) return {success,degree,next};
+  const retained = card.profileKind==='magic' ? magicAttackPartsForDegree(card.profile,degree) :
+    standardPhysicalPartsForDegree(card.profile,degree);
+  if (degree !== 'failure' && !retained.ok) throw Error('Missing damage profile for counteraction');
+  const slots = new Set(retained.ok ? retained.parts.map(part => part.id) : []);
+  for (const part of next.parts ?? []) {
+    const slot = part.profilePart ?? (['A','B','C'].includes(part.id) ||
+      (card.profileKind==='magic' && /^M[1-9]\d*$/.test(part.id)) ? part.id : null);
+    if (slot && !slots.has(slot)) part.excluded = true;
+  }
+  next.originalDegree = card.originalDegree ?? card.degree;
+  next.degree = degree;
+  next.effectDegree = degree;
+  next.cancelled = Boolean(card.cancelled || degree === 'failure');
+  return {success,degree,next};
+}
+
+export function planHpChange(hp,amount,kind='damage',layerOptions={}) {
   const current=nonNegative(hp?.current);
   const max=Math.max(current,nonNegative(hp?.max));
   const temp=nonNegative(hp?.temp);
-  const n=nonNegative(amount);
+  // Actor HP fields are integers; never let fractional damage make the
+  // layer ledger disagree with the scalar data model.
+  const n=Math.trunc(nonNegative(amount));
   let after={current,temp};
+  let damageThroughTemp=0;
   if (kind==='damage') {
-    const absorbed=Math.min(temp,n);
-    after={temp:temp-absorbed,current:Math.max(0,current-(n-absorbed))};
+    const absorbed=layerOptions.ignoreTempHp===true?0:Math.min(temp,n);
+    damageThroughTemp=n-absorbed;
+    after={temp:temp-absorbed,current:Math.max(0,current-damageThroughTemp)};
   } else if (kind==='heal') after.current=Math.min(max,current+n);
   else if (kind==='temp') after.temp=Math.max(temp,n);
   else throw new Error('Invalid HP change kind');
-  return {kind,before:{current,temp},after,
+  let layerBefore=null,layerAfter=null;
+  if(hp?.tempHpState?.version===1){
+    layerBefore=hp.tempHpState;
+    if(tempHpMax(layerBefore)!==temp)throw Error('Temporary HP aggregate does not match its layers');
+    const layers=planTempHpLayers(layerBefore,n,
+      kind==='damage' && layerOptions.ignoreTempHp!==true?'damage':kind==='temp'?'grant':'keep',layerOptions);
+    layerAfter=layers.after;
+    after.temp=layers.to;
+  }
+  return {kind,before:{current,temp},after,damageThroughTemp,
+    ...(layerAfter?{tempHpState:layerAfter,beforeTempHpState:layerBefore}:{}),
     delta:{current:after.current-current,temp:after.temp-temp},requested:n,
     actual:kind==='damage' ? current-after.current+temp-after.temp :
       kind==='heal' ? after.current-current : after.temp-temp};

@@ -1,0 +1,32 @@
+{
+  "name": "Тихие шаги",
+  "type": "ability",
+  "_id": "fnriac4294cff608",
+  "system": {
+    "description": "Получите Куб навыка Скрытность d8.",
+    "category": "Свойство Котолюда",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "catfolk"
+        ]
+      },
+      "skillDice": {
+        "grants": [
+          {
+            "size": 8,
+            "skill": "stealth"
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.tikhie-shagi",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Тихие шаги"
+    }
+  },
+  "effects": []
+}

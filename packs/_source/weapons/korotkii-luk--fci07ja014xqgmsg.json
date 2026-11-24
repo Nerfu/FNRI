@@ -1,0 +1,56 @@
+{
+  "name": "Короткий лук",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Луки.\nВладение по списку: Бард, Егерь.\nРуки: `1+`. Дистанция: 8.\nСвойства: —.\nУрон по степеням: `1d4` / `1d4+1d4` / `1d4+1d4+5`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "`1+`",
+    "hands": 1,
+    "reach": 1,
+    "range": 8,
+    "distance": "8",
+    "level": 1,
+    "category": "Луки",
+    "proficiencyClasses": "Бард, Егерь",
+    "proficiencyMode": "auto",
+    "attackKind": "ranged",
+    "properties": "",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d4",
+      "B": "1d4",
+      "C": 5
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 2
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "8",
+        "proficiencyList": [
+          "Бард",
+          "Егерь"
+        ],
+        "properties": [],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {},
+      "attack": {
+        "traitOptions": []
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.022",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci07ja014xqgmsg",
+  "effects": []
+}

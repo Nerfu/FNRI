@@ -1,0 +1,14 @@
+{
+  "name": "fast-nri-v14-build",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "build:packs": "node scripts/check-pack-sources.mjs && node scripts/build-packs.mjs",
+    "check:packs": "node scripts/check-pack-sources.mjs",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='module/**/*.mjs' tests/*.mjs"
+  },
+  "devDependencies": {
+    "@foundryvtt/foundryvtt-cli": "3.0.4"
+  }
+}

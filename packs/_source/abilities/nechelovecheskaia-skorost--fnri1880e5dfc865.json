@@ -1,0 +1,26 @@
+{
+  "name": "Нечеловеческая скорость",
+  "type": "ability",
+  "_id": "fnri1880e5dfc865",
+  "system": {
+    "description": "Ваша Скорость увеличена на `1`.",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "nephalem"
+        ]
+      },
+      "characterContributions": {
+        "speed": 1
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.nechelovecheskaia-skorost",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Нечеловеческая скорость"
+    }
+  },
+  "effects": []
+}

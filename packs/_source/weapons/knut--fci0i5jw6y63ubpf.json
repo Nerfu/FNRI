@@ -1,0 +1,64 @@
+{
+  "name": "Кнут",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Кнуты.\nВладение по списку: —.\nРуки: 1. Дистанция: 2.\nСвойства: Досягаемость.\nУрон по степеням: `1d4` / `1d4+1d4` / `1d4+1d4+3`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "1",
+    "hands": 1,
+    "reach": 2,
+    "range": null,
+    "distance": "2",
+    "level": 1,
+    "category": "Кнуты",
+    "proficiencyClasses": "",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Досягаемость",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d4",
+      "B": "1d4",
+      "C": 3
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 1
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "2",
+        "proficiencyList": [],
+        "properties": [
+          "Досягаемость"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Досягаемость": "Досягаемость измеряется в клетках и **не использует правило диагоналей**. Каждый переход в соседнюю клетку, включая диагональный, считается `1` клеткой Досягаемости.\n\nОружием с Досягаемостью можно атаковать цели на расстоянии 1 или 2 клеток Досягаемости.\n\nОно контролирует только клетки на расстоянии 2 Досягаемости. Такая угроза учитывается при Окружении, но цель не считается соседней."
+      },
+      "attack": {
+        "traitOptions": [
+          {
+            "id": "reach",
+            "label": "Досягаемость",
+            "summary": "Досягаемость оружия; дистанция проверяется вручную",
+            "defaultEnabled": true
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.016",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci0i5jw6y63ubpf",
+  "effects": []
+}

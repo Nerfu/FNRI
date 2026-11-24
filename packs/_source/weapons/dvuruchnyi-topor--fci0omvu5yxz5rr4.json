@@ -1,0 +1,70 @@
+{
+  "name": "Двуручный топор",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Топоры.\nВладение по списку: Воин.\nРуки: 2. Дистанция: ближняя.\nСвойства: Размашистое.\nУрон по степеням: `1d6` / `1d6+1d8` / `1d6+1d8+5`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "2",
+    "hands": 2,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 1,
+    "category": "Топоры",
+    "proficiencyClasses": "Воин",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Размашистое",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d6",
+      "B": "1d8",
+      "C": 5
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 2
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Воин"
+        ],
+        "properties": [
+          "Размашистое"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Размашистое": "После броска кубов урона этого оружия можно один раз перебросить каждый куб, на котором выпало `1` или `2`. Новый результат обязателен.\n\nСвойство не действует на урон, добавленный к атаке. Переброс совершается до Защитных действий."
+      },
+      "attack": {
+        "rerollWeaponLowOnce": true,
+        "traitOptions": [
+          {
+            "id": "sweeping",
+            "label": "Размашистое",
+            "summary": "Добровольный переброс 1–2 на базовых кубах A/B",
+            "defaultEnabled": false,
+            "effect": {
+              "rerollWeaponLowOnce": true
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.008",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci0omvu5yxz5rr4",
+  "effects": []
+}

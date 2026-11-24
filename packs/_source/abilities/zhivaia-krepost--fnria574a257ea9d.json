@@ -1,0 +1,31 @@
+{
+  "name": "Живая крепость",
+  "type": "ability",
+  "_id": "fnria574a257ea9d",
+  "system": {
+    "description": "Ваш максимум HP увеличен на `2`.\n\nВсе пороги вашей КЗ увеличены на `2`.",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "dwarf"
+        ]
+      },
+      "characterContributions": {
+        "hpMax": 2,
+        "ac": {
+          "partial": 2,
+          "success": 2,
+          "great": 2
+        }
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.zhivaia-krepost",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Живая крепость"
+    }
+  },
+  "effects": []
+}

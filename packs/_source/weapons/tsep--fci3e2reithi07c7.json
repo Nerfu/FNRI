@@ -1,0 +1,71 @@
+{
+  "name": "Цеп",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Цепное оружие.\nВладение по списку: Защитник, Воин.\nРуки: 1. Дистанция: ближняя.\nСвойства: Пробивающий.\nУрон по степеням: `1d6` / `1d6+1d4` / `1d6+1d4+3`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "1",
+    "hands": 1,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 1,
+    "category": "Цепное оружие",
+    "proficiencyClasses": "Защитник, Воин",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Пробивающий",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d6",
+      "B": "1d4",
+      "C": 3
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 1
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Защитник",
+          "Воин"
+        ],
+        "properties": [
+          "Пробивающий"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Пробивающий": "Проверка Защитного действия против этой атаки получает `−5`.\n\nШтраф не изменяет КЗ и не действует на Защитные действия без проверки."
+      },
+      "attack": {
+        "defenseCheckModifier": -5,
+        "traitOptions": [
+          {
+            "id": "piercing",
+            "label": "Пробивающий",
+            "summary": "−5 к проверке Защитного действия",
+            "defaultEnabled": true,
+            "effect": {
+              "defenseCheckModifier": -5
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.001",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci3e2reithi07c7",
+  "effects": []
+}

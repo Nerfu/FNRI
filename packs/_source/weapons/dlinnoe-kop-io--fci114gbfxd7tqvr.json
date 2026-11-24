@@ -1,0 +1,67 @@
+{
+  "name": "Длинное копьё",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Копья.\nВладение по списку: Воин, Егерь.\nРуки: 2. Дистанция: 2.\nСвойства: Досягаемость.\nУрон по степеням: `1d4` / `1d4+1d6` / `1d4+1d6+6`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "2",
+    "hands": 2,
+    "reach": 2,
+    "range": null,
+    "distance": "2",
+    "level": 1,
+    "category": "Копья",
+    "proficiencyClasses": "Воин, Егерь",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Досягаемость",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d4",
+      "B": "1d6",
+      "C": 6
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 2
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "2",
+        "proficiencyList": [
+          "Воин",
+          "Егерь"
+        ],
+        "properties": [
+          "Досягаемость"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Досягаемость": "Досягаемость измеряется в клетках и **не использует правило диагоналей**. Каждый переход в соседнюю клетку, включая диагональный, считается `1` клеткой Досягаемости.\n\nОружием с Досягаемостью можно атаковать цели на расстоянии 1 или 2 клеток Досягаемости.\n\nОно контролирует только клетки на расстоянии 2 Досягаемости. Такая угроза учитывается при Окружении, но цель не считается соседней."
+      },
+      "attack": {
+        "traitOptions": [
+          {
+            "id": "reach",
+            "label": "Досягаемость",
+            "summary": "Досягаемость оружия; дистанция проверяется вручную",
+            "defaultEnabled": true
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.012",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci114gbfxd7tqvr",
+  "effects": []
+}

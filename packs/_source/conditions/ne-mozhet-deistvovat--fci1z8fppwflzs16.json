@@ -1,0 +1,51 @@
+{
+  "name": "Не может действовать",
+  "type": "item",
+  "system": {
+    "description": "Существо, которое **не может действовать**, не совершает Движений, Воздействий, Вмешательств, свободных действий и действий без указанной цены. Уже начатое действие также прекращается.",
+    "notes": "Рулбук 7.0 · Состояния · справочная карточка и шаблон ActiveEffect",
+    "tags": "состояние",
+    "mechanics": {
+      "condition": {
+        "id": "cannotact",
+        "rulesRef": "rulebook.md#состояния",
+        "application": "explicit",
+        "mechanicalAutomation": "pending",
+        "duration": "source-defined-or-manual"
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "f7Status00000008",
+      "name": "Не может действовать",
+      "img": "icons/svg/aura.svg",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-cannotact"
+      ],
+      "description": "Существо, которое **не может действовать**, не совершает Движений, Воздействий, Вмешательств, свободных действий и действий без указанной цены. Уже начатое действие также прекращается.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "cannotact",
+          "requiresManualResolution": true,
+          "rulesRef": "rulebook.md#состояния"
+        }
+      }
+    }
+  ],
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.condition.cannotact",
+      "source": "Fast NRI 7.0 rulebook.md / Состояния"
+    }
+  },
+  "_id": "fci1z8fppwflzs16"
+}

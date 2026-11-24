@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Disclosure UI smoke with actual CSS and source templates, not live Foundry."""
 from pathlib import Path
+from browser_test_helpers import expand_actor_template
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
 for template in ('character.hbs','npc.hbs'):
-    soup=BeautifulSoup((root/'templates'/template).read_text(),'html.parser')
+    soup=BeautifulSoup(expand_actor_template(root,template),'html.parser')
     picker=soup.select_one('details.fnri-unarmed-picker')
     assert picker,template
     assert picker.select_one('summary.fnri-slot-occupant')

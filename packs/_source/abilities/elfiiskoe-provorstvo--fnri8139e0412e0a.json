@@ -1,0 +1,26 @@
+{
+  "name": "Эльфийское проворство",
+  "type": "ability",
+  "_id": "fnri8139e0412e0a",
+  "system": {
+    "description": "Врождённое свойство Эльфа. Ваша Скорость увеличена на 2.",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "elf"
+        ]
+      },
+      "characterContributions": {
+        "speed": 2
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.elfiiskoe-provorstvo",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Эльфийское проворство"
+    }
+  },
+  "effects": []
+}

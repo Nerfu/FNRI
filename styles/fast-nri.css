@@ -12,6 +12,45 @@
 .fast-nri-v14.fast-nri-sheet .fnri-portrait { width: 84px; height: 84px; flex: none; object-fit: cover; border-radius: 6px; }
 .fast-nri-v14.fast-nri-sheet .fnri-panel { padding: 11px 12px; border: 1px solid var(--color-border-light-tertiary, #8886); border-radius: 6px; margin-bottom: 10px; }
 .fast-nri-v14.fast-nri-sheet .fnri-panel h3 { margin: 0 0 8px; font-size: 1rem; font-weight: 600; border: 0; }
+.fast-nri-v14.fast-nri-sheet .fnri-racial-properties {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-racial-tags {
+  display: inline-flex; flex: 0 1 auto; min-width: 0; max-width: 100%;
+  align-items: center; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-racial-tags > li { display: inline-flex; min-width: 0; max-width: 100%; }
+.fast-nri-v14.fast-nri-sheet .fnri-racial-tag {
+  display: inline-block; min-height: 0; height: auto; line-height: 1.4; font-size: .85rem;
+  padding: 2px 7px; border: 1px solid var(--color-border-light-tertiary, #8886); border-radius: 8px;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-racial-edit { flex: none; width: auto; padding-inline: 8px; }
+[data-racial-owned]:not([hidden]) {
+  margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid var(--color-border-light-tertiary, #8886);
+}
+.fnri-racial-owned-list {
+  list-style: none; margin: 0; padding: 0; max-height: 25vh; overflow-y: auto;
+}
+.fnri-racial-owned-list > li {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 1.8rem;
+}
+.fnri-racial-owned-list > li > button { flex: none; width: 1.8rem; padding: 0; }
+.fnri-racial-options { max-height: 50vh; overflow-y: auto; margin-top: 6px; }
+[data-racial-picker] > .fnri-racial-options { max-height: 38vh; }
+.fnri-racial-option { position: relative; padding: 2px 0; }
+.fnri-racial-warning { display:block; margin:2px 0 2px 5px; color:var(--color-level-warning,#bd8b46); }
+.fnri-racial-option[hidden] { display: none; }
+.fnri-racial-pick { width: calc(100% - 2.2rem); justify-content: flex-start; text-align: start; }
+.fnri-racial-pick[aria-pressed="true"] { font-weight: 700; outline: 1px solid currentColor; }
+.fnri-racial-options[data-racial-subproperties] { display: grid; gap: 4px; }
+.fnri-racial-options[data-racial-subproperties] .fnri-racial-pick { width: 100%; }
+.fnri-racial-info > summary {
+  position: absolute; inset-inline-end: .25rem; top: .3rem; min-width: 1.55rem; text-align: center;
+  border: 1px solid var(--color-border-light-tertiary, #8886); border-radius: 5px; cursor: pointer; list-style: none;
+}
+.fnri-racial-info > summary::-webkit-details-marker { display: none; }
+.fnri-racial-description { padding: 5px 7px; white-space: pre-line; }
 .fast-nri-v14.fast-nri-sheet label { display: flex; flex-direction: column; gap: 4px; font-size: .84rem; min-width: 0; }
 .fast-nri-v14.fast-nri-sheet input,
 .fast-nri-v14.fast-nri-sheet textarea,
@@ -37,8 +76,12 @@
 .fast-nri-v14.fast-nri-sheet .fnri-stack { display: flex; flex-direction: column; gap: 7px; }
 .fast-nri-v14.fast-nri-sheet .fnri-entry { display: grid; gap: 8px; align-items: end; }
 .fast-nri-v14.fast-nri-sheet .fnri-skill-row { grid-template-columns: minmax(0, 1.35fr) minmax(105px, .75fr) minmax(110px, 1fr) 35px; }
-.fast-nri-v14.fast-nri-sheet .fnri-resource-row { grid-template-columns: minmax(0, 1.6fr) minmax(70px, .6fr) minmax(70px, .6fr) 35px; }
+.fast-nri-v14.fast-nri-sheet .fnri-resource-row { grid-template-columns: minmax(0, 1fr) 28px minmax(38px, 52px) auto minmax(38px, 52px) 28px 28px; align-items: center; gap: 4px; }
 .fast-nri-v14.fast-nri-sheet .fnri-entry > button { width: 35px; height: 30px; padding: 2px; }
+.fast-nri-v14.fast-nri-sheet .fnri-resource-row > button { width: 28px; min-width: 0; height: 28px; }
+.fast-nri-v14.fast-nri-sheet .fnri-resource-row > .fnri-number { text-align: center; padding-inline: 2px; }
+.fast-nri-v14.fast-nri-sheet .fnri-resource-max, .fast-nri-v14.fast-nri-sheet .fnri-resource-slash { text-align: center; }
+.fast-nri-v14.fast-nri-sheet .fnri-resource-warning { grid-column: 1 / -1; }
 .fast-nri-v14.fast-nri-sheet .fnri-item-list { list-style: none; margin: 6px 0 0; padding: 0; }
 .fast-nri-v14.fast-nri-sheet .fnri-item-row { display: flex; gap: 9px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--color-border-light-tertiary, #8884); }
 .fast-nri-v14.fast-nri-sheet .fnri-item-row img { width: 28px; height: 28px; object-fit: cover; }
@@ -78,7 +121,6 @@
 .application.fast-nri-v14.fast-nri-sheet { min-height: 0; }
 @media (max-width: 580px) {
   .fast-nri-v14.fast-nri-sheet .fnri-grid-3, .fast-nri-v14.fast-nri-sheet .fnri-grid-4 { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .fast-nri-v14.fast-nri-sheet .fnri-resource-row { grid-template-columns: minmax(0,1fr) minmax(60px,.55fr) minmax(60px,.55fr) 35px; }
   .fast-nri-v14.fast-nri-sheet .fnri-portrait { width: 64px; height: 64px; }
 }
 
@@ -216,6 +258,29 @@
 .fast-nri-v14.fast-nri-sheet [data-fnri-panel="skills"] .fnri-skill-row > label .fnri-effective { font-size: .72rem; }
 .fast-nri-v14.fast-nri-sheet [data-fnri-panel="skills"] .fnri-skill-row > button { height: 27px; width: 32px; }
 .fast-nri-v14.fast-nri-sheet [data-fnri-panel="skills"] .fnri-core-skill-name { font-size: .83rem; }
+.fast-nri-v14.fast-nri-sheet .fnri-skill-actions-toggle {
+  width: auto; max-width: 100%; min-width: 0; padding: 0;
+  border: 0; background: transparent; color: inherit; text-align: left;
+  font: inherit; overflow-wrap: anywhere;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-skill-actions-toggle::before { content: "▸"; margin-right: 4px; }
+.fast-nri-v14.fast-nri-sheet .fnri-skill-actions-toggle[aria-expanded="true"]::before { content: "▾"; }
+.fast-nri-v14.fast-nri-sheet .fnri-sheet-actions {
+  list-style: none; display: grid; gap: 4px; padding: 0; margin: 0;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-skill-actions { grid-column: 1 / -1; padding: 4px 0 4px 14px; }
+.fast-nri-v14.fast-nri-sheet .fnri-skill-actions[hidden] { display: none; }
+.fast-nri-v14.fast-nri-sheet .fnri-sheet-actions > li,
+.fast-nri-v14.fast-nri-sheet .fnri-sheet-action-variants { display: flex; gap: 5px; align-items: center; }
+.fast-nri-v14.fast-nri-sheet .fnri-sheet-action-variants { flex-wrap: wrap; margin: 4px 0 4px 14px; }
+.fast-nri-v14.fast-nri-sheet .fnri-sheet-actions button {
+  width: auto; min-width: 0; height: auto; padding: 3px 8px; text-align: left;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-sheet-actions .fnri-sheet-action-description { padding-inline: 5px; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-row .fnri-use-item { width: auto; padding-inline: 6px; }
+.fast-nri-v14.fast-nri-sheet .fnri-equipped-hands { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 6px; }
+.fnri-check-link { text-decoration: underline; }
+.fnri-check-description { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 740px) {
   .fast-nri-v14.fast-nri-sheet .fnri-custom-head { display: none; }
   .fast-nri-v14.fast-nri-sheet .fnri-core-head { grid-template-columns: minmax(105px,1fr) minmax(85px,.65fr) 35px 35px; }
@@ -248,6 +313,7 @@
 .fast-nri-v14.fast-nri-sheet .fnri-attack-details { opacity: .8; font-size: .72rem; line-height: 1.2; }
 .fast-nri-v14.fast-nri-sheet .fnri-attack-profile { flex: 0 0 auto; white-space: nowrap; font-size: .81rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .fast-nri-v14.fast-nri-sheet .fnri-attack-slot button { width: 34px; height: 29px; flex: none; padding: 3px; }
+.fast-nri-v14.fast-nri-sheet .fnri-attack-slot .fnri-grip-warning { flex: none; font-size: .82rem; opacity: .8; }
 .fast-nri-v14.fast-nri-sheet .fnri-other-attacks > strong { display: block; margin: 8px 0 5px; font-size: .86rem; }
 .fast-nri-v14.fast-nri-sheet .fnri-other-attacks > .fnri-attack-slot { margin-top: 4px; }
 .fast-nri-v14.fast-nri-sheet .fnri-item-row.fnri-item-equipped {
@@ -432,3 +498,231 @@
 .fnri-editor-bulk-info{font-size:.85rem;opacity:.85;}
 .fnri-editor-bulk-buttons{display:flex;gap:6px;flex-wrap:wrap;}
 .fnri-editor-bulk-buttons button{width:auto;min-width:0;flex:1 1 120px;margin:0;padding:5px 8px;font-size:.85rem;}
+
+/* Stage EffectsPanel: PF2e-style corner strip; native ActiveEffect docs only. */
+/* Approved UI-02: icon-only PF2e-style effect strip. No header or heavy frame. */
+#fnri-effects-panel.fnri-effects-panel {
+  --fnri-effect-size: 38px;
+  display: block; width: max-content; max-width: min(350px,30vw);
+  min-width: 0; margin: 0; padding: 0; background: transparent; border: 0;
+  box-shadow: none; overflow: visible; pointer-events: auto;
+}
+#fnri-effects-panel.fnri-effects-panel:not(:has(.fnri-effect-panel-entry)) { display: none; }
+#fnri-effects-panel .fnri-effect-panel-entries { display:flex; flex-wrap:wrap; gap:4px; max-height:min(40vh,270px); overflow-y:auto; }
+#fnri-effects-panel .fnri-effect-panel-entry {
+  position:relative; flex:none; width:var(--fnri-effect-size); height:var(--fnri-effect-size);
+  cursor:pointer; border:0; border-radius:3px; background:transparent;
+}
+#fnri-effects-panel .fnri-effect-panel-entry:hover { filter:brightness(1.2); }
+#fnri-effects-panel .fnri-effect-panel-icon { display:block; width:100%; height:100%; object-fit:cover; border-radius:3px; pointer-events:none; }
+#fnri-effects-panel .fnri-effect-panel-item-mark { position:absolute; right:-2px; bottom:-3px; font-size:11px; line-height:14px; padding:0 2px; border-radius:2px; background:#28272c; pointer-events:none; }
+body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right:min(325px,25vw); z-index:60; }
+@media(max-width:740px){ #fnri-effects-panel.fnri-effects-panel { max-width:170px; --fnri-effect-size:35px; } }
+.fnri-draggable-effect, .fnri-chat-effect-link { cursor: grab; text-decoration:underline dotted; text-underline-offset:2px; }
+.fnri-draggable-effect:active, .fnri-chat-effect-link:active { cursor:grabbing; }
+
+/* Independent effect strength badge (level/magnitude are editor fields). */
+#fnri-effects-panel .fnri-effect-panel-strength {
+  position: absolute; left: -2px; bottom: -3px; min-width: 16px;
+  padding: 1px 3px; text-align: center; font-size: 12px; font-weight: 700;
+  line-height: 16px; background: #181819; border: 1px solid #ccc9;
+  border-radius: 4px; pointer-events: none;
+}
+
+/* A shared pre-roll dialog; design is consistent for attacks, skills and interventions. */
+.fnri-preroll-list { display: grid; gap: 12px; max-height: min(65vh, 620px); overflow: auto; padding: 3px 5px; }
+.fnri-preroll-list .fnri-preroll-action { margin: 0; font-weight: 600; }
+.fnri-preroll-list .fnri-preroll-base, .fnri-preroll-list .fnri-preroll-preview { display: grid; gap: 4px; padding: 9px 11px; background: rgba(128,128,128,.10); border-radius: 6px; }
+.fnri-preroll-list code { white-space: normal; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.fnri-preroll-list .fnri-preroll-effects { display: grid; gap: 9px; }
+.fnri-preroll-list .fnri-preroll-entry { border-bottom: 1px solid var(--color-border-light-tertiary, #8885); padding-bottom: 8px; }
+.fnri-preroll-list .fnri-preroll-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.fnri-preroll-list .fnri-preroll-row input { width: auto; flex: none; }
+.fnri-preroll-list .fnri-preroll-component { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0 0 26px; font-size: .78rem; opacity: .83; }
+.fnri-preroll-list .fnri-preroll-component span { overflow-wrap:anywhere; }
+.fnri-preroll-list .fnri-preroll-situational { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; }
+.fnri-preroll-list .fnri-preroll-situational label { display: grid; gap: 5px; font-size: .78rem; }
+.fnri-preroll-list .fnri-preroll-situational input { width: 100%; min-width: 0; box-sizing: border-box; }
+.fnri-preroll-list [data-fnri-preview-error] { color: var(--color-text-warning,#b58535); }
+
+/* Nested independent contributions within a single pre-roll ActiveEffect. */
+.fnri-preroll-list .fnri-preroll-choice { cursor: pointer; align-items: center; justify-content: flex-start; }
+.fnri-preroll-list .fnri-preroll-choice input[type="checkbox"] { flex: 0 0 auto; width: auto; margin: 0; }
+.fnri-preroll-list .fnri-preroll-choice span { flex: 1 1 auto; min-width: 0; }
+.fnri-preroll-list .fnri-preroll-choice code { margin-inline-start: auto; text-align: right; }
+
+.fnri-preroll-list .fnri-preroll-row small { font-size: .73rem; opacity: .65; margin-inline-start:auto; }
+
+/* Independent automatic numeric changes inside the ActiveEffect parameters editor. */
+.fnri-effect-parameters-editor { display:grid; gap:8px; max-height:min(68vh,650px); overflow-y:auto; padding:3px 7px; }
+.fnri-effect-parameters-editor .fnri-ep-field { display:grid; grid-template-columns:minmax(105px,1fr) minmax(90px,1.3fr); align-items:center; gap:8px; min-width:0; }
+.fnri-effect-parameters-editor fieldset { display:grid; gap:8px; min-width:0; border:1px solid var(--color-border-light-tertiary,#7777); border-radius:5px; padding:8px; }
+.fnri-effect-parameters-editor fieldset p { margin:0; font-size:12px; opacity:.83; }
+.fnri-effect-parameters-editor input,.fnri-effect-parameters-editor select { min-width:0; width:100%; box-sizing:border-box; }
+.fnri-effect-parameters-editor .fnri-ep-change-row { display:grid; gap:6px; padding:7px; background:rgba(128,128,128,.09); border-radius:5px; }
+.fnri-effect-parameters-editor .fnri-ep-change-heading { display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; overflow-wrap:anywhere; }
+.fnri-effect-parameters-editor .fnri-ep-change-heading span,.fnri-effect-parameters-editor .fnri-ep-change-heading em { font-size:11px; opacity:.75; }
+.fnri-effect-parameters-editor .fnri-ep-auto { display:inline-flex; gap:8px; align-items:center; cursor:pointer; width:max-content; }
+.fnri-effect-parameters-editor .fnri-ep-auto input { width:auto; }
+.fnri-effect-parameters-editor input[readonly] { opacity:.7; cursor:default; background:rgba(128,128,128,.14); }
+.fnri-effect-parameters-editor .fnri-ep-error { color:var(--color-text-warning,#c99b60); overflow-wrap:anywhere; }
+@media(max-width:550px){.fnri-effect-parameters-editor .fnri-ep-field{ grid-template-columns:1fr; }}
+
+/* UI-07 approved: the single live formula is at the top, clickable for details. */
+.fnri-preroll-list .fnri-preroll-preview { order:-2; display:block; padding:9px 11px; background:rgba(128,128,128,.1);border-radius:6px; }
+.fnri-preroll-list .fnri-preroll-preview summary { cursor:pointer; display:grid; gap:3px; }
+.fnri-preroll-list .fnri-preroll-preview summary code { font-size:1.05em; }
+.fnri-preroll-list .fnri-preroll-preview [data-fnri-preview-breakdown] { display:grid;gap:4px; margin-top:8px; }
+.fnri-preroll-list .fnri-preroll-breakdown-row { display:flex; justify-content:space-between; gap:10px; font-size:.83rem; }
+.fnri-preroll-list .fnri-preroll-manual { display:grid;gap:6px; }
+.fnri-preroll-list .fnri-preroll-manual-head { display:flex;justify-content:space-between;align-items:center;gap:8px; }
+.fnri-preroll-list .fnri-preroll-manual-head button { width:auto; }
+.fnri-preroll-list .fnri-preroll-manual-columns { display:grid;grid-template-columns:minmax(75px,1fr) minmax(135px,2fr) 26px;gap:8px;font-size:.78rem;opacity:.8; }
+.fnri-preroll-list .fnri-preroll-manual-row { display:grid;grid-template-columns:minmax(75px,1fr) minmax(135px,2fr) 26px;align-items:center;gap:8px; }
+.fnri-preroll-list .fnri-preroll-manual-row input { width:100%;min-width:0;box-sizing:border-box; }
+.fnri-preroll-list .fnri-preroll-manual-row button { width:26px;min-width:0;padding:2px; }
+.fnri-preroll-list .fnri-preroll-source { display:block; }
+.fnri-preroll-list .fnri-preroll-component { padding:3px 0 0 10px; }
+
+/* Approved character-sheet Journal tab: compact, read-only chronological list. */
+.fast-nri-v14.fast-nri-sheet .fnri-journal-list { display: flex; flex-direction: column; gap: 8px; }
+.fast-nri-v14.fast-nri-sheet .fnri-journal-entry { border-bottom: 1px solid var(--color-border-light-tertiary, #8886); padding: 6px 0 10px; overflow-wrap: anywhere; }
+.fast-nri-v14.fast-nri-sheet .fnri-journal-entry:last-child { border-bottom: 0; }
+.fast-nri-v14.fast-nri-sheet .fnri-journal-heading { display: flex; align-items: baseline; gap: 10px; justify-content: space-between; }
+.fast-nri-v14.fast-nri-sheet .fnri-journal-heading time, .fast-nri-v14.fast-nri-sheet .fnri-journal-author { font-size: .78rem; opacity: .75; }
+.fast-nri-v14.fast-nri-sheet .fnri-journal-entry ul { list-style: none; padding: 4px 0 0; margin: 0; }
+.fast-nri-v14.fast-nri-sheet .fnri-journal-entry li { display: flex; justify-content: space-between; gap: 12px; margin-top: 4px; font-size: .86rem; }
+.fast-nri-v14.fast-nri-sheet .fnri-journal-value { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Approved 2C: one Rest button, bottom-right of Character > Characteristics. */
+.fast-nri-v14.fast-nri-sheet .fnri-rest-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 2px 2px;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-rest-actions button {
+  width: auto;
+  min-width: 112px;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Agreed ability messages: execution choices belong to the posted description. */
+.fnri-ability-chat-options { display:flex; flex-direction:column; gap:6px; margin-top:8px; border-top:1px solid var(--color-border-light-tertiary,#8886); padding-top:7px; }
+.fnri-ability-chat-option { display:flex; flex-direction:column; gap:2px; }
+.fnri-ability-chat-button { height:auto; min-height:28px; width:auto; white-space:normal; padding:4px 8px; }
+.fnri-ability-description { margin-top:6px; overflow-wrap:anywhere; }
+
+/* Projection Actor / ability: tiny controls, no second actor manager. */
+.fnri-projection-sheet { padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.fnri-projection-heading { display: flex; align-items: center; gap: 12px; }
+.fnri-projection-heading .fnri-portrait { width: 70px; height: 70px; object-fit: cover; border-radius: 7px; }
+.fnri-projection-heading .fnri-heading-fields { flex: 1; min-width: 0; }
+.fnri-projection-stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+.fnri-projection-stats .fnri-panel { min-width: 0; }
+.fnri-projection-stats strong { font-size: 1.1em; }
+.fnri-projection-full { align-self: flex-start; }
+.fnri-projection-linked { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.fnri-projection-linked span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.fnri-projection-linked img { object-fit: cover; border-radius: 4px; }
+.fnri-projection-linked button { flex: 0 0 auto; }
+.fnri-projection-drop { border: 1px dashed var(--color-border-light-primary, #888); border-radius: 6px; padding: 14px; text-align: center; }
+.fnri-projection-drop:hover { background: var(--color-bg-option, rgba(128,128,128,.1)); }
+
+/* Spatial data are read-only. Each attack modifier uses the existing component checkbox. */
+.fnri-preroll-list .fnri-spatial-info { padding: 5px 9px; border-left: 2px solid var(--color-border-light-tertiary,#8885); opacity: .88; }
+
+/* Preroll: independent horizontal switches, including the always available
+   manually chosen attack circumstances. Native inputs preserve accessibility. */
+.fnri-preroll-list .fnri-preroll-component.fnri-preroll-choice {
+  display:grid;grid-template-columns:36px minmax(0,1fr) auto;
+  gap:5px 9px;padding:5px 4px;align-items:center;position:relative;opacity:1;
+}
+.fnri-preroll-list .fnri-preroll-choice .fnri-preroll-toggle {
+  position:absolute;grid-column:1;inline-size:36px;block-size:22px;margin:0;
+  opacity:0;cursor:pointer;z-index:1;
+}
+.fnri-preroll-list .fnri-preroll-choice .fnri-preroll-switch {
+  grid-column:1;display:block;inline-size:34px;block-size:20px;
+  border:1px solid var(--color-border-light-tertiary,#777);
+  border-radius:12px;background:#7778;transition:background .12s;position:relative;
+}
+.fnri-preroll-list .fnri-preroll-choice .fnri-preroll-switch:before {
+  content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;
+  border-radius:50%;background:var(--color-text-light-primary,#eee);transition:transform .12s;
+}
+.fnri-preroll-list .fnri-preroll-choice .fnri-preroll-toggle:checked+.fnri-preroll-switch {
+  background:var(--color-level-success-bg,#326e57);
+}
+.fnri-preroll-list .fnri-preroll-choice .fnri-preroll-toggle:checked+.fnri-preroll-switch:before {
+  transform:translateX(14px);
+}
+.fnri-preroll-list .fnri-preroll-choice .fnri-preroll-toggle:focus-visible+.fnri-preroll-switch {
+  outline:2px solid var(--color-text-hyperlink,#d5ad65);outline-offset:2px;
+}
+.fnri-preroll-list .fnri-preroll-choice .fnri-preroll-label {
+  grid-column:2;overflow-wrap:anywhere;flex:auto;
+}
+.fnri-preroll-list .fnri-preroll-choice code { grid-column:3;text-align:right;margin:0; }
+.fnri-preroll-list .fnri-preroll-warning { grid-column:2 / 4; color:var(--color-level-warning,#bd8b46); }
+.fnri-preroll-list .fnri-preroll-stack-note {
+  grid-column:2 / 4;color:var(--color-text-dark-secondary,#a6a6a6);
+  font-size:.68rem;line-height:1.15;opacity:.78;
+}
+.fnri-preroll-list .fnri-preroll-overridden code {opacity:.65;}
+.fnri-preroll-list .fnri-preroll-group {padding-inline:2px;}
+.fnri-preroll-list .fnri-preroll-group>.fnri-preroll-source {display:block;margin-bottom:5px;}
+.fnri-preroll-list [data-fnri-preview-breakdown] .fnri-preroll-breakdown-row {
+  display:flex;justify-content:space-between;gap:8px;padding:3px 0;
+}
+
+/* Attack hindrance: one compact group, numeric bands, independent sources.
+   No informational override badges or repeated non-stacking notes per row. */
+.fnri-preroll-list .fnri-hindrance-group>.fnri-preroll-source {display:inline;margin-right:6px;}
+.fnri-preroll-list .fnri-preroll-group-note {font-size:.7rem;opacity:.68;}
+.fnri-preroll-list .fnri-hindrance-level {padding:6px 2px 2px;border-top:1px solid var(--color-border-light-tertiary,#8883);}
+.fnri-preroll-list .fnri-hindrance-value {display:block;font-size:.83rem;margin-bottom:2px;}
+.fnri-preroll-list .fnri-hindrance-sources {display:grid;gap:3px;}
+.fnri-preroll-list .fnri-hindrance-sources .fnri-preroll-choice {padding:3px 5px 3px 9px;}
+.fnri-preroll-list .fnri-hindrance-sources .fnri-preroll-label:empty {display:none;}
+.fnri-preroll-list .fnri-hindrance-sources .fnri-preroll-label:empty~code {display:none;}
+
+.fnri-preroll-list .fnri-hindrance-bare {display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.fnri-preroll-list .fnri-hindrance-bare .fnri-hindrance-value {margin:0;}
+.fnri-preroll-list .fnri-hindrance-bare .fnri-hindrance-sources .fnri-preroll-choice {padding:0;}
+.fnri-preroll-list .fnri-hindrance-bare .fnri-hindrance-sources .fnri-preroll-label {display:none;}
+
+/* 0.2 area combat: append-only chat cards, grouped by degree. */
+.fnri-area-card { display:flex; flex-direction:column; gap:6px; margin-top:8px; padding:9px; border:1px solid var(--color-border-light-tertiary,#7776); border-radius:7px; }
+.fnri-area-degree { display:flex; flex-wrap:wrap; gap:5px; align-items:baseline; font-size:0.9em; }
+.fnri-area-degree strong { min-width:115px; }
+.fnri-area-actions { display:flex; flex-wrap:wrap; gap:5px; }
+.fnri-area-actions > button { flex:1 1 auto; }
+.fnri-area-manual { width:100%; border-top:1px solid var(--color-border-light-tertiary,#7776); padding-top:6px; }
+.fnri-area-manual summary { cursor:pointer; margin-bottom:6px; }
+.fnri-area-manual small { display:block; margin-top:7px; }
+.fnri-area-manual button { width:calc(50% - 4px); margin:2px; }
+
+/* Intervention and reroll source choices: independent buttons, not selects. */
+.fnri-button-choices { display: grid; grid-template-columns: 1fr; gap: 4px; margin: 4px 0 8px; max-height: 45vh; overflow-y: auto; }
+.fnri-button-choices > button { width: 100%; height: auto; min-height: 30px; white-space: normal; text-align: left; justify-content: flex-start; }
+.fnri-button-choices > button[aria-pressed="true"] { outline: 2px solid var(--color-warm-2, #b98538); outline-offset: -2px; font-weight: bold; }
+
+/* PC editor: persistent quick controls and independent skill window. */
+.fast-nri-v14.fast-nri-sheet .fnri-character-edit { width:auto; flex:0 0 auto; font-size:.78rem; }
+.fast-nri-v14.fast-nri-sheet .fnri-hp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.fast-nri-v14.fast-nri-sheet .fnri-hp-inputs label { display:flex; flex-direction:row; align-items:center; gap:5px; justify-content:center; }
+.fast-nri-v14.fast-nri-sheet .fnri-hp-inputs input { width:72px; min-width:0; text-align:center; }
+.fnri-skill-editor { max-height:70vh; overflow:auto; display:flex; flex-direction:column; gap:5px; }
+.fnri-skill-editor .fnri-skill-edit-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.fnri-skill-editor .fnri-skill-edit-pool, .fnri-skill-editor .fnri-skill-edit-option, .fnri-skill-editor .fnri-skill-edit-dice { display:flex; gap:4px; align-items:center; }
+.fnri-skill-editor .fnri-skill-edit-row, .fnri-skill-editor .fnri-skill-edit-head { display:grid; grid-template-columns:minmax(100px,1.2fr) minmax(170px,1.5fr) minmax(70px,.7fr) minmax(52px,.5fr); gap:5px; align-items:center; }
+.fnri-skill-editor .fnri-skill-edit-row small { display:block; opacity:.75; font-size:.72rem; }
+.fnri-skill-editor .fnri-skill-edit-dice button { flex:1; min-width:0; padding:0 3px; }
+.fnri-skill-editor .fnri-skill-edit-dice button[aria-pressed="true"] { background:var(--color-warm-2,#9a762c); color:white; }
+.fnri-skill-editor .fnri-skill-edit-custom { display:grid; grid-template-columns:minmax(90px,1fr) minmax(90px,1fr) minmax(100px,1fr) 70px 45px 28px; gap:4px; align-items:center; }
+.fnri-skill-editor input { min-width:0; }
+.fnri-skill-editor .fnri-skill-edit-warnings { display:flex; flex-direction:column; color:var(--color-level-warning,#b58125); }

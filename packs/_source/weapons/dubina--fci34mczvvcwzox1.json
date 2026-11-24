@@ -1,0 +1,85 @@
+{
+  "name": "Дубина",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Дубины.\nВладение по списку: Друид, Воин.\nРуки: 2. Дистанция: ближняя.\nСвойства: Крепкое.\nУрон по степеням: `1d6` / `1d6+1d8` / `1d6+1d8+5`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "2",
+    "hands": 2,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 1,
+    "category": "Дубины",
+    "proficiencyClasses": "Друид, Воин",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Крепкое",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d6",
+      "B": "1d8",
+      "C": 5
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 2
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Друид",
+          "Воин"
+        ],
+        "properties": [
+          "Крепкое"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Крепкое": "**Большой успех:** если цель получила хотя бы `1` урона, она Оглушена.\n\nКрепкое может Оглушить не более одного раза за ход. В чужой ход ограничение считается отдельно."
+      },
+      "attack": {
+        "outcomes": [
+          {
+            "kind": "stun",
+            "minEffectDegree": "great",
+            "requiresDamage": true,
+            "oncePerTurn": true
+          }
+        ],
+        "traitOptions": [
+          {
+            "id": "solid",
+            "label": "Крепкое",
+            "summary": "Большой успех и ≥1 нанесённого урона: Оглушение; вручную",
+            "defaultEnabled": true,
+            "effect": {
+              "outcomes": [
+                {
+                  "kind": "stun",
+                  "minEffectDegree": "great",
+                  "requiresDamage": true,
+                  "oncePerTurn": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.003",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci34mczvvcwzox1",
+  "effects": []
+}

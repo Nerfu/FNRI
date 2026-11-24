@@ -1,0 +1,22 @@
+{
+  "name": "Быстроногий",
+  "type": "ability",
+  "_id": "fnri2e171249ec19",
+  "system": {
+    "description": "При применении Рывка ваша Скорость увеличивается на 2 до конца текущего хода.",
+    "category": "Универсальное свойство",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "universal": true
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.bystronogii",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Быстроногий"
+    }
+  },
+  "effects": []
+}

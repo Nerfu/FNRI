@@ -1,3 +1,9 @@
+import {finishCardAccounting,normalizedCardActionId} from '../data/ability-accounting.mjs';
+import {cardEffectLinks} from '../effects/chat-effect-links.mjs';
+import {prepareRoll,finalizeRollEffects,visibleRollInfluences,fixedRollComponents} from "./roll-context.mjs";
+import {weaponTraitOptions,selectedWeaponTraitIds} from '../equipment/weapon-traits.mjs';
+import {naturalAttackingD20,resolveCheckDegree} from './attack-core.mjs';
+import {CHECK_DEFENSES,selectedTargetSnapshot} from './attack-properties.mjs';
 /** Fast NRI stage 3: safe, transparent wrappers around Foundry v14 Roll.
  * This file does not determine outcomes, attacks, damage or resource costs.
  */
@@ -29,19 +35,81 @@ export function resolveMessageMode(selected, defaultMode = "public") {
   return MESSAGE_MODES.has(defaultMode) ? defaultMode : "public";
 }
 
-export async function postRoll({ formula, label, actor = null, mode = "public", isIntervention=false,
-  attackKind=null,targetDefense=null,selfDefenseRule=null }) {
-  const expression = String(formula ?? "").trim();
+export async function postRoll(options) {
+  return (await postCheckRoll(options))?.roll ?? null;
+}
+
+export async function postCheckRoll({ formula, label, actor = null, mode = "public", isIntervention=false,
+  attackKind=null,targetDefense=null,selfDefenseRule=null, kind='ability', skillId=null,
+  formulaForActor=null, skipPreroll=false, sourceItem=null, actionId=null, accountingItem=null,
+  defenseStat=null,weaponItem=null,difficulty=null,execution=null,audienceMessage=null,
+  resultKind=null,targetTokens=null,standardActionId=null,targetDifficultyModifier=null,
+  compareEachTarget=false,recordRecipient=false }) {
+  const usesTargetDefense = CHECK_DEFENSES.includes(targetDefense);
+  const declaredTargets = usesTargetDefense || recordRecipient
+    ? [...(targetTokens ?? game.user?.targets ?? [])] : null;
+  const context = await prepareRoll({actor,kind,skillId,defenseStat,formula,
+    formulaForActor,skipDialog:skipPreroll,label,sourceItem,weaponItem});
+  if (context === null) return null; // Closing the preparation window changes nothing.
+  const expression = context.expression.trim();
   if (!expression) throw new Error("empty-formula");
   if (typeof Roll.validate === "function" && !Roll.validate(expression)) throw new Error("invalid-formula");
-  // The core Roll keeps every die result and supplies its native chat tooltip.
-  const roll = await new Roll(expression, actor?.getRollData?.() ?? {}).evaluate();
+  const sharedActionId=normalizedCardActionId(actionId);
+  const target = declaredTargets ? selectedTargetSnapshot(declaredTargets,targetDefense) : null;
+  const targetDifficulty = target?.status === 'one'
+    ? target.difficulty + (targetDifficultyModifier?.(declaredTargets[0]) ?? 0) : null;
+  const targetDifficulties = new Map();
+  if (compareEachTarget && usesTargetDefense) {
+    for (const token of declaredTargets) {
+      const snapshot = selectedTargetSnapshot([token],targetDefense);
+      if (snapshot.uuid) targetDifficulties.set(snapshot.uuid,snapshot.difficulty);
+    }
+  }
+  const roll = await new Roll(expression, context.actor?.getRollData?.() ?? {}).evaluate();
+  const naturalD20 = naturalAttackingD20(roll);
+  const resolved = resolveCheckDegree({total:roll.total,naturalD20,
+    difficulty:Number.isFinite(difficulty) ? difficulty : targetDifficulty});
+  const result = resolved.ok ? {degree:resolved.degree,naturalD20,
+    total:roll.total,targetUuid:target?.uuid ?? null} : null;
+  // The individual comparisons are returned to the caller. The published
+  // roll has the normal audience and carries no list of selected observers.
+  const targetResults = Array.from(targetDifficulties, ([targetUuid, difficulty]) => {
+    const comparison = resolveCheckDegree({total:roll.total,naturalD20,difficulty});
+    return {targetUuid, degree:comparison.ok ? comparison.degree : null};
+  });
+  const recipient = recordRecipient ? declaredTargets[0] : null;
+  const chatResult = result && (recipient?.document ?? recipient)?.hidden === true
+    ? {...result,targetUuid:null} : result;
+  const visibilityMode=audienceMessage ? (audienceMessage.blind ? 'blind' :
+    (audienceMessage.whisper?.length ? 'gm' : 'public')) : resolveMessageMode(mode);
   const speaker = actor ? ChatMessage.getSpeaker({ actor }) : ChatMessage.getSpeaker();
-  await roll.toMessage({
+  const audience=audienceMessage ? {whisper:[...(audienceMessage.whisper??[])],blind:!!audienceMessage.blind} : {};
+  const messageData = {
+    ...audience,
     speaker,
-    flavor: `<strong>${safeText(label)}</strong><div class="fnri-roll-expression">${safeText(expression)}</div>`,
-    flags:{'fast-nri-v14':{checkRoll:{version:1,label:String(label),actorUuid:actor?.uuid??null,
-      isIntervention:!!isIntervention,attackKind,targetDefense,selfDefenseRule}}}
-  }, { messageMode: resolveMessageMode(mode) });
-  return roll;
+    flavor: `<strong>${safeText(label)}</strong><div class="fnri-roll-expression">${safeText(expression)}</div>${cardEffectLinks(sourceItem)}`,
+    flags:{'fast-nri-v14':{...(sharedActionId?{compositeActionId:sharedActionId}:{}),
+      ...(execution?.id?{abilityExecution:{executionId:execution.id,sourceItemUuid:sourceItem?.uuid??null,actorUuid:actor?.uuid??null}}:{}),
+      ...(resultKind==='temporaryHp' && execution?.id ? {abilityResult:{version:1,kind:'temporaryHp',
+        executionId:execution.id,sourceItemUuid:sourceItem?.uuid??null,actorUuid:actor?.uuid??null}}:{}),
+      fixedRollComponents:fixedRollComponents(context,{redact:actor && !actor.hasPlayerOwner && ['public','ic'].includes(visibilityMode)}),
+      checkRoll:{version:1,label:String(label),actorUuid:actor?.uuid??null,
+      ...(standardActionId ? {standardActionId} : {}),
+      ...(weaponTraitOptions(weaponItem).length?{
+        weaponItemUuid:actor && actor.hasPlayerOwner!==true && ['public','ic'].includes(visibilityMode)
+          ? null : weaponItem.uuid,
+        weaponTraitIds:selectedWeaponTraitIds(context,weaponItem)}:{}),
+      isIntervention:!!isIntervention,attackKind,targetDefense,selfDefenseRule,
+      ...(chatResult ? {result:chatResult} : {}),
+      rollInfluences:visibleRollInfluences(context,actor,visibilityMode)}}}
+  };
+  // toMessage(create:false) keeps native Roll serialization, while explicit
+  // source audience is restored on creation instead of being overwritten by
+  // the user's current roll-mode preference.
+  const message=audienceMessage ? await ChatMessage.create({
+    ...await roll.toMessage(messageData,{create:false,messageMode:'public'}),...audience
+  }) : await roll.toMessage(messageData,{messageMode:resolveMessageMode(mode)});
+  await finalizeRollEffects(context,message);
+  await finishCardAccounting({actor,item:accountingItem??sourceItem,message,isIntervention,actionId:sharedActionId,execution});
+  return {roll, message, result, targetResults};
 }

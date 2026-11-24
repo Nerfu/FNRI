@@ -1,0 +1,71 @@
+{
+  "name": "Рапира",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Мечи.\nВладение по списку: Воин, Бард.\nРуки: 1. Дистанция: ближняя.\nСвойства: Смертельное.\nУрон по степеням: `1d6` / `1d6+1d6` / `1d6+1d6+6`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "1",
+    "hands": 1,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 1,
+    "category": "Мечи",
+    "proficiencyClasses": "Воин, Бард",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Смертельное",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d6",
+      "B": "1d6",
+      "C": 6
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 1
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Воин",
+          "Бард"
+        ],
+        "properties": [
+          "Смертельное"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Смертельное": "**Большой успех:** цель получает `−10` к Самозащите против этой атаки."
+      },
+      "attack": {
+        "greatSelfDefenseModifier": -10,
+        "traitOptions": [
+          {
+            "id": "deadly",
+            "label": "Смертельное",
+            "summary": "−10 к встроенной Самозащите на Большом успехе",
+            "defaultEnabled": true,
+            "effect": {
+              "greatSelfDefenseModifier": -10
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.006",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci2qd7ik405qky2",
+  "effects": []
+}

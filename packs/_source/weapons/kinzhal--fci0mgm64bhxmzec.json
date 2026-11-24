@@ -1,0 +1,80 @@
+{
+  "name": "Кинжал",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Кинжалы.\nВладение по списку: Воин, Разбойник, Колдун.\nРуки: 1. Дистанция: ближняя.\nСвойства: Подвижное, Смертельное.\nУрон по степеням: `1d4` / `1d4+1d6` / `1d4+1d6+6`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "1",
+    "hands": 1,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 1,
+    "category": "Кинжалы",
+    "proficiencyClasses": "Воин, Разбойник, Колдун",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Подвижное, Смертельное",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d4",
+      "B": "1d6",
+      "C": 6
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 1
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Воин",
+          "Разбойник",
+          "Колдун"
+        ],
+        "properties": [
+          "Подвижное",
+          "Смертельное"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Подвижное": "Один раз в свой ход перед атакой этим оружием можете выполнить Шаг свободным действием.\n\nСвойство не действует в чужой ход и при атаке-Вмешательстве.",
+        "Смертельное": "**Большой успех:** цель получает `−10` к Самозащите против этой атаки."
+      },
+      "attack": {
+        "greatSelfDefenseModifier": -10,
+        "traitOptions": [
+          {
+            "id": "mobile",
+            "label": "Подвижное",
+            "summary": "Можно сделать Шаг перед атакой в свой ход; вручную",
+            "defaultEnabled": false
+          },
+          {
+            "id": "deadly",
+            "label": "Смертельное",
+            "summary": "−10 к встроенной Самозащите на Большом успехе",
+            "defaultEnabled": true,
+            "effect": {
+              "greatSelfDefenseModifier": -10
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.017",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci0mgm64bhxmzec",
+  "effects": []
+}

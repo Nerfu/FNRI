@@ -1,0 +1,32 @@
+{
+  "name": "Работяга",
+  "type": "ability",
+  "_id": "fnri5da0e6541318",
+  "system": {
+    "description": "Получите Куб навыка Ремесло d8.",
+    "category": "Свойство Полурослика",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "halfling"
+        ]
+      },
+      "skillDice": {
+        "grants": [
+          {
+            "size": 8,
+            "skill": "craft"
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.rabotyaga",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Работяга"
+    }
+  },
+  "effects": []
+}

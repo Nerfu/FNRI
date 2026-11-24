@@ -1,0 +1,28 @@
+{
+  "name": "Зрение в темноте",
+  "type": "ability",
+  "system": {
+    "description": "Тусклый свет и Темнота не дают штрафов помехи от освещённости.",
+    "notes": "Рулбук 7.0 · Освещённость и зрение",
+    "tags": "особое зрение",
+    "mechanics": {
+      "racialProperty": {
+        "races": [
+          "elf",
+          "dwarf",
+          "orc"
+        ]
+      },
+      "passive": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "visionKind": "darkvision",
+      "contentId": "fnri7.rulebook.vision.darkvision",
+      "source": "Fast NRI 7.0 rulebook.md / Виды зрения"
+    }
+  },
+  "_id": "fci2rm7bblrrt37a",
+  "effects": []
+}

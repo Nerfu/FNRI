@@ -1,0 +1,37 @@
+{
+  "name": "Щит",
+  "type": "gear",
+  "system": {
+    "description": "> **Руки:** 1.  \n> **Владение:** все персонажи.\n\nЩит не является оружием и имеет свойство **Защитное**.\n\nЩит позволяет использовать Манёвр **«Толкнуть»**.\n\n---",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "щит, снаряжение",
+    "category": "Щит",
+    "quantity": 1,
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "protection": {
+        "acBonus": 2,
+        "stack": "highest",
+        "requires": "held",
+        "kind": "shield"
+      },
+      "usage": {
+        "grip": "1",
+        "proficiencyClasses": [
+          "все персонажи"
+        ],
+        "maneuver": "Толкнуть"
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.033",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci2ac24kkhxdaq9",
+  "effects": []
+}

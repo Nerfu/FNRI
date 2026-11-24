@@ -1,0 +1,78 @@
+{
+  "name": "Длинный лук",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Луки.\nВладение по списку: Егерь.\nРуки: `1+`. Дистанция: 12.\nСвойства: Смертельное, Дальнобойное.\nУрон по степеням: `1d6` / `1d6+1d4` / `1d6+1d4+5`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "`1+`",
+    "hands": 1,
+    "reach": 1,
+    "range": 12,
+    "distance": "12",
+    "level": 1,
+    "category": "Луки",
+    "proficiencyClasses": "Егерь",
+    "proficiencyMode": "auto",
+    "attackKind": "ranged",
+    "properties": "Смертельное, Дальнобойное",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d6",
+      "B": "1d4",
+      "C": 5
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 2
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "12",
+        "proficiencyList": [
+          "Егерь"
+        ],
+        "properties": [
+          "Смертельное",
+          "Дальнобойное"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Смертельное": "**Большой успех:** цель получает `−10` к Самозащите против этой атаки.",
+        "Дальнобойное": "Атака по цели в пределах 3 клеток получает Штраф помехи `−2`.\n\nНа второй дистанции атака получает Штраф помехи `−3` вместо `−6`.\n\n---"
+      },
+      "attack": {
+        "greatSelfDefenseModifier": -10,
+        "traitOptions": [
+          {
+            "id": "deadly",
+            "label": "Смертельное",
+            "summary": "−10 к встроенной Самозащите на Большом успехе",
+            "defaultEnabled": true,
+            "effect": {
+              "greatSelfDefenseModifier": -10
+            }
+          },
+          {
+            "id": "longrange",
+            "label": "Дальнобойное",
+            "summary": "Штрафы помехи зависят от дистанции; вручную",
+            "defaultEnabled": true
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.020",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci3umyzd2g6ltly",
+  "effects": []
+}

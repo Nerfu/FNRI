@@ -1,0 +1,54 @@
+{
+  "name": "Полукровка",
+  "type": "ability",
+  "_id": "fnrif2af8e11b75a",
+  "system": {
+    "description": "Требование: Человек. При создании персонажа выберите другую расу. Вы считаетесь представителем обеих рас и получаете врождённые свойства каждой из них по одному разу.",
+    "category": "Свойство Человека",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "choices": [
+          {
+            "id": "elf",
+            "label": "Эльф"
+          },
+          {
+            "id": "dwarf",
+            "label": "Дварф"
+          },
+          {
+            "id": "halfling",
+            "label": "Полурослик"
+          },
+          {
+            "id": "orc",
+            "label": "Орк"
+          },
+          {
+            "id": "nephalem",
+            "label": "Нефалем"
+          },
+          {
+            "id": "draconic",
+            "label": "Драконообразный"
+          },
+          {
+            "id": "catfolk",
+            "label": "Котолюд"
+          }
+        ],
+        "races": [
+          "human"
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.polukrovka",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Полукровка"
+    }
+  },
+  "effects": []
+}

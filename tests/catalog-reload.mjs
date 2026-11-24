@@ -1,3 +1,4 @@
+import {installTemplateMock} from './foundry-test-helpers.js';
 import assert from 'node:assert/strict';
 import { dirname,resolve } from 'node:path';
 import { fileURLToPath,pathToFileURL } from 'node:url';
@@ -25,6 +26,7 @@ globalThis.foundry={utils:{randomID:mockID},applications:{api:{HandlebarsApplica
 globalThis.game={i18n:{localize:k=>k},settings:{get:()=>"public"}};
 globalThis.ui={notifications:{error(msg){throw new Error(msg)},warn(msg){throw new Error(msg)}}};
 globalThis._del=Symbol('DELETE');
+installTemplateMock();
 const {FastNRICharacterSheet}=await mod('module/sheets/sheets.mjs');
 const clone=x=>structuredClone(x);
 function makeActor({name='Тестовый герой',skills=initialSkillEntries()}={}){

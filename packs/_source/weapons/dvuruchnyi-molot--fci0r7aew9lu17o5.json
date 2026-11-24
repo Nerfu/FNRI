@@ -1,0 +1,70 @@
+{
+  "name": "Двуручный молот",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Молоты.\nВладение по списку: Воин.\nРуки: 2. Дистанция: ближняя.\nСвойства: Пробивающий.\nУрон по степеням: `1d8` / `1d8+1d8` / `1d8+1d8+6`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "2",
+    "hands": 2,
+    "reach": 1,
+    "range": null,
+    "distance": "",
+    "level": 1,
+    "category": "Молоты",
+    "proficiencyClasses": "Воин",
+    "proficiencyMode": "auto",
+    "attackKind": "melee",
+    "properties": "Пробивающий",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d8",
+      "B": "1d8",
+      "C": 6
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 2
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "ближняя",
+        "proficiencyList": [
+          "Воин"
+        ],
+        "properties": [
+          "Пробивающий"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Пробивающий": "Проверка Защитного действия против этой атаки получает `−5`.\n\nШтраф не изменяет КЗ и не действует на Защитные действия без проверки."
+      },
+      "attack": {
+        "defenseCheckModifier": -5,
+        "traitOptions": [
+          {
+            "id": "piercing",
+            "label": "Пробивающий",
+            "summary": "−5 к проверке Защитного действия",
+            "defaultEnabled": true,
+            "effect": {
+              "defenseCheckModifier": -5
+            }
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.010",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci0r7aew9lu17o5",
+  "effects": []
+}

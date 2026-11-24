@@ -1,0 +1,33 @@
+{
+  "name": "Природа Нефалема",
+  "type": "ability",
+  "_id": "fnrie6af9d332d70",
+  "system": {
+    "description": "Врождённое свойство Нефалема. Выберите Святое или Нечестивое наследие. Святой получает Сумеречное зрение и свойство «Небесный посланник», Нечестивый получает Зрение в темноте.",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "choices": [
+          {
+            "id": "holy",
+            "label": "Святой"
+          },
+          {
+            "id": "unholy",
+            "label": "Нечестивый"
+          }
+        ],
+        "races": [
+          "nephalem"
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.priroda-nefalema",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Природа Нефалема"
+    }
+  },
+  "effects": []
+}

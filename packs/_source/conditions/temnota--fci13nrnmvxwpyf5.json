@@ -1,0 +1,48 @@
+{
+  "name": "Темнота",
+  "type": "item",
+  "system": {
+    "description": "Освещённость задаётся вручную. −10 при обычном зрении, −4 при Сумеречном зрении, нет штрафа при Зрении в темноте.",
+    "notes": "Рулбук 7.0 · Штрафы помехи / Освещённость и зрение",
+    "tags": "условие атаки",
+    "mechanics": {
+      "condition": {
+        "id": "darkness",
+        "application": "explicit",
+        "duration": "manual"
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "f7Hindrance00004",
+      "name": "Темнота",
+      "img": "icons/svg/aura.svg",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-darkness"
+      ],
+      "description": "Освещённость задаётся вручную. −10 при обычном зрении, −4 при Сумеречном зрении, нет штрафа при Зрении в темноте.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "darkness",
+          "rulesRef": "rulebook.md#штрафы-помехи"
+        }
+      }
+    }
+  ],
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.hindrance.darkness",
+      "source": "Fast NRI 7.0 rulebook.md / Штрафы помехи"
+    }
+  },
+  "_id": "fci13nrnmvxwpyf5"
+}

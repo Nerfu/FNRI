@@ -1,3 +1,5 @@
+import {acceptPreroll} from './foundry-test-helpers.js';
+import {sheetOptions} from './foundry-test-helpers.js';
 import assert from 'node:assert/strict';
 import { availableUnarmedActions, resolveUnarmedAction, sendUnarmedAttack } from '../module/rolls/unarmed.mjs';
 const baseSystem={equipment:{leftHand:'',rightHand:'',armor:''},equipmentSlots:{},combatDie:'d8'};
@@ -45,6 +47,7 @@ globalThis.Roll=RollMock;
 globalThis.ChatMessage={getSpeaker:()=>({alias:'Герой'})};
 globalThis.game={i18n:{localize:x=>x},user:{targets:new Set()},settings:{get:()=> 'public'}};
 a.flags['fast-nri-v14'].selectedUnarmedAttack='item:fighter';
+globalThis.foundry={applications:{api:{DialogV2:{wait:acceptPreroll}}}};
 await sendUnarmedAttack(a);
 assert.equal(messages.at(-1).flags['fast-nri-v14'].weaponAttack.profile.A,'1d6');
 a.flags['fast-nri-v14'].selectedUnarmedAttack='base';
@@ -55,16 +58,16 @@ assert.equal(messages.at(-1).flags['fast-nri-v14'].weaponAttack.profile.A,'1d4')
 class SheetMock { async _prepareContext(){return {}}; }
 globalThis.foundry={applications:{api:{HandlebarsApplicationMixin:Parent=>Parent,DialogV2:{}},sheets:{ActorSheetV2:SheetMock,ItemSheetV2:SheetMock}}};
 const {FastNRICharacterSheet}=await import('../module/sheets/sheets.mjs');
-assert.equal(typeof FastNRICharacterSheet.DEFAULT_OPTIONS.actions.selectUnarmedAttack,'function');
+assert.equal(typeof sheetOptions(FastNRICharacterSheet).actions.selectUnarmedAttack,'function');
 const saves=[];
 const editable={isEditable:true,actor:{...a,async update(changes){saves.push(changes);return this;}},_queueWrite:operation=>operation()};
 const trigger=key=>({dataset:{unarmedChoice:key}});
-await FastNRICharacterSheet.DEFAULT_OPTIONS.actions.selectUnarmedAttack.call(editable,null,trigger('item:fighter'));
+await sheetOptions(FastNRICharacterSheet).actions.selectUnarmedAttack.call(editable,null,trigger('item:fighter'));
 assert.deepEqual(saves[0],{'flags.fast-nri-v14.selectedUnarmedAttack':'item:fighter'});
-await FastNRICharacterSheet.DEFAULT_OPTIONS.actions.selectUnarmedAttack.call(editable,null,trigger('item:missing'));
+await sheetOptions(FastNRICharacterSheet).actions.selectUnarmedAttack.call(editable,null,trigger('item:missing'));
 assert.equal(saves.length,1,'no save of nonexistent choice');
 editable.isEditable=false;
-await FastNRICharacterSheet.DEFAULT_OPTIONS.actions.selectUnarmedAttack.call(editable,null,trigger('base'));
+await sheetOptions(FastNRICharacterSheet).actions.selectUnarmedAttack.call(editable,null,trigger('base'));
 assert.equal(saves.length,1,'read-only sheet does not change Actor');
 
 console.log('PASS: selectable base, legacy replacement, additional options, saved choice, stale fallback, equipped source and chat snapshot');

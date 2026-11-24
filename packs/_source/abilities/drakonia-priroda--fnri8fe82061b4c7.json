@@ -1,0 +1,77 @@
+{
+  "name": "Драконья природа",
+  "type": "ability",
+  "_id": "fnri8fe82061b4c7",
+  "system": {
+    "description": "Врождённое свойство Драконообразного. При создании персонажа выберите Огонь, Лёд, Электричество, Воду, Воздух, Землю, Святое, Нечестивое, Яд или Дух. Персонаж и каждая его способность со свойством «Драконья природа» получают выбранное свойство.",
+    "category": "Свойство Драконообразного",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "inheritsTo": "Драконья природа",
+        "choices": [
+          {
+            "id": "fire",
+            "label": "Огонь",
+            "attackTrait": "Огонь"
+          },
+          {
+            "id": "ice",
+            "label": "Лёд",
+            "attackTrait": "Лёд"
+          },
+          {
+            "id": "electricity",
+            "label": "Электричество",
+            "attackTrait": "Электричество"
+          },
+          {
+            "id": "water",
+            "label": "Вода",
+            "attackTrait": "Вода"
+          },
+          {
+            "id": "air",
+            "label": "Воздух",
+            "attackTrait": "Воздух"
+          },
+          {
+            "id": "earth",
+            "label": "Земля",
+            "attackTrait": "Земля"
+          },
+          {
+            "id": "holy",
+            "label": "Святой",
+            "attackTrait": "Святой"
+          },
+          {
+            "id": "unholy",
+            "label": "Нечестивый",
+            "attackTrait": "Нечестивый"
+          },
+          {
+            "id": "poison",
+            "label": "Яд",
+            "attackTrait": "Яд"
+          },
+          {
+            "id": "spirit",
+            "label": "Дух",
+            "attackTrait": "Дух"
+          }
+        ],
+        "races": [
+          "draconic"
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.drakonia-priroda",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Драконья природа"
+    }
+  },
+  "effects": []
+}

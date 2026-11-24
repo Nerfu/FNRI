@@ -1,0 +1,30 @@
+{
+  "name": "Латы",
+  "type": "armor",
+  "system": {
+    "description": "Латы. Пороги КЗ: 11 / 16 / 22. Итог включает один бонус КЗ класса и применимые прямые модификаторы.",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "броня",
+    "ac": {
+      "partial": 11,
+      "success": 16,
+      "great": 22
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "armor"
+      },
+      "armor": {
+        "classBonusRequired": true
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.032",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci2f1qapwisda6i",
+  "effects": []
+}

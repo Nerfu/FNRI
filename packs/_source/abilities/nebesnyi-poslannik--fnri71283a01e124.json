@@ -1,0 +1,27 @@
+{
+  "name": "Небесный посланник",
+  "type": "ability",
+  "_id": "fnri71283a01e124",
+  "system": {
+    "description": "Врождённое свойство Святого Нефалема. Ваша Скорость увеличена на 1.",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "innateOnly": true,
+        "races": [
+          "nephalem"
+        ]
+      },
+      "characterContributions": {
+        "speed": 1
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.nebesnyi-poslannik",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Небесный посланник"
+    }
+  },
+  "effects": []
+}

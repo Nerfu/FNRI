@@ -10,6 +10,31 @@ const fail = (reason, detail = null) => ({ ok: false, reason, detail });
 const pass = result => ({ ok: true, ...result });
 const clampDegree = value => Math.max(0, Math.min(3, value));
 
+export function bestiaryAttackExpression(actor) {
+  const modifier = actor?.system?.attackModifier;
+  if (actor?.type !== 'npc' || !finite(modifier)) return null;
+  return `1d20 ${modifier < 0 ? '-' : '+'} ${Math.abs(modifier)}`;
+}
+
+export function naturalAttackingD20(roll) {
+  const dice = (roll?.dice ?? []).filter(die => die.faces === 20 && die.number === 1);
+  if (dice.length !== 1) return null;
+  const active = (dice[0].results ?? []).filter(result => result.active !== false);
+  const value = active.length === 1 ? active[0].result : null;
+  return Number.isInteger(value) && value >= 1 && value <= 20 ? value : null;
+}
+
+export function resolveCheckDegree({total, naturalD20, difficulty} = {}) {
+  if (!finite(difficulty)) return fail('missing-or-invalid-difficulty');
+  const result = resolveAttackDegree({
+    total, naturalD20, ac:{partial:difficulty-10,success:difficulty,great:difficulty+10}
+  });
+  if (!result.ok) return result;
+  const index = result.naturalTwenty ? 3 : result.degreeIndex;
+  return pass({degree:ATTACK_DEGREES[index],degreeIndex:index,
+    naturalOne:result.naturalOne,naturalTwenty:result.naturalTwenty});
+}
+
 /** Compare an already evaluated attack against all three AC thresholds.
  * naturalD20 must be the value of the attacking d20, not the total Roll result.
  * Attacker-side degree changes occur after the base degree. Natural 1 is final.

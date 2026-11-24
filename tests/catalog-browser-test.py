@@ -3,15 +3,12 @@
 Narrow Foundry API mock; full live-world integration remains user testing.
 """
 from pathlib import Path
+from browser_test_helpers import expand_actor_template, load_real_sheet
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
-cat=(root/'module/data/skills-catalog.mjs').read_text().replace('export const ','const ').replace('export function ','function ')
-core=(root/'module/data/core-actions.mjs').read_text().replace('export const ', 'const ')
-sheet='\n'.join(line for line in (root/'module/sheets/sheets.mjs').read_text().splitlines() if not line.startswith('import ')).replace('export class ','class ')
-sheet='// Equipment/attack internals are covered by separate Node tests; these browser tests target legacy UI behavior.\nconst itemSlot=()=>null, equipmentKind=()=>null, itemGrip=()=>"1", hasFreeSecondHand=()=>true;\nconst isPhysicalWeaponCard=()=>false, isPhysicalOtherItemAttack=()=>false;\nconst resolveUnarmedAction=()=>({name:"Безоружная атака",conflict:false});\nconst compactPhysicalProfile=()=>"", attackCardDetails=()=>"";\n'+sheet
 for name in ('character','npc'):
-    template=(root/'templates'/f'{name}.hbs').read_text()
-    for required in ('{{#each catalogGroups}}','{{#each this.rows}}','fnri-core-skill-name','data-fnri-dice-picker="skill"','data-row-field="modifier"','{{#each skillRows}}','data-action="addSpecialization"'):
+    template=expand_actor_template(root,f'{name}.hbs')
+    for required in ('{{#each catalogGroups}}','{{#each this.rows}}','fnri-core-skill-name','data-fnri-dice-picker="skill"','data-row-field="modifier"','{{#each skillRows}}',('data-action="openSkillEditor"' if name=='character' else 'data-action="addSpecialization"')):
         assert required in template, (name,required)
 
 html='''<div id="sheet"><div id="skills">
@@ -42,8 +39,7 @@ with sync_playwright() as p:
     browser=p.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
     try:
         page=browser.new_page()
-        page.set_content(html)
-        page.add_script_tag(content=shim+'\n'+cat+'\n'+core+'\n'+sheet+'\nwindow.sheet=new FastNRICharacterSheet({actor:window.actor}); window.sheet._onRender({},{});')
+        load_real_sheet(page,root,html,shim)
         # Source record exists, while prepared record is missing. A dice edit
         # must NOT reset the original name or modifier.
         page.locator('[data-fnri-dice-picker="skill"]').select_option('1d8')

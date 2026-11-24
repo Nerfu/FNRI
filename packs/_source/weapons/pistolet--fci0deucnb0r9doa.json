@@ -1,0 +1,67 @@
+{
+  "name": "Пистолет",
+  "type": "weapon",
+  "system": {
+    "description": "Уровень 1. Категория: Огнестрельное оружие.\nВладение по списку: Защитник, Воин.\nРуки: 1. Дистанция: 5.\nСвойства: Огнестрельное.\nУрон по степеням: `1d8` / `1d8+1d6` / `1d8+1d6+5`. Тип: физический.",
+    "notes": "Рулбук 7.0 · Часть IV · Оружие",
+    "tags": "оружие",
+    "grip": "1",
+    "hands": 1,
+    "reach": 1,
+    "range": 5,
+    "distance": "5",
+    "level": 1,
+    "category": "Огнестрельное оружие",
+    "proficiencyClasses": "Защитник, Воин",
+    "proficiencyMode": "auto",
+    "attackKind": "ranged",
+    "properties": "Огнестрельное",
+    "damageType": "физический",
+    "damageProfile": {
+      "A": "1d8",
+      "B": "1d6",
+      "C": 5
+    },
+    "mechanics": {
+      "equipment": {
+        "slot": "hand"
+      },
+      "price": {
+        "wealth": 2
+      },
+      "weapon": {
+        "rulesRef": "rulebook.md#оружие",
+        "printedDistance": "5",
+        "proficiencyList": [
+          "Защитник",
+          "Воин"
+        ],
+        "properties": [
+          "Огнестрельное"
+        ],
+        "isSpellcastingFocus": false
+      },
+      "propertyRules": {
+        "Огнестрельное": "В начале подготовленного боя оружие заряжено. После атаки оно становится разряженным и не может атаковать, пока не будет перезаряжено. Перезарядить его можно активностью **«Перезарядить огнестрельное оружие»** во время Короткого отдыха при наличии владения."
+      },
+      "attack": {
+        "traitOptions": [
+          {
+            "id": "firearm",
+            "label": "Огнестрельное",
+            "summary": "Контроль заряда огнестрельного оружия; вручную",
+            "defaultEnabled": true
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.weapon.015",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Оружие"
+    }
+  },
+  "_id": "fci0deucnb0r9doa",
+  "effects": []
+}

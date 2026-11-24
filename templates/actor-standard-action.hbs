@@ -1,0 +1,39 @@
+<li data-fnri-sheet-action="{{this.id}}" data-fnri-builtin-action="{{this.builtinId}}">
+  {{#if this.link}}
+    <button type="button" data-action="jumpToSheetAction" data-id="{{this.id}}">{{this.name}}</button>
+  {{else}}
+    {{#if this.roll}}
+      {{#if @root.editable}}
+        <button type="button" data-action="rollSheetAction" data-id="{{this.id}}">{{this.name}}</button>
+      {{else}}<span>{{this.name}}</span>{{/if}}
+      <button type="button" class="fnri-sheet-action-description" data-action="openSheetAction" data-id="{{this.id}}" title="{{localize 'FASTNRI.SheetActions.open'}}" aria-label="{{localize 'FASTNRI.SheetActions.open'}}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button>
+    {{else if this.quickStrike}}
+      {{#if @root.editable}}
+        <button type="button" data-action="rollQuickStrike">{{this.name}}</button>
+        <button type="button" class="fnri-sheet-action-description" data-action="openSheetAction" data-id="{{this.id}}" title="{{localize 'FASTNRI.SheetActions.open'}}" aria-label="{{localize 'FASTNRI.SheetActions.open'}}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button>
+      {{else}}
+        <button type="button" data-action="openSheetAction" data-id="{{this.id}}">{{this.name}}</button>
+      {{/if}}
+    {{else if this.context}}
+      {{#if @root.editable}}
+        <button type="button" data-action="openInterventionSource" data-id="{{this.id}}">{{this.name}}</button>
+        <button type="button" class="fnri-sheet-action-description" data-action="openSheetAction" data-id="{{this.id}}" title="{{localize 'FASTNRI.SheetActions.open'}}" aria-label="{{localize 'FASTNRI.SheetActions.open'}}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button>
+      {{else}}
+        <button type="button" data-action="openSheetAction" data-id="{{this.id}}">{{this.name}}</button>
+      {{/if}}
+    {{else if this.hasVariants}}
+      <details>
+        <summary>{{this.name}}</summary>
+        <div class="fnri-sheet-action-variants">
+          {{#if @root.editable}}<button type="button" data-action="declareSheetAction" data-id="{{this.id}}">{{localize "FASTNRI.SheetActions.agreedMovement"}}</button>{{else}}<button type="button" data-action="openSheetAction" data-id="{{this.id}}">{{localize "FASTNRI.SheetActions.agreedMovement"}}</button>{{/if}}
+          {{#if @root.editable}}<button type="button" data-action="rollSheetAction" data-id="forceAidAlly">{{localize "FASTNRI.SheetActions.cards.forceAidAlly.name"}}</button>{{/if}}
+          <button type="button" class="fnri-sheet-action-description" data-action="openSheetAction" data-id="forceAidAlly" title="{{localize 'FASTNRI.SheetActions.open'}}" aria-label="{{localize 'FASTNRI.SheetActions.open'}}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button>
+        </div>
+      </details>
+    {{else}}
+      {{#if @root.editable}}<button type="button" data-action="declareSheetAction" data-id="{{this.id}}">{{this.name}}</button>
+        <button type="button" class="fnri-sheet-action-description" data-action="openSheetAction" data-id="{{this.id}}" title="{{localize 'FASTNRI.SheetActions.open'}}" aria-label="{{localize 'FASTNRI.SheetActions.open'}}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button>
+      {{else}}<button type="button" data-action="openSheetAction" data-id="{{this.id}}">{{this.name}}</button>{{/if}}
+    {{/if}}
+  {{/if}}
+</li>

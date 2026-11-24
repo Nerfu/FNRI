@@ -1,3 +1,4 @@
+import {acceptPreroll} from './foundry-test-helpers.js';
 /** Stage-3 isolated tests. Does not pretend to replace live Foundry v14. */
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -31,6 +32,8 @@ const actor={id:'actorA',getRollData(){return {actor:'prepared'}}};
 const effects=[{disabled:false,delta:2},{disabled:false,delta:3},{disabled:true,delta:50}];
 const prepared=effects.filter(e=>!e.disabled).reduce((n,e)=>n+e.delta,0);
 const entry={name:'Sample skill',dice:'2d6',modifier:prepared};
+globalThis.game={i18n:{localize:k=>k},user:{targets:new Set()}};
+globalThis.foundry={applications:{api:{DialogV2:{wait:acceptPreroll}}}};
 await postRoll({formula:skillFormula(entry),label:'Skill <secret> & "test"',actor,mode:'gm'});
 assert.equal(sent[0].expression,'1d20 + (2d6) + (5)');
 assert.equal(sent[0].opts.messageMode,'gm');
@@ -64,7 +67,7 @@ for(const file of ['templates/character.hbs','templates/npc.hbs']){
  const src=read(file);
  for(const action of ['rollSkill','createEffect','editEffect','toggleEffect','deleteEffect'])
   assert.ok(src.includes(`data-action="${action}"`),`${file} missing ${action}`);
- assert.ok(src.includes('data-row-field="modifier"'));
+ assert.ok(file.includes('character')?src.includes('data-action="openSkillEditor"'):src.includes('data-row-field="modifier"'));
  assert.ok(!src.includes('data-fnri-message-mode'));
 }
 const item=read('templates/item.hbs');

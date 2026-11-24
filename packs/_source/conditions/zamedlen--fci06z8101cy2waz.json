@@ -1,0 +1,51 @@
+{
+  "name": "Замедлен",
+  "type": "item",
+  "system": {
+    "description": "Скорость существа уменьшается **вдвое**. Если получается дробное значение, примените глобальное округление вниз.\n\nЕсли источник не указывает отдельное завершение, состояние заканчивается по общему правилу завершения длительных эффектов.",
+    "notes": "Рулбук 7.0 · Состояния · справочная карточка и шаблон ActiveEffect",
+    "tags": "состояние",
+    "mechanics": {
+      "condition": {
+        "id": "slowed",
+        "rulesRef": "rulebook.md#состояния",
+        "application": "explicit",
+        "mechanicalAutomation": "pending",
+        "duration": "source-defined-or-manual"
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "f7Status00000005",
+      "name": "Замедлен",
+      "img": "icons/svg/aura.svg",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-slowed"
+      ],
+      "description": "Скорость существа уменьшается **вдвое**. Если получается дробное значение, примените глобальное округление вниз.\n\nЕсли источник не указывает отдельное завершение, состояние заканчивается по общему правилу завершения длительных эффектов.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "slowed",
+          "requiresManualResolution": true,
+          "rulesRef": "rulebook.md#состояния"
+        }
+      }
+    }
+  ],
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.condition.slowed",
+      "source": "Fast NRI 7.0 rulebook.md / Состояния"
+    }
+  },
+  "_id": "fci06z8101cy2waz"
+}

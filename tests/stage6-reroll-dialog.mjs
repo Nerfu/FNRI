@@ -26,9 +26,8 @@ assert.equal(damage.history.length,2,'even an identical reroll must remain visib
 assert.equal(damage.history[0].action,'reroll');
 assert.equal(damage.history[1].before.value,4);
 assert.equal(damage.history[1].after.value,4);
-assert.equal(info.length,2,'reroll feedback must appear even when the number repeats');
-assert.match(info[0],/1 → 4/);
-assert.match(info[1],/4 → 4/);
+assert.match(rendered[1],/1 → 4/,'first reroll feedback appears in the next dialog');
+assert.match(rendered[2],/4 → 4/,'identical reroll feedback appears in the next dialog');
 assert.match(rendered.at(-1),/4 → 4/,'next dialog must show the previous reroll outcome');
 assert.equal(nextDice.length,0);
 await assert.rejects(()=>executeRollEditorAction(msg,{partId:'C',action:'reroll'}),/notADie/);

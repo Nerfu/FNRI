@@ -1,0 +1,45 @@
+{
+  "name": "Зелье жизненной силы",
+  "type": "gear",
+  "system": {
+    "description": "> **Свойства:** Использование предмета, Манипуляция, Зелье.  \n> **Цель:** вы или соседний союзник.\n\nЦель восстанавливает `3 HP` и `1` Жизненную силу.\n\nЖизненную силу нельзя восстановить выше обычного максимума. Существо без Жизненной силы восстанавливает только HP.",
+    "notes": "Рулбук 7.0 · Часть IV · Инвентарь",
+    "tags": "зелье, расходник",
+    "category": "Зелье",
+    "quantity": 1,
+    "mechanics": {
+      "equipment": {
+        "slot": "other"
+      },
+      "use": {
+        "consume": {
+          "field": "quantity",
+          "amount": 1
+        },
+        "operations": [
+          {
+            "kind": "healHp",
+            "amount": 3
+          },
+          {
+            "kind": "restoreResource",
+            "resourceName": "Жизненная сила",
+            "amount": 1
+          }
+        ],
+        "manual": ""
+      },
+      "potion": {
+        "limitPerDayText": "Общий предел Зелий получателя; счётчик обновляется при получении эффекта и Отдыхе."
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.item.043",
+      "source": "Fast NRI 7.0 rulebook.md / Часть IV / Инвентарь"
+    }
+  },
+  "_id": "fci3192hz3ygvy2y",
+  "effects": []
+}

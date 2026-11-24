@@ -1,3 +1,5 @@
+import {installTemplateMock} from './foundry-test-helpers.js';
+import {sheetOptions} from './foundry-test-helpers.js';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
 import {resolve,dirname} from 'node:path';
@@ -24,8 +26,8 @@ class SheetMock {
 const deletes=Symbol('Foundry v14 _del');
 globalThis._del=deletes;
 globalThis.Hooks={once(name,fn){hooks.set(name,fn)},on(name,fn){hooks.set(name,fn)}};
-globalThis.CONFIG={Actor:{dataModels:{thirdPartyActor:class{}}},Item:{dataModels:{thirdPartyItem:class{}}}};
-globalThis.game={settings:{registerMenu(scope,key,data){registrations.push({scope,key,data})}},system:{id:'fast-nri-v14'},user:{isGM:false},i18n:{localize(key){return key;}}};
+globalThis.CONFIG={Combat:{initiative:{}},Token:{},TextEditor:{enrichers:[]},Actor:{dataModels:{thirdPartyActor:class{}}},Item:{dataModels:{thirdPartyItem:class{}}}};
+globalThis.game={settings:{register(){},registerMenu(scope,key,data){registrations.push({scope,key,data})}},system:{id:'fast-nri-v14'},user:{isGM:false},i18n:{localize(key){return key;}}};
 let warnings=0,errors=0;
 globalThis.ui={notifications:{warn(){warnings++;},error(){errors++;}}};
 globalThis.foundry={
@@ -34,9 +36,10 @@ globalThis.foundry={
   applications:{api:{HandlebarsApplicationMixin(Parent){return class extends Parent{}},ApplicationV2:SheetMock,DialogV2:{confirm:async()=>true}},
     sheets:{ActorSheetV2:SheetMock,ItemSheetV2:SheetMock},
     apps:{DocumentSheetConfig:{registerSheet(...args){registrations.push(args)},getSheetClassesForSubType(){return {sheetClasses:{},defaultClass:null}}}}},
-  documents:{Actor:class{},Item:class{}}
+  documents:{Actor:class{},Item:class{},Combat:class{}},canvas:{placeables:{tokens:{TokenRuler:class{}}}}
 };
 
+installTemplateMock();
 await import(pathToFileURL(file('main.mjs')).href);
 assert.ok(hooks.has('init'));
 hooks.get('init')();
@@ -69,20 +72,20 @@ for(const model of [CONFIG.Actor.dataModels.character.defineSchema(),CONFIG.Acto
 
 const {FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet}=await import(pathToFileURL(file('module/sheets/sheets.mjs')).href);
 for(const cls of [FastNRICharacterSheet,FastNRINPCSheet,FastNRIItemSheet]){
-  assert.equal(cls.DEFAULT_OPTIONS.tag,'form');
+  assert.equal(sheetOptions(cls).tag,'form');
   const [part]=Object.values(cls.PARTS);
   assert.equal(part.root,true);
   assert.ok(existsSync(file(part.template.replace('systems/fast-nri-v14/',''))));
 }
-assert.equal(FastNRICharacterSheet.DEFAULT_OPTIONS.form.submitOnChange,false,'single Actor save path');
-assert.equal(FastNRIItemSheet.DEFAULT_OPTIONS.form.submitOnChange,true,'Item forms still use core submission');
-const actions=FastNRICharacterSheet.DEFAULT_OPTIONS.actions;
+assert.equal(sheetOptions(FastNRICharacterSheet).form.submitOnChange,false,'single Actor save path');
+assert.equal(sheetOptions(FastNRIItemSheet).form.submitOnChange,true,'Item forms still use core submission');
+const actions=sheetOptions(FastNRICharacterSheet).actions;
 assert.equal(typeof actions.createItem,'function');
 for(const a of ['fnriSwitchTab','toggleQuickHp','toggleSkillGroup','rollAbility','rollSkill','createEffect','editEffect','toggleEffect','deleteEffect','openItem','createItem','deleteItem','addSkill','addSpecialization','removeSkill','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'])assert.equal(typeof actions[a],'function',a);
 
 function actorFactory(){
  const items=[];let itemCounter=2;
- function createItem(id,name,type){return {id,name,type,sort:0,img:'a.png',sheet:{async render(){}}};}
+ function createItem(id,name,type){return {id,name,type,system:{},getFlag(){return undefined;},sort:0,img:'a.png',sheet:{async render(){}}};}
  items.push(createItem('i1','Sword','weapon'),createItem('i2','Ability','ability'));
  const actor={
   name:'Actor',system:{
@@ -93,7 +96,7 @@ function actorFactory(){
    resources:{mana:{name:'Mana',current:4,max:8}},
    equipment:{leftHand:'i1',rightHand:'',armor:''},equipmentSlots:{},wealth:''
   },
-  items:{contents:items,get(id){return items.find(x=>x.id===id)}},updates:[],lastItemRecord:null,
+  items:{contents:items,has(id){return items.some(x=>x.id===id);},get(id){return items.find(x=>x.id===id)}},updates:[],lastItemRecord:null,
   async update(change){
    // Simulates a delayed server round-trip while applying independent dot-path
    // updates, as supported by the v14 Document API. Arrays are never merged.
@@ -140,6 +143,28 @@ async function attachControls(sheet,rowControls=[],namedControls=[]){
   querySelector(){return [...rowControls,...namedControls].find(c=>!!c.invalid)??null;}
  };
  await sheet._onRender({},{});
+}
+
+// Resource quick controls: both sheet types, sequential writes, no max clamp,
+// protected access, automatic potion limit and no changes to other fields.
+for(const Cls of [FastNRICharacterSheet,FastNRINPCSheet]){
+ const a=actorFactory();a.uuid='Actor.resource-'+Cls.name;a.system.potionsUsed=3;
+ const sh=new Cls({actor:a});const adjust=sheetOptions(Cls).actions.adjustResource;
+ const click=(resource,delta,id)=>adjust.call(sh,{}, {dataset:{resource,delta:String(delta),id}});
+ await Promise.all([click('potions',1),click('potions',1),click('row',1,'mana')]);
+ assert.equal(a.system.potionsUsed,5);assert.equal(a.system.resources.mana.current,5);
+ assert.equal(a.system.resources.mana.max,8);
+ assert.equal((await sh._prepareContext({})).potions.over,true);
+ a.items.contents.push({id:'stable',type:'ability',name:'Устойчивый',sort:0,system:{},getFlag:(_s,k)=>k==='contentId'?'fnri7.rulebook.racial.ustoichivyi':undefined});
+ assert.equal((await sh._prepareContext({})).potions.max,4);
+ await click('potions',-1);assert.equal((await sh._prepareContext({})).potions.over,false);
+ a.system.potionsUsed=0;await click('potions',-1);assert.equal(a.system.potionsUsed,0);
+ a.system.resources.mana.current=8;await click('row',1,'mana');assert.equal(a.system.resources.mana.current,9);
+ a.system.resources.mana.current=0;await click('row',-1,'mana');assert.equal(a.system.resources.mana.current,-1);
+ await click('row',1,'missing');await click('row',1,'bad.id');await click('row',10,'mana');
+ assert.equal(a.system.resources.mana.current,-1);assert.equal(a.system.resources.missing,undefined);
+ sh.isEditable=false;await click('potions',1);await click('row',1,'mana');
+ assert.equal(a.system.potionsUsed,0);assert.equal(a.system.resources.mana.current,-1);
 }
 
 const actor=actorFactory();const sheet=new FastNRICharacterSheet({actor});
@@ -359,28 +384,28 @@ assert.equal(errors,0);
 
 // Confirm compact summary is persistent and editable fields live in Characteristics, once.
 for(const path of ['templates/character.hbs','templates/npc.hbs']){
- const html=readFileSync(file(path),'utf8');
+ const html=readFileSync(file(path),'utf8').replace('{{> fnri-actor-actions}}',readFileSync(file('templates/actor-actions.hbs'),'utf8'));
  assert.ok(html.indexOf('fnri-persistent')<html.indexOf('fnri-tabs'));
- assert.ok(html.lastIndexOf('name="system.hp.current"')>html.indexOf('fnri-tabs'));
+ assert.equal(html.lastIndexOf('name="system.hp.current"')>html.indexOf('fnri-tabs'),!path.includes('character'));
  assert.ok(html.indexOf('name="system.defenses.awareness"')>html.indexOf('fnri-tabs'));
- assert.equal(html.match(/name="system.hp.current"/g).length,2);
+ assert.equal(html.match(/name="system.hp.current"/g).length,path.includes('character')?2:3);
  assert.ok(html.includes('fnri-summary-stats'));
  assert.ok(html.includes('data-fnri-target="characteristics"'));
  assert.ok(!html.includes('data-fnri-message-mode'));
- assert.equal(html.match(/data-action="fnriSwitchTab"/g).length,5);
- assert.equal(html.match(/data-fnri-panel=/g).length,5);
- assert.equal(html.match(/fnri-tab-content"/g).length,5);
+ assert.equal(html.match(/data-action="fnriSwitchTab"/g).length,path.includes("character")?7:6);
+ assert.equal(html.match(/data-fnri-panel=/g).length,path.includes("character")?7:6);
+ assert.equal(html.match(/fnri-tab-content"/g).length,path.includes("character")?7:6);
  assert.ok(html.includes('data-action="toggleEquipment"'));
  assert.ok(html.includes('name="system.wealth"'));
- assert.ok(html.includes('data-action="addSpecialization"'));
+ assert.ok(html.includes(path.includes('character')?'data-action="openSkillEditor"':'data-action="addSpecialization"'));
  assert.ok(html.includes('data-action="rollSkill"'));
  assert.ok(html.includes('data-action="rollAbility"'));
- assert.ok(html.includes('data-fnri-quick-hp'));
+ assert.ok(html.includes(path.includes('character')?'data-fnri-hp-math':'data-fnri-quick-hp'));
  assert.ok(html.includes('data-fnri-save-state'));
  assert.ok(html.includes('data-fnri-skill-filter'));
  assert.equal((html.match(/data-fnri-section=/g)||[]).length,7);
  assert.ok(html.includes('data-action="createEffect"'));
- assert.ok(html.includes('data-row-field="dice"'));
+ assert.ok(path.includes('character')?html.includes('data-action="openSkillEditor"'):html.includes('data-row-field="dice"'));
  assert.ok(html.includes('data-action="attackUnarmed"'));
  assert.ok(!html.includes('data-example='));
 }

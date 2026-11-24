@@ -1,0 +1,42 @@
+{
+  "name": "Проекция — шаблон",
+  "type": "npc",
+  "system": {
+    "description": "Шаблон Actor Проекции Колдуна. При необходимости создайте отдельную копию Actor через Foundry и перетащите её в поле «Связанные Actor Проекции» нужной способности Колдуна. Связь касается всего Actor и его несвязанных токенов. Токены размещаются вручную; собственные HP каждого токена — 1. КЗ определяется связанным Колдуном.",
+    "hp": {
+      "current": 1,
+      "max": 1,
+      "temp": 0
+    },
+    "notes": "Рулбук 7.0 · Колдун · Сотворение: Проекция",
+    "speed": 0,
+    "ac": {
+      "partial": null,
+      "success": null,
+      "great": null
+    },
+    "className": "Проекция",
+    "rank": "Проекция"
+  },
+  "prototypeToken": {
+    "actorLink": false,
+    "name": "Проекция",
+    "width": 1,
+    "height": 1
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.actor.warlock.projection-template",
+      "source": "Fast NRI 7.0 rulebook.md / Колдун / Сотворение: Проекция",
+      "projectionTemplate": true,
+      "projectionRules": {
+        "baseSpellRangeSpaces": 8,
+        "baseHp": 1,
+        "baseSizeCells": 1
+      }
+    }
+  },
+  "_id": "fca23zn7r6z37kbi",
+  "items": [],
+  "effects": []
+}
