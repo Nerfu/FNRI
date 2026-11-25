@@ -1,0 +1,72 @@
+name: Build candidate 0.2.0.3 (no publication)
+on:
+  pull_request:
+    branches: ['candidate/0.2.0.3']
+permissions:
+  contents: read
+jobs:
+  build:
+    if: github.head_ref == 'ci/0.2.0.3-candidate-build'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 17221c3696f7369895116590b228dfd106e903b4
+          persist-credentials: false
+      - name: Verify candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "17221c3696f7369895116590b228dfd106e903b4"
+          test "$(git rev-parse HEAD^{tree})" = "86d5f3ce6ff24a23ed33fe8505bc760f8c991b74"
+          bash tests/release-gate.sh
+      - name: Compile native system compendiums
+        shell: bash
+        run: |
+          npm install --no-audit --no-fund
+          npm run build:packs
+      - name: Validate manifest and package compiled system compendiums
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import zipfile
+
+          root = pathlib.Path('.')
+          manifest = json.loads((root / 'system.json').read_text(encoding='utf-8'))
+          assert manifest['id'] == 'fast-nri-v14'
+          assert manifest['download'].endswith(f"/v{manifest['version']}/fast-nri-v14.zip")
+          files = [pathlib.Path('system.json')]
+          files += [pathlib.Path(p) for p in manifest['esmodules']]
+          files += [pathlib.Path(p) for p in manifest['styles']]
+          files += [pathlib.Path(lang['path']) for lang in manifest['languages']]
+          for pack in manifest['packs']:
+              assert pack['type'] in ('Item','Actor') and pack['system'] == manifest['id']
+              assert pack['path'] == 'packs/' + pack['name']
+              entries = [p for p in pathlib.Path(pack['path']).rglob('*') if p.is_file()]
+              assert entries, f"No built files in {pack['path']}"
+              files += entries
+          for folder in ('module','templates'):
+              files += [p for p in pathlib.Path(folder).rglob('*') if p.is_file()]
+          files = sorted(set(files))
+          assert all(p.is_file() and '..' not in p.parts for p in files)
+          pathlib.Path('dist').mkdir(exist_ok=True)
+          with zipfile.ZipFile('dist/fast-nri-v14.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for p in files:
+                  z.write(p,'fast-nri-v14/'+p.as_posix())
+          with zipfile.ZipFile('dist/fast-nri-v14.zip') as z:
+              assert z.testzip() is None
+          print(f"Packaged {len(files)} runtime files")
+          PY
+          sha256sum dist/fast-nri-v14.zip
+      - name: Record ZIP digest and source commit
+        run: |
+          sha256sum dist/fast-nri-v14.zip > dist/SHA256SUMS
+          git rev-parse HEAD > dist/SOURCE_COMMIT
+      - name: Upload installation candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: fnri-0.2.0.3-install-candidate
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
