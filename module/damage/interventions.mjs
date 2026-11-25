@@ -2,7 +2,7 @@ import {canReadChatContent} from '../data/chat-visibility.mjs';
 import {CHECK_DEFENSES, messageIntervention, DEFENSE_ABILITIES} from '../rolls/attack-properties.mjs';
 import {finishCardAccounting,normalizedCardActionId} from '../data/ability-accounting.mjs';
 import {chooseIntervention} from './intervention-menu.mjs';
-import {standaloneIntervention} from './standalone-intervention.mjs';
+import {standaloneIntervention,completeInterventionChoices} from './standalone-intervention.mjs';
 import {declareAction,actionText} from '../rolls/action-declaration.mjs';
 import {chatAudience} from '../data/chat-visibility.mjs';
 import {chooseCoverAlly, coverAllyOption} from './cover-ally.mjs';
@@ -43,15 +43,14 @@ export function availableInterventions(actor, {card = null, tokenUuid = null, sh
     base.push({id:'builtin:counteraction', name:tr('counteraction'), counteraction:true});
   }
   const variants = abilities.flatMap(item => directedInterventionVariants(item).flatMap(({id, label, rule}) => {
-    if (card && !showAll) {
-      const selfDefense = item.system?.mechanics?.selfDefense;
-      if (!contextAvailable || (rule?.requiresDefense && rule.requiresDefense !== (card.targetDefense ?? 'ac')) ||
-          !matchesDefenseChange(rule, card.attackKind) ||
-          (selfDefense?.activation === 'intervention' && !matchesDefenseChange(selfDefense, card.attackKind)) ||
-          (rule?.targeting === 'self' && !personal)) return [];
-    }
+    const selfDefense = item.system?.mechanics?.selfDefense;
+    const unsuitable=!!card&&(!contextAvailable || (rule?.requiresDefense && rule.requiresDefense !== (card.targetDefense ?? 'ac')) ||
+      !matchesDefenseChange(rule, card.attackKind) ||
+      (selfDefense?.activation === 'intervention' && !matchesDefenseChange(selfDefense, card.attackKind)) ||
+      (rule?.targeting === 'self' && !personal));
+    if(unsuitable&&!showAll)return [];
     return [{id:id ? `${item.id}:${id}` : item.id, variantId:id,
-      name:label ? `${item.name} · ${label}` : item.name, item, rule, builtin:false}];
+      name:label ? `${item.name} · ${label}` : item.name, item, rule, builtin:false,...(unsuitable?{independent:true}:{})}];
   }));
   return [...base, ...variants];
 }
@@ -92,7 +91,7 @@ export async function initiateIntervention(message,{skipPreroll=false,actionId=n
   const pendingDice=card.parts?.some(p=>p.kind==='die'&&p.pending);
   if(pendingDice)ui.notifications?.warn(tr('unrolledDice'));
   const afterDefense = !!card.postDefenseOrigin || (messageIntervention(message) && !isCurrentDirectedCoverSource(message));
-  if(afterDefense && !isCurrentDirectedCoverSource(message))ui.notifications?.warn(tr('interventionBlocked'));
+  if(afterDefense && !isCurrentDirectedCoverSource(message))ui.notifications?.warn(game.i18n.localize('FASTNRI.SheetActions.manualConsequences'));
   const token=await chooseControlledToken();if(!token)return null;
   const actor=actorForToken(token);
   if(!actor) {ui.notifications?.error(tr('missingTokenActor'));return null;}
@@ -108,16 +107,18 @@ export async function initiateIntervention(message,{skipPreroll=false,actionId=n
     const cover=coverAllyOption(actor);
     const options=pendingDice || afterDefense || coverRecords(message).length ? [] :
       availableInterventions(actor, {card,tokenUuid:token.document?.uuid,showAll});
-    if (cover && isCurrentDirectedCoverSource(message) && (showAll || candidates().length)) options.push(cover);
-    options.push({id:'standalone',name:actionText('standalone'),standalone:true});
-    return options;
+    if (cover && !pendingDice && isCurrentDirectedCoverSource(message) && (showAll || candidates().length)) options.push(cover);
+    const full=showAll?completeInterventionChoices(actor,options):options;
+    full.push({id:'standalone',name:actionText('standalone'),standalone:true});
+    return full;
   };
-  const selected = await chooseIntervention({actor, choices, title:tr('intervention'), confirmLabel:tr('intervention')});
+  const selected = await chooseIntervention({actor, choices, title:tr('intervention'), repeated:answered});
   if (!selected) return null;
   if(selected.standalone)return standalone();
-  if (selected.kind === 'coverAlly') return chooseCoverAlly({source:message,defender:token,candidates});
-  if (selected.counteraction) return initiateCounteraction(message,{target:token,skipPreroll});
-  if(answered())ui.notifications?.warn(tr('repeatIntervention'));
+  if(selected.independent || (coverRecords(message).length && selected.kind!=='coverAlly'))return standalone(selected);
+  if (selected.kind === 'coverAlly') return chooseCoverAlly({source:message,defender:token,candidates,repeatWarningShown:selected.repeatWarningShown,menuWarningsShown:selected.menuWarningsShown});
+  if (selected.counteraction) return initiateCounteraction(message,{target:token,skipPreroll,repeatWarningShown:selected.repeatWarningShown,menuWarningsShown:selected.menuWarningsShown});
+  if(answered()&&!selected.repeatWarningShown)ui.notifications?.warn(tr('repeatIntervention'));
   const rule=selected.rule;
   const isDefense=selected.builtin || rule?.effect?.kind==='directedDefense' ||
     selected.item?.system?.mechanics?.selfDefense?.activation==='intervention';
@@ -159,11 +160,7 @@ export async function initiateIntervention(message,{skipPreroll=false,actionId=n
   if(selected.builtin && CHECK_DEFENSES.includes(card.targetDefense))warnings.push(tr('noAutomatedEffect'));
   if(!card.attackTotal && card.attackTotal!==0)warnings.push(tr('missingAttackTotal'));
   if(!selected.builtin && (!rule||!rule.effect) && !isDefense)warnings.push(tr('noAutomatedEffect'));
-  if(warnings.length) {
-    const ok=await foundry.applications.api.DialogV2.confirm({window:{title:tr('intervention')},
-      content: `<p>${warnings.map(esc).join('</p><p>')}</p>`,rejectClose:false});
-    if(!ok)return null;
-  }
+  if(warnings.length)ui.notifications?.warn(warnings.join(' · '));
   if(adapted.expression && typeof Roll.validate==='function' && !Roll.validate(adapted.expression)) {
     ui.notifications?.error(tr('invalidFormula'));return null;
   }
@@ -220,8 +217,7 @@ export async function initiateIntervention(message,{skipPreroll=false,actionId=n
     cancelled:outcome?.cancelled??false});
   const sharedActionId=normalizedCardActionId(actionId);
   const chatData={speaker:ChatMessage.getSpeaker({actor,token:token.document}),
-    content:`<strong>${esc(selected.name)}</strong> · ${esc(token.name)}`+
-      (roll?` · <strong>${esc(roll.total)}</strong>`:''),
+    content:`<strong>${esc(selected.name)}</strong> · ${esc(token.name)}`,
     whisper:Array.isArray(message.whisper)?[...message.whisper]:[],
     blind:message.blind===true,
     flags:{[ID]:{weaponDamage:next,

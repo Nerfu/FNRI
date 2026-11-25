@@ -1,3 +1,4 @@
+import {interventionWarnings} from '../data/intervention-availability.mjs';
 import {declareAction,canExecuteAction} from '../rolls/action-declaration.mjs';
 import {standaloneIntervention} from './standalone-intervention.mjs';
 import {chatAudience,canReadChatContent} from '../data/chat-visibility.mjs';
@@ -23,7 +24,7 @@ export function counteractionFormula(actor, stat, {allowMissingDefense=false}={}
 }
 
 /** One target, one current result. The caller supplies that target explicitly. */
-export async function initiateCounteraction(message, {target,skipPreroll=false} = {}) {
+export async function initiateCounteraction(message, {target,skipPreroll=false,repeatWarningShown=false,menuWarningsShown=false} = {}) {
   const actor = target?.documentName === 'Actor' ? target : target?.actor;
   if(actor?.documentName!=='Actor'||!canExecuteAction(actor))return null;
   const current = game.messages?.get ? game.messages.get(message?.id) : message;
@@ -34,7 +35,7 @@ export async function initiateCounteraction(message, {target,skipPreroll=false} 
   const check=original?.getFlag?.(SCOPE,'checkRoll');
   const stat=damage?.targetDefense??check?.targetDefense;
   const capturedAudience=original?chatAudience(original):null;
-  const independent=()=>standaloneIntervention(actor,'counteraction',{stat,source:capturedAudience,skipPreroll});
+  const independent=()=>standaloneIntervention(actor,'counteraction',{choice:{id:'counteraction',counteraction:true,menuWarningsShown},stat,source:capturedAudience,skipPreroll});
   const continuation=m=>!!(m?.getFlag?.(SCOPE,'weaponDamage')?.previousMessageId || m?.getFlag?.(SCOPE,'checkRoll')?.previousMessageId);
   if(!visible||(messageIntervention(current)&&!continuation(current))||!CHECK_DEFENSES.includes(stat)||!(damage?.version===2||check?.result))return independent();
   const targetUuid=damage?.originalTargetUuid??check?.result?.targetUuid;
@@ -49,7 +50,8 @@ export async function initiateCounteraction(message, {target,skipPreroll=false} 
   const formulaForActor=prepared=>counteractionFormula(prepared,stat);
   const formula=formulaForActor(actor);
   if(!formula)return independent();
-  if(hasIntervened(current,actor))ui.notifications?.warn(game.i18n.localize('FASTNRI.Damage.repeatIntervention'));
+  if(hasIntervened(current,actor)&&!repeatWarningShown)ui.notifications?.warn(game.i18n.localize('FASTNRI.Damage.repeatIntervention'));
+  if(!menuWarningsShown){const warnings=interventionWarnings(actor);if(warnings.length)ui.notifications?.warn(warnings.join(' · '));}
   const label = game.i18n.localize('FASTNRI.Damage.counteraction');
   const context = await prepareRoll({actor,kind:'intervention',defenseStat:stat,formula,
     formulaForActor,skipDialog:skipPreroll,label});

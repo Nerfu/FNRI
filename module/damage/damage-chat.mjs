@@ -6,7 +6,7 @@ import {damageDisplay} from './damage-core.mjs';
 import {applyCardDamage,renderHpReport} from './hp-actions.mjs';
 import {initiateIntervention} from './interventions.mjs';
 import {messageIntervention} from '../rolls/attack-properties.mjs';
-import {highlightDiceResults} from './dice-highlights.mjs';
+import {highlightDiceResults,highlightCheckTotal} from './dice-highlights.mjs';
 import {renderCoverAlly} from './cover-ally.mjs';
 import {isCurrentDirectedCoverSource} from './cover-ally-state.mjs';
 const ID='fast-nri-v14';
@@ -104,7 +104,7 @@ export function renderDamageCard(message,html) {
 export function refreshDamageMessage(message) {
   if(!message?.id || typeof document==='undefined' || typeof document.querySelectorAll!=='function')return;
   for(const el of document.querySelectorAll('.chat-message')) {
-    if(el?.dataset?.messageId===message.id)renderDamageCard(message,el);
+    if(el?.dataset?.messageId===message.id){renderDamageCard(message,el);highlightCheckTotal(message,el);}
   }
 }
 
@@ -127,10 +127,10 @@ export function registerDamageChatControls() {
   Hooks.on('deleteChatMessage',refreshLinked);
   Hooks.on('renderChatMessageHTML',(msg,html)=>{
     renderDamageCard(msg,html);renderHpReport(msg,html);
-    highlightDiceResults(msg,html);
+    highlightDiceResults(msg,html);highlightCheckTotal(msg,html);
     // Some v14 chat skins build the tooltip only when the dice are expanded.
     html?.addEventListener?.('click',event=>{
-      if(event?.target?.closest?.('.dice-roll')) queueMicrotask(()=>highlightDiceResults(msg,html));
+      if(event?.target?.closest?.('.dice-roll')) queueMicrotask(()=>{highlightDiceResults(msg,html);highlightCheckTotal(msg,html);});
     });
   });
 }

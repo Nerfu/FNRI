@@ -20,6 +20,12 @@ export function standaloneInterventionChoices(actor){
   if(cover)choices.push({id:'coverAlly',name:label('coverAlly'),kind:'coverAlly',item:cover});
   return choices;
 }
+/** Append independent methods not already offered in the linked context. */
+export function completeInterventionChoices(actor, options) {
+  const key=choice=>choice.counteraction||choice.kind==='counteraction'?'counteraction':choice.builtin?'selfDefense':choice.kind==='coverAlly'?'coverAlly':choice.id??choice.key;
+  const seen=new Set(options.map(key));
+  return [...options,...standaloneInterventionChoices(actor).filter(choice=>!seen.has(key(choice))).map(choice=>({...choice,independent:true}))];
+}
 async function chooseStat(stats){
   const result=await foundry.applications.api.DialogV2.input({window:{title:tr('chooseDefense')},content:`<select name="defense">${stats.map(stat=>`<option value="${esc(stat)}">${esc(tr('stat_'+stat))}</option>`).join('')}</select>`,ok:{label:tr('select')},rejectClose:false});
   return stats.includes(result?.defense)?result.defense:null;
@@ -36,7 +42,7 @@ export async function standaloneIntervention(actor,id=null,{choice=null,stat=nul
   const kind=choice.kind??(choice.counteraction?'counteraction':choice.builtin?'selfDefense':choice.id);
   const name=choice.name??choice.label??label(kind);
   const warnings=interventionWarnings(actor,item,execution?.accounting??null);
-  if(warnings.length)ui.notifications?.warn(warnings.join(', '));
+  if(warnings.length&&!choice.menuWarningsShown)ui.notifications?.warn(warnings.join(', '));
   const declare=()=>declareAction({actor,item:accountingItem??item,label:name,description:item?.system?.description??(kind==='coverAlly'?description('coverAlly'):description(id??kind)),source,isIntervention:true,execution,actionId});
   if(kind==='coverAlly')return declare();
   const self=kind==='selfDefense'||rule?.effect?.kind==='directedDefense'||item?.system?.mechanics?.selfDefense?.activation==='intervention';

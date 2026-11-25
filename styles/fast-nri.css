@@ -757,3 +757,16 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fnri-defense-success {color:var(--color-level-success,#409a6a);}
 .fnri-defense-failure {color:var(--color-level-error,#c54b4b);}
 .fnri-defense-reduction {font-size:.85rem;}
+
+/* Check totals, distinct from the existing individual-die decoration. */
+.fnri-check-natural-one {color:#b32b2b!important;font-weight:700;}
+.fnri-check-natural-twenty {color:#237a39!important;font-weight:700;}
+.theme-dark .fnri-check-natural-one {color:#ffc3bf!important;}
+.theme-dark .fnri-check-natural-twenty {color:#aef2b8!important;}
+.fnri-roll-corrected > span {display:block;}
+.fnri-intervention-warnings:empty {display:none;}
+.fnri-intervention-warnings p {margin:2px 0;font-size:0.85em;}
+.fnri-intervention-option-warning {display:block;font-weight:normal;white-space:normal;font-size:0.83em;}
+
+.fnri-button-choices > button:has(.fnri-intervention-option-warning) {display:block;text-align:left;}
+[data-fnri-area-roll-label] {display:block;text-align:center;}

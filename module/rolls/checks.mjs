@@ -86,7 +86,7 @@ export async function postCheckRoll({ formula, label, actor = null, mode, isInte
   const messageData = {
     ...audience,
     speaker,
-    flavor: `<strong>${safeText(label)}</strong><div class="fnri-roll-expression">${safeText(expression)}</div>${cardEffectLinks(sourceItem)}`,
+    flavor: `<strong>${safeText(label)}</strong>${cardEffectLinks(sourceItem)}`,
     flags:{'fast-nri-v14':{...(sharedActionId?{compositeActionId:sharedActionId}:{}),
       ...(execution?.id?{abilityExecution:{executionId:execution.id,sourceItemUuid:sourceItem?.uuid??null,actorUuid:actor?.uuid??null}}:{}),
       ...(resultKind==='temporaryHp' && execution?.id ? {abilityResult:{version:1,kind:'temporaryHp',

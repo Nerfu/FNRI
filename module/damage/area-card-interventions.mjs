@@ -25,6 +25,7 @@ export function areaInterventionChoices(actor,{targetDefense='ac',showAll=false,
       if(!showAll && entry.requiresDefense && entry.requiresDefense!==targetDefense)continue;
       choices.push({key:`item:${item.id}:${index}`,label:`${item.name} · ${entry.label.trim()}`,
         stat,kind:'card',reduction:entry.degreeReduction,
+        ...(showAll&&entry.requiresDefense&&entry.requiresDefense!==targetDefense?{independent:true}:{}),
         naturalTwentyCancels:entry.naturalTwentyCancels!==false,
         mayProtectAlly:entry.mayProtectAlly===true,
         formula:typeof entry.rollFormula==='string'&&entry.rollFormula.trim()?entry.rollFormula.trim():null,

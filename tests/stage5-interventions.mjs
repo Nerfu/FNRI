@@ -41,17 +41,18 @@ game.messages={contents:messages,get:id=>messages.find(m=>m.id===id)};
 game.settings={get:()=> 'public'};
 game.i18n.format=k=>k;
 RollMock.prototype.toMessage=async function(data){return msg({...data,rolls:[this.toJSON()]});};
-globalThis.foundry={applications:{api:{DialogV2:{wait:acceptPreroll,input:async ({content,render})=>{
-  if(content.includes('name="choice"')){
-    assert.doesNotMatch(content,/<select/);
-    assert.ok(content.indexOf('data-fnri-intervention-show-all') < content.indexOf('data-fnri-button-choices'),'show-all switch precedes choices');
-    const input={value:''};
-    const list={ownerDocument:{createElement(tag){return {tag,setAttribute(k,v){this[k]=v;}};}},replaceChildren(...buttons){this.buttons=buttons;}};
-    const toggle={checked:false},label={};
-    render(null,{element:{querySelector(q){return q==='input[name="choice"]'?input:q==='[data-fnri-button-choices]'?list:q==='[data-fnri-intervention-show-all]'?toggle:label;}}});
-    list.buttons[choice]?.onclick?.();
-    return {choice:input.value};
-  }
+let menuWarnings=[],menuCloses=0;
+const node=()=>({children:[],textContent:'',append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this.children=nodes;}});
+globalThis.foundry={applications:{api:{DialogV2:{wait:async cfg=>{
+  if(!cfg.content.includes('data-fnri-intervention-show-all'))return acceptPreroll(cfg);
+  assert.doesNotMatch(cfg.content,/<select|name="choice"/);
+  assert.equal(cfg.buttons.length,1);assert.equal(cfg.buttons[0].action,'cancel');
+  const list=node(),common=node(),toggle={checked:false},label=node();list.ownerDocument={createElement:node};
+  const dialog={element:{querySelector(q){return q==='[data-fnri-button-choices]'?list:q==='[data-fnri-intervention-warnings]'?common:q==='[data-fnri-intervention-show-all]'?toggle:label;}},close(){menuCloses++;}};
+  cfg.render(null,dialog);menuWarnings=common.children.map(n=>n.textContent);
+  const button=list.children[choice];button?.onclick?.();button?.onclick?.();
+  return null;
+},input:async ({content})=>{
   if(content.includes('name="defense"'))return {defense:'will'};
   return {part:'C'};
 },confirm:async()=>true}}}};
@@ -78,7 +79,9 @@ assert.equal(newCard.getFlag(ID,'weaponDamage').effectDegree,'success');
 assert.equal(unautomated.getFlag(ID,'weaponDamage').previousMessageId,newCard.id);
 assert.equal(unautomated.getFlag(ID,'weaponDamage').effectDegree,'success');
 assert.equal(unautomated.getFlag(ID,'weaponDamage').intervention.success,false);
-assert.equal(warning,'FASTNRI.Damage.repeatIntervention');
+assert.ok(menuWarnings.includes('⚠ FASTNRI.Damage.repeatIntervention'));
+assert.notEqual(warning,'FASTNRI.Damage.repeatIntervention','repeat is not notified twice');
+assert.equal(menuCloses,3,'double click closes once per menu');
 assert.equal(result.intervention.damageReduction,6);
 assert.equal(result.intervention.success,true);
 // Unknown incoming attack kind opens defense-stat choice instead of silently using Fortitude.

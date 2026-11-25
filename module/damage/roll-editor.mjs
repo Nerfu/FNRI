@@ -826,15 +826,25 @@ export function registerRollEditor() {
       visible:element=>{const msg=contextMessage(element);return own(msg)&&editableMessage(msg);},
       onClick:(event,element)=>{const msg=contextMessage(element);if(msg&&own(msg))void (async()=>{const chosen=await chooseRollView(msg);if(chosen)await openRollEditor(chosen);})();}});
   });
-  Hooks.on('renderChatMessageHTML',(msg,html)=>{
-    if(msg.visible===false||msg.isContentVisible===false||!html?.querySelector)return;
-    html.querySelector('[data-fnri-roll-corrected]')?.remove?.();
-    const states=[{index:0,state:get(msg,'rollEdit')},...(msg.rolls??[]).map((r,index)=>({index,state:get(msg,`rollEditNative${index}`)}))].filter(x=>x.state);
-    if(!states.length)return;
-    const original=html.querySelector('.dice-roll .dice-total');
-    if(original) {original.classList.add('fnri-original-roll');original.title=l('originalTotal');}
-    const label=document.createElement('div');label.dataset.fnriRollCorrected='';
-    label.className='fnri-roll-corrected';label.textContent=states.map(({index,state})=>`${l('correctedTotal')} #${index+1}: ${state.currentTotal}`).join(' · ');
-    (html.querySelector('.message-content')??html).append(label);
+  Hooks.on('renderChatMessageHTML',renderCorrectedRolls);
+  Hooks.on('updateChatMessage',msg=>{
+    if(typeof document==='undefined'||!document.querySelectorAll)return;
+    for(const el of document.querySelectorAll('.chat-message'))if(el.dataset?.messageId===msg.id)renderCorrectedRolls(msg,el);
   });
+}
+
+export function renderCorrectedRolls(msg,html){
+  if(msg.visible===false||msg.isContentVisible===false||!html?.querySelector)return;
+  html.querySelector('[data-fnri-roll-corrected]')?.remove?.();
+  const states=(msg.rolls??[]).map((r,index)=>({index,state:get(msg,`rollEditNative${index}`)??(index===0&&!get(msg,'weaponDamage')?get(msg,'rollEdit'):null)})).filter(x=>x.state);
+  if(!states.length&&!(msg.rolls?.length)&&get(msg,'rollEdit'))states.push({index:0,state:get(msg,'rollEdit')});
+  if(!states.length)return;
+  const native=html.querySelectorAll?.('.dice-roll .dice-total')??[];
+  const label=document.createElement('div');label.dataset.fnriRollCorrected='';label.className='fnri-roll-corrected';
+  for(const {index,state} of states){
+    const original=native.length===msg.rolls?.length?native[index]:null;
+    if(original){original.classList.add('fnri-original-roll');original.title=l('originalTotal');}
+    const row=document.createElement('span');row.dataset.fnriRollIndex=String(index);row.textContent=`${l('correctedTotal')} #${index+1}: ${state.currentTotal}`;label.append(row);
+  }
+  (html.querySelector('.message-content')??html).append(label);
 }

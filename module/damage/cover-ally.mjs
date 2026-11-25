@@ -1,3 +1,4 @@
+import {interventionWarnings} from '../data/intervention-availability.mjs';
 import {publishAreaUse} from '../data/ability-accounting.mjs';
 import {canReadChatContent, chatAudience} from '../data/chat-visibility.mjs';
 import {stableDocumentId} from '../data/document-id.mjs';
@@ -36,7 +37,7 @@ async function choose(entries, title, describe, {autoSelect = true} = {}) {
 const describeDie = die => [`${die.formula} → ${die.value}`,die.damageType,...die.traits].filter(Boolean).join(' · ');
 
 /** Both damage routes supply the exact recipient-specific snapshot. */
-export async function chooseCoverAlly({source, defender, candidates}) {
+export async function chooseCoverAlly({source, defender, candidates,repeatWarningShown=false,menuWarningsShown=false}) {
   const actor = defender.actor, item = coverAllyItem(actor);
   if (!item || !canWrite(actor) || !canReadChatContent(source) || pending.has(actor.uuid)) return null;
   const audience=chatAudience(source);
@@ -44,7 +45,8 @@ export async function chooseCoverAlly({source, defender, candidates}) {
   const scope = coverScope(source);
   const performer = coverActorKey(actor);
   const available = () => candidates().filter(({card}) => coverAllyDice(card).length);
-  if(hasIntervened(source,actor))ui.notifications?.warn(game.i18n.localize('FASTNRI.Damage.repeatIntervention'));
+  if(hasIntervened(source,actor)&&!repeatWarningShown)ui.notifications?.warn(game.i18n.localize('FASTNRI.Damage.repeatIntervention'));
+  if(!menuWarningsShown){const warnings=interventionWarnings(actor,item);if(warnings.length)ui.notifications?.warn(warnings.join(' · '));}
   pending.add(actor.uuid);
   try {
     const entries = available();

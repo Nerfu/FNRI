@@ -12,7 +12,7 @@ import {areaInterventionChoices} from './area-card-interventions.mjs';
 import {publishWithFollowUpOffers,availableAreaFollowUps,applyAreaFollowUp} from './area-follow-ups.mjs';
 import {publishAreaUse} from '../data/ability-accounting.mjs';
 import {chooseIntervention} from './intervention-menu.mjs';
-import {standaloneIntervention} from './standalone-intervention.mjs';
+import {standaloneIntervention,completeInterventionChoices} from './standalone-intervention.mjs';
 import {declareAction,actionText} from '../rolls/action-declaration.mjs';
 import {chooseCoverAlly, coverAllyOption} from './cover-ally.mjs';
 import {
@@ -189,15 +189,17 @@ export async function rollAreaIntervention(message,{skipPreroll=false}={}){
     });
     const cover=coverAllyOption(actor);
     if (cover && sameAreaCoverSource(source,root) && (showAll || areaCoverCandidates(source,token).length)) options.push(cover);
-    options.push({key:'standalone',label:actionText('standalone'),standalone:true});
-    return options;
+    const full=showAll?completeInterventionChoices(actor,options):options;
+    full.push({key:'standalone',label:actionText('standalone'),standalone:true});
+    return full;
   };
   const chosen = await chooseIntervention({actor, choices,
-    title:game.i18n.localize('FASTNRI.Damage.intervention'), confirmLabel:'Бросить'});
+    title:game.i18n.localize('FASTNRI.Damage.intervention'), repeated:()=>areaAnswered(root,token)});
   if (!chosen) return null;
   if(chosen.standalone)return standalone();
+  if(chosen.independent)return standalone(chosen);
   if (chosen.kind==='coverAlly') return chooseCoverAlly({source:root,defender:token,
-    candidates:()=>areaCoverCandidates(active(source),token)});
+    candidates:()=>areaCoverCandidates(active(source),token),repeatWarningShown:chosen.repeatWarningShown,menuWarningsShown:chosen.menuWarningsShown});
   let protectedToken=token;
   if(chosen.mayProtectAlly){
     const selected=targeted();
@@ -213,7 +215,7 @@ export async function rollAreaIntervention(message,{skipPreroll=false}={}){
   const target=areaTarget(protectedToken);
   if(!target){ui.notifications?.warn('Защищаемый токен не входит в объявленные цели.');return standalone(chosen);}
   if(coverRecords(root,target.uuid).length)return standalone(chosen);
-  if(areaAnswered(root,token))ui.notifications?.warn(game.i18n.localize('FASTNRI.Damage.repeatIntervention'));
+  if(areaAnswered(root,token)&&!chosen.repeatWarningShown)ui.notifications?.warn(game.i18n.localize('FASTNRI.Damage.repeatIntervention'));
   const kind=chosen.kind==='dodge'?'Уворот':
     chosen.kind==='counteraction'?'Противодействие':chosen.label;
   const movement=chosen.movement;
@@ -501,7 +503,17 @@ export function renderAreaChat(message,html){
     if(attack){const total=document.createElement('div');total.className='fnri-area-attack-total';
       const rerolled=(attack.card.history??[]).some(h=>h.action==='reroll');
       const label=rerolled?game.i18n.localize('FASTNRI.GameReroll.currentDice'):'Кубы';
-      total.textContent=`Общая атака: ${attack.area.attackTotal??'—'} · ${label}: ${parts(attack.card).map(p=>p.value).join(' + ')||'—'}`;panel.append(total);
+      const nativeTotals=html.querySelectorAll?.('.dice-roll .dice-total')??[];
+      const nativePair=root===message&&message.getFlag(ID,'weaponAttack')&&message.rolls?.length===2&&nativeTotals.length===2&&
+        Number(nativeTotals[0].textContent?.trim())===attack.area.attackTotal&&Number(nativeTotals[1].textContent?.trim())===message.rolls[1].total;
+      // Only remove a duplicate when the actual native attack total is present.
+      const diceText=`${label}: ${parts(attack.card).map(p=>p.value).join(' + ')||'—'}`;
+      total.textContent=nativePair?diceText:`Общая атака: ${attack.area.attackTotal??'—'} · ${diceText}`;
+      if(nativePair)for(const [i,caption] of ['Общая атака','Урон'].entries()){
+        const roll=nativeTotals[i].closest?.('.dice-roll');
+        if(roll&&!roll.querySelector('[data-fnri-area-roll-label]')){const name=document.createElement('small');name.dataset.fnriAreaRollLabel='';name.textContent=caption;roll.prepend(name);}
+      }
+      panel.append(total);
       // The native attack Roll must never be struck out by a damage reroll.
       // Only mark the second, original damage total if the two native totals
       // are individually present and match the original damage Roll.
