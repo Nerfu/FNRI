@@ -19,15 +19,49 @@ export function coverAllyItem(actor) {
 }
 
 export function coverScope(message) {
-  const card = flag(message, 'weaponDamage');
-  if (card?.areaAttack?.version === 1) return card.areaRootMessageId ?? message.id;
-  return card?.attackMessageId ?? message?.id;
+  const seen = new Set();
+  let current = message;
+  while (current?.id && !seen.has(current.id)) {
+    seen.add(current.id);
+    const card = flag(current, 'weaponDamage');
+    const area = flag(current, 'areaIntervention') ?? flag(current, 'areaResult');
+    if (area?.rootMessageId) return area.rootMessageId;
+    if (card?.areaAttack?.version === 1) return card.areaRootMessageId ?? current.id;
+    if (card?.attackMessageId) return card.attackMessageId;
+    const previous = card?.previousMessageId ?? flag(current, 'checkRoll')?.previousMessageId;
+    if (!previous) return current.id;
+    const parent = game.messages?.get?.(previous);
+    if (!canReadChatContent(parent) || !sameCoverAudience(parent,current)) return previous;
+    current = parent;
+  }
+  return message?.id;
 }
 
 export function sameCoverAudience(left, right) {
   const a = chatAudience(left), b = chatAudience(right);
   return a.blind === b.blind && a.whisper.length === b.whisper.length &&
     a.whisper.every(id => b.whisper.includes(id));
+}
+
+/** Scope the redacted identity to one action; do not expose a global hidden Actor identifier. */
+export const interventionActorKey=(message,actor)=>stableDocumentId('iva',[coverScope(message),actor.uuid]);
+
+/** Game limit is advisory. Match the original action and participant, not the method. */
+export function hasIntervened(message, actor) {
+  if (!message || !actor?.uuid) return false;
+  const scope=coverScope(message), key=coverActorKey(actor), scopedKey=interventionActorKey(message,actor);
+  return messages().some(entry=>{
+    if (!canReadChatContent(entry)||!sameCoverAudience(entry,message)) return false;
+    const cover=flag(entry,'coverAlly');
+    if(cover?.version===1) return cover.scope===scope && cover.defenderKey===key;
+    if(coverScope(entry)!==scope) return false;
+    const directed=flag(entry,'weaponDamage')?.intervention;
+    const check=flag(entry,'checkRoll');
+    const area=flag(entry,'areaIntervention');
+    return directed?.initiatorActorUuid===actor.uuid || directed?.initiatorKey===scopedKey ||
+      (check?.isIntervention && !!check.previousMessageId && check.actorUuid===actor.uuid) ||
+      (area?.kindKey!=='followUp' && (area?.actorUuid===actor.uuid || area?.initiatorKey===scopedKey));
+  });
 }
 
 export function coverRecords(message, tokenUuid = null) {

@@ -1,7 +1,7 @@
 import {declareAction,canExecuteAction} from '../rolls/action-declaration.mjs';
 import {standaloneIntervention} from './standalone-intervention.mjs';
 import {chatAudience,canReadChatContent} from '../data/chat-visibility.mjs';
-import {sameCoverAudience} from './cover-ally-state.mjs';
+import {sameCoverAudience,hasIntervened} from './cover-ally-state.mjs';
 import {finishCardAccounting} from '../data/ability-accounting.mjs';
 import {naturalAttackingD20, ATTACK_DEGREES, resolveDirectedEffectDegree} from '../rolls/attack-core.mjs';
 import {CHECK_DEFENSES, messageIntervention} from '../rolls/attack-properties.mjs';
@@ -35,7 +35,8 @@ export async function initiateCounteraction(message, {target,skipPreroll=false} 
   const stat=damage?.targetDefense??check?.targetDefense;
   const capturedAudience=original?chatAudience(original):null;
   const independent=()=>standaloneIntervention(actor,'counteraction',{stat,source:capturedAudience,skipPreroll});
-  if(!visible||messageIntervention(current)||!CHECK_DEFENSES.includes(stat)||!(damage?.version===2||check?.result))return independent();
+  const continuation=m=>!!(m?.getFlag?.(SCOPE,'weaponDamage')?.previousMessageId || m?.getFlag?.(SCOPE,'checkRoll')?.previousMessageId);
+  if(!visible||(messageIntervention(current)&&!continuation(current))||!CHECK_DEFENSES.includes(stat)||!(damage?.version===2||check?.result))return independent();
   const targetUuid=damage?.originalTargetUuid??check?.result?.targetUuid;
   if(!targetUuid)return independent();
   const token=await fromUuid(targetUuid);
@@ -48,6 +49,7 @@ export async function initiateCounteraction(message, {target,skipPreroll=false} 
   const formulaForActor=prepared=>counteractionFormula(prepared,stat);
   const formula=formulaForActor(actor);
   if(!formula)return independent();
+  if(hasIntervened(current,actor))ui.notifications?.warn(game.i18n.localize('FASTNRI.Damage.repeatIntervention'));
   const label = game.i18n.localize('FASTNRI.Damage.counteraction');
   const context = await prepareRoll({actor,kind:'intervention',defenseStat:stat,formula,
     formulaForActor,skipDialog:skipPreroll,label});
@@ -58,7 +60,7 @@ export async function initiateCounteraction(message, {target,skipPreroll=false} 
   if(natural===null)return publishIndependent();
 
   const latest=game.messages?.get?game.messages.get(current.id):current;
-  if (!canReadChatContent(latest) || !sameCoverAudience(latest,capturedAudience) || messageIntervention(latest) ||
+  if (!canReadChatContent(latest) || !sameCoverAudience(latest,capturedAudience) || (messageIntervention(latest)&&!continuation(latest)) ||
       (damage && (latest.getFlag(SCOPE,'weaponDamage')?.revision ?? 0) !== revision) ||
       (!damage && ((latest.getFlag(SCOPE,'rollEdit')?.currentTotal ?? latest.getFlag(SCOPE,'checkRoll')?.result?.total) !== total || latest.getFlag(SCOPE,'checkRoll')?.result?.targetUuid!==targetUuid || latest.getFlag(SCOPE,'checkRoll')?.result?.degree!==degree))) return publishIndependent();
 

@@ -6,8 +6,8 @@ import {coverAllyDice, planCoverAlly} from './damage-core.mjs';
 import {applyIndependentHp} from './free-hp.mjs';
 import {declareAction} from '../rolls/action-declaration.mjs';
 import {
-  COVER_ALLY_ID, coverActorKey, coverAllyItem, coverRecords, coverScope,
-  isCurrentDirectedCoverSource, sameCoverAudience
+  COVER_ALLY_ID, coverActorKey, coverAllyItem, coverScope,
+  isCurrentDirectedCoverSource, sameCoverAudience, hasIntervened
 } from './cover-ally-state.mjs';
 
 const ID = 'fast-nri-v14';
@@ -43,8 +43,8 @@ export async function chooseCoverAlly({source, defender, candidates}) {
   const independent=()=>declareAction({actor,item,label:local('name'),description:item.system?.description??'',source:audience,isIntervention:true});
   const scope = coverScope(source);
   const performer = coverActorKey(actor);
-  const available = () => coverRecords(source).some(cover => cover.defenderKey === performer) ? [] :
-    candidates().filter(({card}) => coverAllyDice(card).length);
+  const available = () => candidates().filter(({card}) => coverAllyDice(card).length);
+  if(hasIntervened(source,actor))ui.notifications?.warn(game.i18n.localize('FASTNRI.Damage.repeatIntervention'));
   pending.add(actor.uuid);
   try {
     const entries = available();

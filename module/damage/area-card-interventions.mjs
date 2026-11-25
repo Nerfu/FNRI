@@ -4,9 +4,8 @@
  */
 import {CHECK_DEFENSES} from '../rolls/attack-properties.mjs';
 const typed=x=>x&&typeof x==='object'&&!Array.isArray(x)?x:{};
-export function areaInterventionChoices(actor,{targetDefense='ac',showAll=false,answered=false,
+export function areaInterventionChoices(actor,{targetDefense='ac',showAll=false,
   canProtectSelf=true,canProtectAlly=true}={}) {
-  if (!showAll && answered) return [];
   const choices=['step','leap'].map(movement=>({
     key:`builtin:dodge:${movement}`,label:game.i18n.localize(`FASTNRI.InterventionOptions.dodge${movement==='step'?'Step':'Leap'}`),
     stat:'reflex',kind:'dodge',movement,reduction:1,naturalTwentyCancels:true,mayProtectAlly:false,item:null

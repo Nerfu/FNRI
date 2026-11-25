@@ -751,3 +751,9 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fast-nri-sheet .fnri-resource-read-only {display:none;}
 .fast-nri-sheet.fnri-config-locked .fnri-resource-read-only {display:block;}
 .fast-nri-sheet.fnri-config-locked .fnri-resource-edit-only {display:none!important;}
+
+/* Directed defense result: no redundant failure explanation. */
+.fnri-defense-result {font-weight:700;}
+.fnri-defense-success {color:var(--color-level-success,#409a6a);}
+.fnri-defense-failure {color:var(--color-level-error,#c54b4b);}
+.fnri-defense-reduction {font-size:.85rem;}

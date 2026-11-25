@@ -49,7 +49,7 @@ export function abilityExecutions(item) {
   }
   // Active cards without an automated execution still have a genuine use.
   // The description-only publication remains free, and passives above have no button.
-  if(!result.length)result.push({id:'manual-use',type:'manual',label:actionText('declare'),
+  if(!result.length && !item.system?.mechanics?.attackAugment)result.push({id:'manual-use',type:'manual',label:itemFormula(item)?text('rollAction'):text('manualApply'),
     isIntervention:item.system?.mechanics?.isIntervention===true});
   return result;
 }
@@ -145,7 +145,10 @@ export async function executeAbilityFromChat(message,executionId,{skipPreroll=fa
   if(!docs || !isActorOwner(docs.actor))return null;
   const {item,actor}=docs;
   const execution=abilityExecution(item,executionId);
-  if(!execution)throw Error(text('missingExecution'));
+  if(!execution) {
+    if(executionId==='manual-use' && item.system?.mechanics?.attackAugment)return null;
+    throw Error(text('missingExecution'));
+  }
   // Source data is reread after publication; costs and active effects are never
   // copied into the ChatMessage. A warning does not prohibit the action.
   switch(execution.type){

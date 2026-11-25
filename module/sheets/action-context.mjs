@@ -2,7 +2,7 @@ import {rerollParts} from '../rolls/game-reroll.mjs';
 import { canReadChatContent } from '../data/chat-visibility.mjs';
 import { CHECK_DEFENSES, messageIntervention } from '../rolls/attack-properties.mjs';
 import { areaCoverCandidates } from '../damage/area-attack.mjs';
-import { coverAllyItem, coverActorKey, coverRecords, directedCoverCandidates } from '../damage/cover-ally-state.mjs';
+import { coverAllyItem, coverScope, hasIntervened, directedCoverCandidates, isCurrentDirectedCoverSource } from '../damage/cover-ally-state.mjs';
 
 const SYSTEM_ID = 'fast-nri-v14';
 
@@ -17,29 +17,19 @@ export function interventionSources(actor, actionId, {showAll = false} = {}) {
     if (!coverAllyItem(actor)) return [];
     return messages.flatMap(message => {
       const card = message.getFlag(SYSTEM_ID, 'weaponDamage');
-      if (!card || card.areaRootMessageId && card.areaRootMessageId !== message.id ||
-          coverRecords(message).some(cover => cover.defenderKey === coverActorKey(actor))) return [];
+      if (!card || card.areaRootMessageId && card.areaRootMessageId !== message.id) return [];
       const candidates = card.areaAttack ? areaCoverCandidates : directedCoverCandidates;
       const eligible = tokens.filter(token => candidates(message, token).length);
-      return eligible.length ? [{message, label:card.name, tokens:eligible}] : [];
+      return eligible.length ? [{message, label:card.name+(hasIntervened(message,actor)?' · ⚠ '+game.i18n.localize('FASTNRI.Damage.repeatIntervention'):''), tokens:eligible}] : [];
     }).reverse();
-  }
-  const answered = new Set();
-  for (const message of messages) {
-    const areaResponse = message.getFlag(SYSTEM_ID, 'areaIntervention');
-    const damage = message.getFlag(SYSTEM_ID, 'weaponDamage');
-    const check = message.getFlag(SYSTEM_ID, 'checkRoll');
-    if (matches(areaResponse?.actorUuid ?? areaResponse?.initiatorActorUuid) && areaResponse.rootMessageId) {
-      answered.add(areaResponse.rootMessageId);
-    }
-    if (matches(damage?.intervention?.initiatorActorUuid) && damage.previousMessageId) answered.add(damage.previousMessageId);
-    if (check?.isIntervention && matches(check.actorUuid) && check.previousMessageId) answered.add(check.previousMessageId);
   }
   const sources = [];
   for (const message of messages) {
-    if ((!showAll && answered.has(message.id)) || messageIntervention(message)) continue;
+    const continuation=message.getFlag(SYSTEM_ID,'weaponDamage')?.previousMessageId || message.getFlag(SYSTEM_ID,'checkRoll')?.previousMessageId;
+    if (messageIntervention(message) && !continuation) continue;
     const damage = message.getFlag(SYSTEM_ID, 'weaponDamage');
     if (damage?.cancelled || damage?.parts?.some(part => part.pending)) continue;
+    if(damage?.version===2 && !damage.areaAttack && !isCurrentDirectedCoverSource(message))continue;
     const area = damage?.areaAttack;
     const directedCheck = CHECK_DEFENSES.includes(damage?.targetDefense);
     if (area?.version === 1) {
@@ -61,7 +51,15 @@ export function interventionSources(actor, actionId, {showAll = false} = {}) {
       }
     }
   }
-  return sources.reverse();
+  // Display only the newest eligible snapshot for each original action.
+  const seen=new Set();
+  return sources.reverse().filter(source=>{
+    const scope=coverScope(source.message);
+    if(seen.has(scope))return false;
+    seen.add(scope);
+    if(hasIntervened(source.message,actor))source.label+=' · ⚠ '+game.i18n.localize('FASTNRI.Damage.repeatIntervention');
+    return true;
+  });
 }
 
 export function talismanSources(actor) {

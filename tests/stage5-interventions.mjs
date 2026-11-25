@@ -1,5 +1,7 @@
 import {acceptPreroll} from './foundry-test-helpers.js';
 import assert from 'node:assert/strict';
+import {rollAreaIntervention,resolveAreaResults} from '../module/damage/area-attack.mjs';
+import {hasIntervened} from '../module/damage/cover-ally-state.mjs';
 import {selfDefenseFormula,initiateIntervention,availableInterventions} from '../module/damage/interventions.mjs';
 const actor={name:'Страж',uuid:'Actor.x',type:'character',system:{defenses:{fortitude:3,reflex:5,will:6},combatDie:'d8'},
   items:[],getRollData(){return {};}};
@@ -68,16 +70,47 @@ const cancel=await initiateIntervention(fresh);
 assert.equal(cancel.getFlag(ID,'weaponDamage').cancelled,true);
 assert.equal(cancel.getFlag(ID,'weaponDamage').attackTotal,18);
 choice=1;natural=8;total=9;
-// A second intervention must remain executable independently; the linked card is not mutated.
+// A second deliberate intervention remains linked to the selected snapshot.
 choice=0;
 const unautomated=await initiateIntervention(newCard);
-assert.ok(unautomated,'standalone intervention remains available');
+assert.ok(unautomated,'repeat remains available');
 assert.equal(newCard.getFlag(ID,'weaponDamage').effectDegree,'success');
-assert.equal((unautomated.message??unautomated).getFlag(ID,'weaponDamage'),undefined);
+assert.equal(unautomated.getFlag(ID,'weaponDamage').previousMessageId,newCard.id);
+assert.equal(unautomated.getFlag(ID,'weaponDamage').effectDegree,'success');
+assert.equal(unautomated.getFlag(ID,'weaponDamage').intervention.success,false);
+assert.equal(warning,'FASTNRI.Damage.repeatIntervention');
+assert.equal(result.intervention.damageReduction,6);
+assert.equal(result.intervention.success,true);
 // Unknown incoming attack kind opens defense-stat choice instead of silently using Fortitude.
 const unknown=msg({flags:{[ID]:{weaponDamage:{...root.getFlag(ID,'weaponDamage'),attackKind:null}}}});
 choice=0;natural=10;total=17;
 const statChoice=await initiateIntervention(unknown);
 assert.equal(statChoice.getFlag(ID,'weaponDamage').intervention.defenseStat,'will');
 assert.equal(selfDefenseFormula(actor,'unknown','will').expression,'1d20 + 6 + 1d8');
+// Both natural twenties remain an ordinary successful defense and preserve crit.
+const critical=msg({flags:{[ID]:{weaponDamage:{...structuredClone(root.getFlag(ID,'weaponDamage')),naturalD20:20}}}});
+natural=20;total=30;
+const doubleTwenty=(await initiateIntervention(critical)).getFlag(ID,'weaponDamage');
+assert.equal(doubleTwenty.cancelled,false);assert.equal(doubleTwenty.naturalD20,20);assert.equal(doubleTwenty.effectDegree,'success');
+assert.equal(doubleTwenty.intervention.damageReduction,12);
+const unlucky=msg({flags:{[ID]:{weaponDamage:structuredClone(root.getFlag(ID,'weaponDamage'))}}});
+natural=1;total=100;
+const failed=(await initiateIntervention(unlucky)).getFlag(ID,'weaponDamage');
+assert.equal(failed.intervention.success,false);assert.equal(failed.effectDegree,'great');assert.equal(failed.intervention.damageReduction,0);
+// Two deliberate defenses of the same area action remain independent linked records.
+actor.documentName='Actor';actor.isOwner=true;actor.items={contents:[]};actor.getFlag=()=>null;
+token.document.actor=actor;token.document.hidden=false;
+globalThis.foundry.utils={fromUuidSync:uuid=>uuid===token.document.uuid?token.document:null,randomID:()=>`test${seq}`};
+RollMock.prototype.toMessage=async function(data,opts){const payload={...data,rolls:[this.toJSON()]};return opts?.create===false?payload:msg(payload);};
+const areaRoot=msg({flags:{[ID]:{weaponDamage:{...structuredClone(root.getFlag(ID,'weaponDamage')),targetDefense:'reflex',
+  areaAttack:{version:1,attackTotal:18,naturalD20:13,targets:[{uuid:token.document.uuid,key:token.document.uuid,name:token.name,status:'one',initialDegree:'great'}]}}}}});
+choice=2;natural=12;total=19;
+const areaFirst=await rollAreaIntervention(areaRoot,{skipPreroll:true});
+assert.equal(areaFirst.getFlag(ID,'areaIntervention').rootMessageId,areaRoot.id);
+assert.ok(hasIntervened(areaRoot,actor));
+const areaSecond=await rollAreaIntervention(areaRoot,{skipPreroll:true});
+assert.equal(areaSecond.getFlag(ID,'areaIntervention').rootMessageId,areaRoot.id);
+assert.notEqual(areaSecond.id,areaFirst.id);
+assert.equal(resolveAreaResults(areaRoot,[areaFirst,areaSecond].map(m=>m.getFlag(ID,'areaIntervention')))[0].degree,'partial');
+assert.equal(areaRoot.getFlag(ID,'weaponDamage').areaAttack.targets[0].initialDegree,'great');
 console.log('PASS stage 5 interventions: defense formula, tied maximum selection, linked immutable snapshot, natural20 cancellation, card-owned unknown');

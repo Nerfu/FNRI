@@ -472,6 +472,10 @@
       "privateRecovery": "Periodic damage was processed. Private result details are unavailable after a reload."
     },
     "Damage": {
+      "defenseSuccess": "Success",
+      "defenseFailure": "Failure",
+      "damageReducedBy": "Damage reduced by",
+      "repeatIntervention": "You have already intervened in this action.",
       "editRoll": "Edit roll",
       "total": "Total",
       "correctedTotal": "Corrected result",
@@ -793,6 +797,8 @@
       "effective": "Effective value"
     },
     "AbilityChat": {
+      "rollAction": "Roll",
+      "manualApply": "Apply",
       "toChat": "Post to chat",
       "noDescription": "No description provided",
       "dailyRemaining": "Daily uses left: {remaining}",

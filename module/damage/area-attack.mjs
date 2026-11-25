@@ -16,7 +16,7 @@ import {standaloneIntervention} from './standalone-intervention.mjs';
 import {declareAction,actionText} from '../rolls/action-declaration.mjs';
 import {chooseCoverAlly, coverAllyOption} from './cover-ally.mjs';
 import {
-  applyCoverExclusions, coverActorKey, coverRecipients, coverRecords, coverScope, hasDamageForCoverTarget, sameCoverAudience
+  applyCoverExclusions, coverActorKey, coverRecipients, coverRecords, coverScope, hasDamageForCoverTarget, sameCoverAudience, hasIntervened, interventionActorKey
 } from './cover-ally-state.mjs';
 import {applyHp,actorForToken,chooseControlledToken} from './hp-actions.mjs';
 import {calculateDamage, coverAllyDice} from './damage-core.mjs';
@@ -110,13 +110,8 @@ function liveAreaRows(root) {
   return resolveAreaResults(root,interventionsFor(root).map(message=>message.getFlag(ID,'areaIntervention')));
 }
 
-function areaAnswered(root, token, interventions) {
-  const actor = actorForToken(token);
-  return coverRecords(root).some(cover => cover.defenderKey === coverActorKey(actor)) ||
-    interventions.some(message => {
-      const data = message.getFlag(ID,'areaIntervention');
-      return data.kindKey !== 'followUp' && (data.actorUuid === actor?.uuid || data.tokenUuid === token.document?.uuid);
-    });
+function areaAnswered(root, token) {
+  return hasIntervened(root,actorForToken(token));
 }
 
 const sameAreaCoverSource = (message,root) => sameCoverAudience(message,root) && !messageIntervention(root);
@@ -127,7 +122,6 @@ export function areaCoverCandidates(message, defender) {
   if (!canRead(message) || !canRead(root) || !sameAreaCoverSource(message,root) ||
       !base || base.card.cancelled || base.card.parts.some(part=>part.pending)) return [];
   const interventions = interventionsFor(root);
-  if (areaAnswered(root,defender,interventions)) return [];
   const rows = resolveAreaResults(root,interventions.map(message => message.getFlag(ID,'areaIntervention')));
   return coverRecipients(defender,base.area.targets.map(target=>target.uuid)).flatMap(ally=>{
     if (hasDamageForCoverTarget(root,ally)) return [];
@@ -191,8 +185,7 @@ export async function rollAreaIntervention(message,{skipPreroll=false}={}){
     const options=areaInterventionChoices(actor,{targetDefense:base.card.targetDefense,showAll,
       canProtectSelf:!!areaTarget(token) && !coverRecords(root,token.document.uuid).length,
       canProtectAlly:selected.length===1 && !coverRecords(root,selected[0].document.uuid).length ||
-        (selected.length===0 && !!areaTarget(token) && !coverRecords(root,token.document.uuid).length),
-      answered:areaAnswered(root,token,interventionsFor(root))
+        (selected.length===0 && !!areaTarget(token) && !coverRecords(root,token.document.uuid).length)
     });
     const cover=coverAllyOption(actor);
     if (cover && sameAreaCoverSource(source,root) && (showAll || areaCoverCandidates(source,token).length)) options.push(cover);
@@ -219,7 +212,8 @@ export async function rollAreaIntervention(message,{skipPreroll=false}={}){
   }
   const target=areaTarget(protectedToken);
   if(!target){ui.notifications?.warn('Защищаемый токен не входит в объявленные цели.');return standalone(chosen);}
-  if(coverRecords(root,target.uuid).length || areaAnswered(root,token,interventionsFor(root)))return standalone(chosen);
+  if(coverRecords(root,target.uuid).length)return standalone(chosen);
+  if(areaAnswered(root,token))ui.notifications?.warn(game.i18n.localize('FASTNRI.Damage.repeatIntervention'));
   const kind=chosen.kind==='dodge'?'Уворот':
     chosen.kind==='counteraction'?'Противодействие':chosen.label;
   const movement=chosen.movement;
@@ -273,9 +267,10 @@ export async function rollAreaIntervention(message,{skipPreroll=false}={}){
     const performer=foundry.utils.fromUuidSync(token.document.uuid);
     const recipient=foundry.utils.fromUuidSync(target.key);
     if(!recipient || recipient.hidden || performer?.actor?.uuid!==actor.uuid || !canWrite(actor) ||
-        coverRecords(latestRoot,target.uuid).length || areaAnswered(latestRoot,token,interventionsFor(latestRoot)))return null;
+        coverRecords(latestRoot,target.uuid).length)return null;
     const redactSource=performer.hidden || redactActorSourceForAudience(actor,latestRoot);
     if(!redactSource)Object.assign(record,{actorUuid:actor.uuid,tokenUuid:performer.uuid});
+    else record.initiatorKey=interventionActorKey(root,actor);
     draft.speaker=redactSource?{alias:'Fast NRI'}:ChatMessage.getSpeaker({actor,token:performer});
     draft.flags={[ID]:{areaIntervention:record}};
     Object.assign(draft,chatAudience(latestRoot));

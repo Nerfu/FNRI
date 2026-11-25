@@ -38,6 +38,12 @@ export function renderDamageCard(message,html) {
   const container=element('div','fnri-damage-card');container.dataset.fnriDamageCard='';
   const attack=element('div','fnri-damage-attack',`${l('attackTotal')}: ${card.attackTotal??'—'}`);
   container.append(attack);
+  if(card.intervention?.id==='builtin:selfDefense' && typeof card.intervention.success==='boolean') {
+    const result=element('div',`fnri-defense-result ${card.intervention.success?'fnri-defense-success':'fnri-defense-failure'}`,l(card.intervention.success?'defenseSuccess':'defenseFailure'));
+    container.append(result);
+    if(card.intervention.success && Number.isFinite(card.intervention.damageReduction))
+      container.append(element('div','fnri-defense-reduction',`${l('damageReducedBy')}: ${card.intervention.damageReduction}`));
+  }
   const lines=element('div','fnri-damage-parts');
   for(const part of card.parts??[]) {
     const p=element('span','fnri-damage-part',`${part.formula??part.id}: ${part.pending?l('unrolledDie'):part.value}`);

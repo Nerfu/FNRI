@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {renderDamageCard} from '../module/damage/damage-chat.mjs';
 import {renderHpReport} from '../module/damage/hp-actions.mjs';
 const ID='fast-nri-v14';
@@ -28,6 +29,16 @@ assert.equal(bottom.children[0].classList.contains('fnri-crit-active'),true);
 assert.equal(card.children[1].children[1].classList.contains('fnri-damage-excluded'),true);
 assert.equal(msg.getFlag(ID,'weaponDamage').manualCritical,null,'critical button does not toggle any card flag');
 assert.equal(card.children[2].children.length,1,'only one total displayed');
+const ru=JSON.parse(readFileSync(new URL('../lang/ru.json',import.meta.url),'utf8')).FASTNRI.Damage;
+game.i18n.localize=k=>ru[k.split('.').at(-1)]??k;
+for(const success of [false,true]) {
+  const source={...msg,flags:{[ID]:{weaponDamage:{...data,intervention:{id:'builtin:selfDefense',success,damageReduction:success?6:0}}}}};
+  const host=new N('div');renderDamageCard(source,host);
+  const rows=host.children[0].children;
+  assert.equal(rows.find(n=>n.className.startsWith('fnri-defense-result')).textContent,success?'Успех':'Провал');
+  assert.equal(rows.find(n=>n.className==='fnri-defense-reduction')?.textContent,success?'Урон снижен на: 6':undefined);
+  assert.ok(!rows.some(n=>n.textContent.includes('Урон и Эффект без изменений')));
+}
 const report={getFlag(s,k){return k==='hpReport'?{reverted:true}:null;}};
 const root3=new N('div');renderHpReport(report,root3);
 assert.equal(root3.classList.contains('fnri-hp-reverted'),true);

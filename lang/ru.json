@@ -472,6 +472,10 @@
       "privateRecovery": "Периодический урон обработан. Подробности закрытого результата недоступны после перезагрузки."
     },
     "Damage": {
+      "defenseSuccess": "Успех",
+      "defenseFailure": "Провал",
+      "damageReducedBy": "Урон снижен на",
+      "repeatIntervention": "Вы уже использовали Вмешательство на это действие.",
       "editRoll": "Редактировать бросок",
       "total": "Итого",
       "correctedTotal": "Исправленный результат",
@@ -793,6 +797,8 @@
       "effective": "Эффективное значение"
     },
     "AbilityChat": {
+      "rollAction": "Бросок",
+      "manualApply": "Применить",
       "toChat": "В чат",
       "noDescription": "Описание не заполнено",
       "dailyRemaining": "Осталось в день: {remaining}",

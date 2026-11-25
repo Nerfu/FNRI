@@ -38,13 +38,27 @@ const activeRoll=item('manual-roll',{}, {rollFormula:'1d8'});activeRoll.type='ab
 assert.equal(await standaloneIntervention(actor,'selfDefense',{stat:'fortitude',skipPreroll:true,source:{isContentVisible:false}}),null);
 const awareness=await standaloneIntervention(actor,'counteraction',{stat:'awareness',skipPreroll:true});assert.match(awareness.roll.formula,/1d6/);
 const attack=await ChatMessage.create({whisper:['p','gm'],flags:{[ID]:{checkRoll:{version:1,targetDefense:'reflex',result:{degree:'success',total:10,targetUuid:'Scene.s.Token.t'}}}}});globalThis.fromUuid=async uuid=>uuid==='Scene.s.Token.t'?{actor}:uuids.get(uuid);const oldRolls=rolls;onRoll=()=>messages.delete(attack.id);m=await initiateCounteraction(attack,{target:actor,skipPreroll:true});onRoll=null;assert.ok(m.getFlag(ID,'manualAction'));assert.deepEqual(m.whisper,attack.whisper);assert.equal(rolls,oldRolls+1);assert.equal(m.rolls.length,1);
+const counterRoot=await ChatMessage.create({whisper:['p','gm'],flags:{[ID]:{checkRoll:{version:1,targetDefense:'reflex',result:{degree:'great',total:5,targetUuid:'Scene.s.Token.t'}}}}});
+const firstCounter=await initiateCounteraction(counterRoot,{target:actor,skipPreroll:true});
+assert.equal(firstCounter.getFlag(ID,'checkRoll').result.degree,'success');
+const secondCounter=await initiateCounteraction(firstCounter,{target:actor,skipPreroll:true});
+assert.equal(secondCounter.getFlag(ID,'checkRoll').previousMessageId,firstCounter.id);
+assert.equal(secondCounter.getFlag(ID,'checkRoll').result.degree,'partial');
+assert.ok(warnings.includes('FASTNRI.Damage.repeatIntervention'));
+assert.equal(counterRoot.getFlag(ID,'checkRoll').result.degree,'great');
 // Cover: no context or a stale selected die declares instead of manufacturing a transfer.
-const coverSource=await ChatMessage.create({whisper:['p','gm'],flags:{[ID]:{weaponDamage:{version:2,parts:[{id:'A',kind:'die',formula:'1d6',value:5}],revision:0}}}});
+const coverSource=await ChatMessage.create({whisper:['p','gm'],flags:{[ID]:{weaponDamage:{version:2,parts:[{id:'A',kind:'die',formula:'1d6',value:5},{id:'B',kind:'die',formula:'1d6',value:3}],revision:0}}}});
 const defender={actor,name:'Hero',document:{uuid:'Scene.s.Token.def'}};
 const ally={actor:{uuid:'Actor.ally'},name:'Ally',document:{uuid:'Scene.s.Token.ally'}};
 let candidates=[{ally,card:coverSource.getFlag(ID,'weaponDamage')}];
 foundry.applications.api.DialogV2.input=async()=>({choice:'0'});actor.system.resources.reaction.current=2;
 const linkedCover=await chooseCoverAlly({source:coverSource,defender,candidates:()=>candidates});assert.equal(linkedCover.getFlag(ID,'coverAlly').amount,5);assert.equal(actor.system.resources.reaction.current,1);assert.deepEqual(readyHp(linkedCover),{kind:'damage',amount:5});
+const firstSource=coverSource.getFlag(ID,'weaponDamage');
+candidates=[{ally,card:{...firstSource,parts:firstSource.parts.map(p=>({...p,excluded:p.id==='A'}))}}];
+const secondCover=await chooseCoverAlly({source:coverSource,defender,candidates:()=>candidates});
+assert.equal(secondCover.getFlag(ID,'coverAlly').amount,3);
+assert.notEqual(secondCover.id,linkedCover.id);
+assert.equal(actor.system.hp.current,20,'cover publication never applies HP');
 const standaloneCover=await chooseCoverAlly({source:coverSource,defender,candidates:()=>[]});assert.ok(standaloneCover.getFlag(ID,'manualAction'));assert.equal(actor.system.resources.reaction.current,0);
 console.log('PASS refactor2: item use without targets, exhausted stack, manual consequences, denied publication, standalone interventions, preserved roll and audience on lost source');
 
@@ -76,13 +90,14 @@ for(const Sheet of [FastNRICharacterSheet,FastNRINPCSheet]){
  assert.equal(messages.size,count+1);
  assert.equal(actor.system.resources.magic.current,4,'announcement must not spend magic');
 }
-// Independent manual Blade execution spends its own cost only after publication.
+// Blade is a contribution to an attack, never an independent expenditure.
 const bladePublication=await publishAbility(invocationBlade);
 assert.equal(actor.system.resources.magic.current,4);
 const bladeManual=await executeAbilityFromChat(bladePublication,'manual-use',{skipPreroll:true});
-assert.ok(bladeManual.getFlag(ID,'manualAction'));
-assert.equal(actor.system.resources.magic.current,3);
-console.log('PASS invocation entrypoints: PC/NPC announcements without selectors, independent Blade accounting');
+assert.deepEqual(abilityExecutions(invocationBlade),[]);
+assert.equal(bladeManual,null);
+assert.equal(actor.system.resources.magic.current,4);
+console.log('PASS invocation entrypoints: PC/NPC announcements without selectors, no independent Blade accounting');
 
 // A blank level-1 Warlock can open and publish the original Compendium cards.
 const {CLASSES, WARLOCK_SPELL_IDS}=await import('../module/data/classes.mjs');
