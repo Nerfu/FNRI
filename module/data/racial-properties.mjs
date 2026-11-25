@@ -74,6 +74,7 @@ export function racialPermissions() {
   };
 }
 
+export const racialRaceName = id => RACES[id]?.[0] ?? null;
 export const racialRaceNames = () => Object.values(RACES).map(([name]) => name);
 export function primaryRace(actor) {
   const race = normalize(actor?.system?.race);

@@ -1,8 +1,9 @@
+import {tokenSide} from '../data/actor-side.mjs';
 import {hasCondition,minimumCellGap,standingConscious,sameScene} from './geometry.mjs';
 import {isProjectionActor} from '../projection/projection.mjs';
 /** Fast NRI: threats vs formation. Not PF2e flanking. No persistent statuses. */
 function affinity(a,b){
-  const x=a?.document?.disposition,y=b?.document?.disposition;
+  const x=tokenSide(a),y=tokenSide(b);
   if(![1,-1].includes(x)||![1,-1].includes(y))return 'unknown';
   return x===y?'ally':'enemy';
 }

@@ -1,3 +1,4 @@
+import {tokenSide} from '../data/actor-side.mjs';
 import {canReadChatContent, chatAudience} from '../data/chat-visibility.mjs';
 import {stableDocumentId} from '../data/document-id.mjs';
 import {calculateDamage, coverAllyDice, planCoverAlly} from './damage-core.mjs';
@@ -121,8 +122,9 @@ export function coverRecipients(defender, uuids = []) {
     if (!ally.actor || ally.actor.uuid === defender.actor.uuid || ally.visible === false ||
         token.hidden === true || !sameScene(defender, ally) || minimumCellGap(defender, ally) !== 1) return false;
     if (uuids.length && !uuids.includes(token.uuid)) return false;
-    const known = [1, -1].includes(defenderDoc.disposition) && [1, -1].includes(token.disposition);
-    return known ? defenderDoc.disposition === token.disposition : explicit.has(token.uuid);
+    const defenderSide=tokenSide(defender), allySide=tokenSide(ally);
+    const known = [1, -1].includes(defenderSide) && [1, -1].includes(allySide);
+    return known ? defenderSide === allySide : explicit.has(token.uuid);
   });
 }
 

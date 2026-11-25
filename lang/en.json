@@ -13,6 +13,8 @@
     }
   },
   "FASTNRI": {
+    "AbilitySource": {"racial": "Racial property"},
+    "ActorSide": {"syncIncomplete": "Some token sides could not be updated. The character remains the authoritative side.", "actorPermission": "Changing the side requires permission to update the character."},
     "SheetLock": {
       "lock": "Lock configuration",
       "unlock": "Unlock configuration"

@@ -1,9 +1,10 @@
+import {abilitySource} from '../data/ability-source.mjs';
 import { actorClassDefinition, DOUBLE_INVOCATION_ID } from '../data/classes.mjs';
 import { queueActorWrite } from '../data/ability-accounting.mjs';
 
 const SCOPE = 'fast-nri-v14';
 const INDEX_FIELD = `flags.${SCOPE}.contentId`;
-const INDEX_FIELDS = [INDEX_FIELD, 'type', 'img'];
+const INDEX_FIELDS = [INDEX_FIELD, `flags.${SCOPE}.source`, 'type', 'img'];
 const contentId = entry => entry?.getFlag?.(SCOPE, 'contentId') ?? entry?.flags?.[SCOPE]?.contentId ?? entry?.[INDEX_FIELD];
 const classIds = actor => actorClassDefinition(actor)?.abilityIds ?? [];
 const owned = (actor, id) => actor.items.contents.find(item => item.type === 'ability' && contentId(item) === id);
@@ -20,6 +21,7 @@ export async function missingClassAbilityRows(actor) {
     return missing.flatMap(id => {
       const entry = entries.get(id);
       return entry ? [{name: entry.name, img: entry.img, classContentId: id, compendiumOnly: true, classAbility: true,
+        abilitySource:abilitySource(actor,entry,{classContentId:id}),
         doubleInvocation: id === DOUBLE_INVOCATION_ID}] : [];
     });
   } catch (error) {

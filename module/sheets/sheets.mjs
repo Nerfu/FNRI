@@ -1,3 +1,4 @@
+import {abilitySource} from '../data/ability-source.mjs';
 import {resourceAssignment,resourceAssignments} from "../data/ability-accounting.mjs";
 import {configurationControl,applySheetLock} from './sheet-lock.mjs';
 import { currentMessageMode } from '../data/chat-visibility.mjs';
@@ -1508,7 +1509,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
           mechanics.attackAugment ? 'attacks' :
           mechanics.grantsAction === 'coverAlly' || contentId === 'fnri7.rulebook.racial.samootverzhennyi' ? 'coverAlly' :
           contentId === 'fnri7.rulebook.racial.master-boia' ? 'combatMaster' : null;
-        return {...rowWithSelection(item, actor.system), grantedAction,
+        return {...rowWithSelection(item, actor.system), grantedAction, abilitySource:abilitySource(actor,item),
           doubleInvocation: mechanics.doubleInvocation === true || contentId === DOUBLE_INVOCATION_ID};
       }),
       inventoryItems: items.filter(i => i.type !== "ability").map(item => {

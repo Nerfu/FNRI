@@ -1,3 +1,4 @@
+import {tokenSide} from '../data/actor-side.mjs';
 import {tokenDistance} from '../spatial/geometry.mjs';
 
 /** Fast NRI v14: actor-level Projection link, not token-level ownership.
@@ -71,10 +72,11 @@ function validProjectionAbility(item) {
 
 /** Read the current scene only. Never guess between conflicting tokens. */
 function initialProjectionDisposition(caster) {
+  if(caster.type === "character" && [1,-1].includes(caster.prototypeToken?.disposition)) return caster.prototypeToken.disposition;
   const scene = globalThis.canvas?.scene;
   const tokens = scene ? [...(caster.getActiveTokens?.() ?? [])].filter(t =>
     t?.document?.parent?.id === scene.id) : [];
-  const sides = tokens.length ? [...new Set(tokens.map(t => t.document.disposition))] :
+  const sides = tokens.length ? [...new Set(tokens.map(tokenSide))] :
     [caster.prototypeToken?.disposition];
   return sides.length === 1 && [1, -1].includes(sides[0]) ? sides[0] : null;
 }

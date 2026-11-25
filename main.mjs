@@ -1,3 +1,4 @@
+import {registerActorSides} from './module/data/actor-side.mjs';
 import {registerGameReroll} from './module/rolls/game-reroll.mjs';
 import {registerAbilityChat,publishAbility,abilityExecutions,abilityExecution,executeAbilityFromChat} from './module/abilities/ability-chat.mjs';
 import {registerTempHpManualEdits,registerTempHpWorldTime,readTempHpState,grantTempHp,removeTempHpLayer,tempHpMax,planTempHpExpiration} from './module/damage/temporary-hp-layers.mjs';
@@ -55,6 +56,7 @@ Hooks.once("init", () => {
   registerRacialPropertyLifecycle();
   CONFIG.Item.documentClass = racialItemDocumentClass(CONFIG.Item.documentClass ?? foundry.documents.Item);
   registerClassLifecycle();
+  registerActorSides();
   // Foundry native _onEndTurn executes only on designated GM.
   CONFIG.Combat.documentClass = FastNRICombat;
   CONFIG.Combat.initiative.formula = "1d20";
