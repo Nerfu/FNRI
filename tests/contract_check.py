@@ -39,7 +39,7 @@ for hbs in (root/'templates').glob('*.hbs'):
     elif hbs.name == 'effects-panel.hbs':
         assert 'data-effect-uuid' in src
     else:
-        assert hbs.name in {'actor-actions.hbs','actor-standard-action.hbs','actor-core-skill.hbs','actor-custom-skill.hbs','actor-short-rest.hbs','token-ruler-label.hbs'}, f'Unclassified template: {hbs.name}'
+        assert hbs.name in {'actor-actions.hbs','actor-standard-action.hbs','actor-core-skill.hbs','actor-custom-skill.hbs','actor-short-rest.hbs','actor-resource.hbs','token-ruler-label.hbs'}, f'Unclassified template: {hbs.name}'
 for name in ('character','npc'):
     src=(root/'templates'/f'{name}.hbs').read_text()
     src=src.replace('{{> fnri-actor-actions}}',(root/'templates'/'actor-actions.hbs').read_text())
@@ -57,7 +57,9 @@ for name in ('character','npc'):
     assert 'data-action="attackUnarmed"' in src
     assert 'data-action="attackEquipped"' in src
     assert 'data-example=' not in src
-    assert 'data-row-collection="resources"' in src
+    assert '{{> fnri-actor-resource}}' in src
+    src=src.replace('{{> fnri-actor-resource}}',(root/'templates'/'actor-resource.hbs').read_text())
+    assert 'data-row-collection="resources"' in src and 'data-row-field="assignment"' in src
     custom=(root/'templates'/'actor-custom-skill.hbs').read_text()
     assert '{{> fnri-actor-custom-skill}}' in src
     if name=='npc':

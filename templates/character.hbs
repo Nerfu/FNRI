@@ -141,7 +141,7 @@
  <button type="button" data-action="deleteEffect" data-id="{{this.id}}" title="{{localize 'FASTNRI.Actions.deleteEffect'}}"><i class="fa-solid fa-trash"></i></button>{{/if}}</li>
  {{else}}<li class="fnri-muted">{{localize "FASTNRI.Hints.noEffects"}}</li>{{/each}}</ul>
  </details><details class="fnri-panel fnri-collapsible" data-fnri-section="resources" {{#if sections.resources}}open{{/if}}><summary>{{localize "FASTNRI.Sections.resources"}}</summary><div class="fnri-row-head">
-    {{#if editable}}<button type="button" data-action="addResource">{{localize "FASTNRI.Actions.addResource"}}</button>{{/if}}</div>
+    {{#if editable}}<button type="button" data-action="addResource" data-fnri-lock-section>{{localize "FASTNRI.Actions.addResource"}}</button>{{/if}}</div>
     <div class="fnri-entry fnri-resource-row" data-fnri-resource="potions">
       <span>{{localize "FASTNRI.Potions.name"}}</span>
       {{#if editable}}<button type="button" data-action="adjustResource" data-resource="potions" data-delta="-1" title="{{localize 'FASTNRI.Actions.decreaseResource'}}" aria-label="{{localize 'FASTNRI.Actions.decreaseResource'}}">−</button>{{else}}<span></span>{{/if}}
@@ -153,14 +153,7 @@
       {{#if potions.over}}<small class="fnri-racial-warning fnri-resource-warning">{{localize "FASTNRI.Potions.over"}}</small>{{/if}}
     </div>
     <div class="fnri-stack">{{#each resourceRows}}
-      <div class="fnri-entry fnri-resource-row" data-fnri-resource="{{this.id}}">
-        <input type="text" data-row-collection="resources" data-row-id="{{this.id}}" data-row-field="name" value="{{this.name}}" aria-label="{{localize 'FASTNRI.Fields.name'}}" {{#unless @root.editable}}disabled{{/unless}}>
-        {{#if @root.editable}}<button type="button" data-action="adjustResource" data-resource="row" data-id="{{this.id}}" data-delta="-1" title="{{localize 'FASTNRI.Actions.decreaseResource'}}" aria-label="{{localize 'FASTNRI.Actions.decreaseResource'}}">−</button>{{else}}<span></span>{{/if}}
-        <input type="text" class="fnri-number" inputmode="decimal" data-row-collection="resources" data-row-id="{{this.id}}" data-row-field="current" value="{{this.current}}" aria-label="{{localize 'FASTNRI.Fields.current'}}" {{#unless @root.editable}}disabled{{/unless}}>
-        <span class="fnri-resource-slash">/</span>
-        <input type="text" class="fnri-number" inputmode="decimal" data-row-collection="resources" data-row-id="{{this.id}}" data-row-field="max" value="{{this.max}}" aria-label="{{localize 'FASTNRI.Fields.max'}}" {{#unless @root.editable}}disabled{{/unless}}>
-        {{#if @root.editable}}<button type="button" data-action="adjustResource" data-resource="row" data-id="{{this.id}}" data-delta="1" title="{{localize 'FASTNRI.Actions.increaseResource'}}" aria-label="{{localize 'FASTNRI.Actions.increaseResource'}}">+</button><button type="button" data-action="removeResource" data-id="{{this.id}}" title="{{localize 'FASTNRI.Actions.removeResource'}}"><i class="fa-solid fa-trash"></i></button>{{else}}<span></span><span></span>{{/if}}
-      </div>
+      {{> fnri-actor-resource}}
     {{else}}<p class="fnri-muted">{{localize "FASTNRI.Hints.noResources"}}</p>{{/each}}</div></details><details class="fnri-panel fnri-collapsible" data-fnri-section="wealth" {{#if sections.wealth}}open{{/if}}><summary>{{localize "FASTNRI.Sections.wealth"}}</summary><div class="fnri-grid-2"><label>{{localize "FASTNRI.Fields.wealth"}}<input type="text" name="system.wealth" value="{{system.wealth}}" {{#unless editable}}disabled{{/unless}}></label></div></details>
 {{#if editable}}<div class="fnri-rest-actions"><button type="button" data-action="restActor" title="{{localize 'FASTNRI.Actions.rest'}}"><i class="fa-solid fa-bed" aria-hidden="true"></i> {{localize "FASTNRI.Actions.rest"}}</button></div>{{/if}}
 {{> fnri-actor-short-rest}}

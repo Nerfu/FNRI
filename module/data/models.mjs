@@ -31,7 +31,7 @@ function customSlotSchema() {
 }
 
 function resourceSchema() {
-  return new F.SchemaField({ name: text(), current: number(), max: number(), kind: text() });
+  return new F.SchemaField({ name: text(), current: number(), max: number(), kind: text(), resourceKey: text() });
 }
 
 function actorSchema() {

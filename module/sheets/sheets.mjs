@@ -1,3 +1,4 @@
+import {resourceAssignment,resourceAssignments} from "../data/ability-accounting.mjs";
 import {configurationControl,applySheetLock} from './sheet-lock.mjs';
 import { currentMessageMode } from '../data/chat-visibility.mjs';
 import {resolveSkillAllocation,skillDieEditPatch,skillAllocationPatch,planSkillUpgrade,skillPoolEditPatch,skillFormulaOverridePatch,resetSkillAssignmentsPatch} from "../data/skill-allocation.mjs";
@@ -51,12 +52,12 @@ const SECTION_DEFAULTS = Object.freeze({
   effects: false, resources: false, wealth: false
 });
 const TAB_IDS = new Set(["characteristics", "actions", "skills", "abilities", "inventory", "description", "journal"]);
-const ACTOR_PARTIALS = Object.fromEntries(['actor-actions', 'actor-standard-action', 'actor-core-skill', 'actor-custom-skill', 'actor-short-rest']
+const ACTOR_PARTIALS = Object.fromEntries(['actor-actions', 'actor-standard-action', 'actor-core-skill', 'actor-custom-skill', 'actor-short-rest', 'actor-resource']
   .map(id => [`fnri-${id}`, `systems/${SYSTEM_ID}/templates/${id}.hbs`]));
 const ITEM_TYPES = new Set(["weapon", "armor", "gear", "ability"]);
 const ROW_FIELDS = {
   skills: new Set(["name", "kind", "group", "dice", "modifier", "value"]),
-  resources: new Set(["name", "current", "max"]),
+  resources: new Set(["name", "current", "max", "assignment"]),
   equipmentSlots: new Set(["name", "itemId"])
 };
 const NUMERIC_ROW_FIELDS = {
@@ -99,6 +100,13 @@ const makeOptions=(values,current)=>values.map(value=>({value,label:({
   any:localized('Damage.any'),melee:localized('Weapon.melee'),ranged:localized('Weapon.ranged')
 })[value]??value, selected:value===current}));
 const rowsOf = object => Object.entries(object ?? {}).map(([id, values]) => ({ id, ...values }));
+function resourceRows(raw,prepared){
+  return rowsOf(raw).map(row=>{
+    const effective=prepared?.[row.id]??row,assignment=resourceAssignment(row.id,row);
+    return {...row,effectiveMax:showStat(effective.max),effectiveCurrent:showStat(effective.current),currentDiff:effective.current!==row.current,
+      assignments:resourceAssignments().map(opt=>({...opt,label:opt.standard?opt.label:localized('ResourceAssignment.'+opt.label),selected:opt.value===assignment}))};
+  });
+}
 const showStat = value => value === null || value === undefined || value === "" ? "—" : String(value);
 const escapeHtml = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
   .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -1060,7 +1068,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   static async addResource() {
-    await this._addRow("resources", { name: "", current: null, max: null });
+    await this._addRow("resources", { name: "", kind:"", resourceKey:"", current: null, max: null });
   }
   /** Quick +/- edits use the same Actor queue as automatic resource changes.
    * Read the latest persisted value inside the queue, never the rendered input. */
@@ -1166,6 +1174,15 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     void this._queueWrite(async () => {
       const raw=this.actor.toObject?.(true)?.system??this.actor.system;
       const items=this.actor.items?.contents??[];
+      if(collection==='resources'&&field==='assignment'){
+        if(!Object.hasOwn(raw.resources??{},id)||!resourceAssignments().some(opt=>opt.value===parsed.value))return;
+        const key=parsed.value.startsWith('class_')?parsed.value:'';
+        return queueActorWrite(this.actor,async()=>{
+          const live=this.actor.toObject?.(true)?.system??this.actor.system;
+          if(!Object.hasOwn(live.resources??{},id))return;
+          return this.actor.update({[`system.resources.${id}.kind`]:key?'class':parsed.value,[`system.resources.${id}.resourceKey`]:key});
+        });
+      }
       if(this.actor.type==='character'&&collection==='skills'&&field==='dice'&&BASIC_SKILLS_BY_ROW_ID.has(id)&&resolveSkillAllocation(raw,items).active){
         const patch=skillDieEditPatch(raw,items,BASIC_SKILLS_BY_ROW_ID.get(id).id,parsed.value);
         if(Object.keys(patch).length)return this.actor.update(patch);
@@ -1532,7 +1549,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       })),
       skillRows: rowsOf(completeSkills).filter(row => !BASIC_SKILLS_BY_ROW_ID.has(row.id) && !(row.kind==="specialization"&&SKILL_GROUPS.includes(row.group)))
         .map(row => preparedSkillRow(row, actor, this._customDiceEditors)),
-      resourceRows: rowsOf(base.resources),
+      resourceRows: resourceRows(base.resources,actor.system.resources),
       journalRows: actorJournalRows(actor)
     };
   }
@@ -1576,7 +1593,7 @@ export class FastNRICharacterSheet extends ActorBase {
     return {...context, system:base,
       pcSkillView:true, rawHp:raw.hp, basePotionMax:raw.potionsBaseMax??3,
       effectiveDiffs:{speed:base.speed!==this.actor.system.speed, ...Object.fromEntries(["hp","ac","defenses"].map(group=>[group,Object.fromEntries(Object.keys(base[group]??{}).map(key=>[key,base[group][key]!==this.actor.system[group]?.[key]]))]))},
-      resourceRows:rowsOf(raw.resources),
+      resourceRows:resourceRows(raw.resources,this.actor.system.resources),
       catalogGroups:context.catalogGroups.map(g=>({...g,rows:g.rows.map(playSkill),specializations:g.specializations.map(playSkill)})), skillRows:context.skillRows.map(playSkill),
       innateRacialProperties: racialProperties.filter(row => row.innate),
       additionalRacialProperties,

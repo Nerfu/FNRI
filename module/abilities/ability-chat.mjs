@@ -63,8 +63,8 @@ function costMessages(actor,item,execution){
     const name=actor.system?.resources?.[warning.resourceId]?.name || warning.resourceName || warning.resourceId;
     const resource=name ? ` (${name})` : '';
     return (warning.reason==='insufficient'?text('insufficient'):
-      warning.reason==='intervention-resource-unknown'?text('unassignedIntervention'):
-        warning.reason==='ambiguous'?text('ambiguousResource'):text('unavailable'))+resource;
+      (warning.reason==='intervention-resource-unknown'||warning.reason==='missing'&&warning.scope==='common')?text('unassignedIntervention'):
+        warning.reason==='ambiguous'?text('ambiguousResource'):warning.reason==='kindMismatch'?text('resourceKindMismatch'):text('unavailable'))+resource;
   });
 }
 

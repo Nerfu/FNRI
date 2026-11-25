@@ -15,7 +15,8 @@
 import {canReadChatContent} from './chat-visibility.mjs';
 import {privateAreaSourceFor,createAreaUseMessage,PENDING_AREA_USES} from './private-area-source.mjs';
 import {serverTimestamp} from './server-clock.mjs';
-import {restResourceTarget} from './classes.mjs';
+import {restResourceTarget,CLASSES} from './classes.mjs';
+import {isProjectionActor} from '../projection/projection.mjs';
 import {directedInterventionVariants} from './intervention-variants.mjs';
 import {TEMP_HP_FLAG,readTempHpState,tempHpStateUpdate} from '../damage/temporary-hp-layers.mjs';
 const SCOPE = 'fast-nri-v14';
@@ -38,11 +39,13 @@ function eventKeyFor(message, item, actionId) {
   return `a_${id.length}_${id}_${source}`;
 }
 
-const RESOURCE_KINDS = new Set(['class', 'intervention']);
-const INTERVENTION_NAMES = new Set(['вмешательство', 'вмешательства', 'intervention', 'interventions']);
+const RESOURCE_KINDS = new Set(['class', 'intervention', 'other']);
 const resourceNameKey = value => String(value ?? '').trim().toLocaleLowerCase('ru');
-const resourceKind = row => row?.kind ||
-  (INTERVENTION_NAMES.has(resourceNameKey(row?.name)) ? 'intervention' : null);
+const resourceKind = row => RESOURCE_KINDS.has(row?.kind) ? row.kind : null;
+const standardResources = Object.values(CLASSES).flatMap(c=>c.resource?[c.resource]:[]);
+export const standardResourceKey = name => standardResources.find(r=>resourceNameKey(r.name)===resourceNameKey(name))?.id??null;
+export const resourceAssignment = (id,row) => row?.kind==='class' ? (row.resourceKey || (standardResources.some(r=>r.id===id)?id:'class')) : (resourceKind(row)??'');
+export const resourceAssignments = () => [{value:'',label:'unassigned'},{value:'intervention',label:'intervention'},{value:'class',label:'class'},{value:'other',label:'other'},...standardResources.map(r=>({value:r.id,label:r.name,standard:true}))];
 const asObject = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 const positiveNumber = value => typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
 const positiveInteger = value => Number.isSafeInteger(value) && value > 0 ? value : null;
@@ -52,11 +55,6 @@ function actorCanWrite(actor) {
 }
 function historyOf(actor) {
   return asObject(actor?.getFlag?.(SCOPE,'accountingEvents') ?? actor?.flags?.[SCOPE]?.accountingEvents);
-}
-function interventionResourceId(actor) {
-  const rows = Object.entries(actor?.system?.resources ?? {}).filter(([id,row]) =>
-    ROW_ID.test(id) && resourceKind(row) === 'intervention');
-  return rows.length===1 ? rows[0][0] : null;
 }
 function combatForActor(actor) {
   const combat=game.combat;
@@ -77,9 +75,10 @@ export function accountingRule(item, execution=null) {
   const resourceCosts=Array.isArray(costs) ? costs.flatMap(cost=>{
     const id=String(cost?.resourceId ?? '');
     const resourceName=String(cost?.resourceName ?? '').trim();
-    const amount=positiveNumber(cost?.amount);
-    if ((!ROW_ID.test(id) && !resourceName) || amount === null) return [];
-    return [{resourceId:ROW_ID.test(id)?id:null,resourceName,amount,
+    const resourceKey=String(cost?.resourceKey??'');
+    const amount=cost?.amount===0?0:positiveNumber(cost?.amount);
+    if ((!ROW_ID.test(id) && !ROW_ID.test(resourceKey) && !resourceName && cost?.kind!=='intervention') || amount === null) return [];
+    return [{resourceId:ROW_ID.test(id)?id:null,resourceKey:ROW_ID.test(resourceKey)?resourceKey:null,resourceName,amount,
       kind:RESOURCE_KINDS.has(cost?.kind)?cost.kind:null}];
   }) : [];
   const legacyMaster=item?.type==='ability' &&
@@ -90,27 +89,53 @@ export function accountingRule(item, execution=null) {
   return resourceCosts.length || frequency || cooldownRounds ?
     {resourceCosts,frequency,cooldownRounds} : null;
 }
-/** A world Item cannot know the arbitrary ID of a resource row created in
- * an Actor sheet. An authored resourceName resolves ONLY if exactly one row
- * has that name (and, if specified, the requested kind). Never silently
- * resolve two same-named rows or auto-create/rename a player's resources.
- */
-function resolveResourceCost(resources,cost) {
-  if(cost.resourceId)return {...cost};
-  const wanted = resourceNameKey(cost.resourceName);
-  const matches = Object.entries(resources ?? {}).filter(([id,row]) => {
-    const kind = resourceKind(row);
-    return ROW_ID.test(id) && resourceNameKey(row?.name) === wanted &&
-      (!cost.kind || !kind || cost.kind === kind);
-  });
-  if(matches.length!==1)return {...cost,resourceId:null,
-    reason:matches.length?'ambiguous':'unavailable'};
-  return {...cost,resourceId:matches[0][0]};
+/** Resolve explicit assignments only. A standard authored legacy name is a
+ * catalogue key, never a lookup by the editable row's display name. */
+export function resolveResourceCost(resources={},cost) {
+  const rows=Object.entries(resources??{}).filter(([id])=>ROW_ID.test(id));
+  const key=cost.resourceKey??standardResourceKey(cost.resourceName);
+  const expected=cost.kind??(key?'class':null);
+  const scope=expected==='intervention'?'common':'individual';
+  const base={...cost,kind:expected,scope,explicitId:Boolean(cost.resourceId)};
+  let matches;
+  if(cost.resourceId) matches=rows.filter(([id])=>id===cost.resourceId);
+  else if(key) matches=rows.filter(([id,row])=>(row.resourceKey||id)===key);
+  else if(expected==='intervention') matches=rows.filter(([,row])=>resourceKind(row)==='intervention');
+  else matches=[];
+  if(matches.length!==1)return {...base,resourceId:null,reason:matches.length?'ambiguous':'missing'};
+  const [id,row]=matches[0];
+  const kind=resourceKind(row);
+  if(!kind || (expected && expected!==kind)) return {...base,resourceId:id,reason:kind?'kindMismatch':'unavailable'};
+  return {...base,resourceId:id,kind,scope:kind==='intervention'?'common':'individual'};
 }
-function resolvedResourceCosts(actor,explicit) {
-  return explicit.map(cost => resolveResourceCost(actor?.system?.resources,cost));
+function resolveCosts(actor,rule,isIntervention){
+  const resources=actor?.toObject?.(true)?.system?.resources??actor?.system?.resources??{};
+  const declared=rule?.resourceCosts??[];
+  const explicit=declared.filter(cost=>cost.amount>0).map(cost=>resolveResourceCost(resources,cost));
+  const hasCounter=explicit.some(cost=>cost.scope==='common')||declared.some(cost=>cost.amount===0&&cost.kind==='intervention');
+  if(isIntervention&&!hasCounter&&!(isProjectionActor(actor)&&!Object.values(resources).some(row=>row.kind==='intervention')))
+    explicit.push(resolveResourceCost(resources,{kind:'intervention',amount:1}));
+  return explicit;
 }
-
+/** One plan for preview, live commit and saved area receipt. The receipt fixes
+ * resource identity and price; numeric availability is checked at settlement. */
+export function resourceCostPlan(actor,item,execution=null,{resolved=null,isIntervention=execution?.isIntervention===true}={}){
+  const costs=resolved??resolveCosts(actor,accountingRule(item,execution),isIntervention);
+  const resources=actor?.system?.resources??{},raw=actor?.toObject?.(true)?.system?.resources??resources,combined=new Map(),result=[];
+  for(const cost of costs){
+    if(cost.reason||!cost.resourceId){result.push({...cost,reason:cost.reason??'missing',current:resources[cost.resourceId]?.current??null});continue;}
+    const previous=combined.get(cost.resourceId);
+    combined.set(cost.resourceId,{...cost,amount:(previous?.amount??0)+cost.amount});
+  }
+  for(const cost of combined.values()){
+    const row=raw[cost.resourceId],current=resources[cost.resourceId]?.current??null,baseCurrent=row?.current??null;
+    const key=cost.resourceKey??standardResourceKey(cost.resourceName);
+    const reason=!row?'missing':resourceKind(row)!==cost.kind|| (key&&!cost.explicitId&&resourceAssignment(cost.resourceId,row)!==key)?'kindMismatch':
+      !Number.isFinite(current)||!Number.isFinite(baseCurrent)?'unavailable':Math.min(current,baseCurrent)<cost.amount?'insufficient':null;
+    result.push({...cost,current,baseCurrent,reason});
+  }
+  return result;
+}
 /** Untyped sheet rows can be classified by the same declarations that spend them. */
 export function classResourceIds(actor, resources, confirmedChanges = []) {
   const ids = new Set(Object.keys(resources).filter(id => resourceKind(resources[id]) === 'class'));
@@ -125,7 +150,8 @@ export function classResourceIds(actor, resources, confirmedChanges = []) {
     for (const execution of [null, ...(Array.isArray(executions) ? executions : [])]) {
       for (const cost of accountingRule(item,execution)?.resourceCosts ?? []) {
         if (cost.kind === 'intervention') continue;
-        addUntyped(resolveResourceCost(resources,cost).resourceId);
+        const resolved=resolveResourceCost(resources,cost);
+        if(!resolved.reason)addUntyped(resolved.resourceId);
       }
     }
   }
@@ -137,31 +163,7 @@ export function classResourceIds(actor, resources, confirmedChanges = []) {
  * intervention resource exists, no one is silently selected.
  */
 export function abilityCostPreview(actor,item,execution=null) {
-  const explicit=resolvedResourceCosts(actor,accountingRule(item,execution)?.resourceCosts??[]);
-  const hasInterventionCost=explicit.some(cost=>cost.kind==='intervention' ||
-    resourceKind(actor?.system?.resources?.[cost.resourceId])==='intervention');
-  const counter=execution?.isIntervention===true && !hasInterventionCost
-    ? interventionResourceId(actor) : null;
-  const combined=new Map();
-  const warnings=explicit.filter(cost=>!cost.resourceId).map(cost=>({
-    reason:cost.reason??'unavailable',resourceName:cost.resourceName,resourceId:null
-  }));
-  for (const cost of [...explicit,...(counter?[{resourceId:counter,amount:1,kind:'intervention'}]:[])]) {
-    if(!cost.resourceId)continue;
-    combined.set(cost.resourceId,(combined.get(cost.resourceId)??0)+cost.amount);
-  }
-  if (execution?.isIntervention===true && !hasInterventionCost && !counter)
-    warnings.push({reason:'intervention-resource-unknown',resourceId:null});
-  for (const [resourceId,amount] of combined) {
-    const row=actor?.system?.resources?.[resourceId];
-    const available=row?.current;
-    if (typeof available !== 'number' || !Number.isFinite(available)) {
-      warnings.push({reason:'unavailable',resourceId});
-    } else if (available<amount) {
-      warnings.push({reason:'insufficient',resourceId});
-    }
-  }
-  return warnings;
+  return resourceCostPlan(actor,item,execution).filter(cost=>cost.reason);
 }
 function eventsAfterRest(actor) {
   const all=Object.values(historyOf(actor)).filter(e=>e && (e.type==='rest' || e.type==='use'));
@@ -214,11 +216,10 @@ export function queueActorWrite(actors, operation) {
 /** A completed ChatMessage is the default usage key. Explicit composite
  * actions can share one key across several successful primary messages.
  * This is opt-in only: unrelated clicks never merge by proximity or name. */
-export async function recordCardUse({actor,item=null,message,isIntervention=false,actionId=null,execution=null}={}) {
+export async function recordCardUse({actor,item=null,message,actionId=null,execution=null,isIntervention=execution?.isIntervention===true}={}) {
   if (!actorCanWrite(actor) || !message?.id || !ROW_ID.test(String(message.id))) return null;
   const rule=accountingRule(item,execution);
-  const counter=isIntervention?interventionResourceId(actor):null;
-  if (!rule && !counter) return null;
+  if (!rule && !isIntervention) return null;
   return queueActorWrite(actor,()=>commitCardUse({actor,item,message,isIntervention,actionId,execution}));
 }
 export async function finishCardAccounting(args) {
@@ -230,17 +231,11 @@ export async function finishCardAccounting(args) {
 // identity, frequency and chosen price are captured before publishing.
 export async function publishAreaUse({actor,item,execution,isIntervention=true,publish,messageId}) {
   const rule=accountingRule(item,execution);
-  const resourceCosts=resolvedResourceCosts(actor,rule?.resourceCosts??[]).map(cost=>({
-    ...cost,kind:cost.kind??resourceKind(actor.system?.resources?.[cost.resourceId])??'class'
-  }));
-  const hasCounterCost=resourceCosts.some(cost=>cost.kind==='intervention' ||
-    resourceKind(actor.system?.resources?.[cost.resourceId])==='intervention');
-  const implicitCounter=isIntervention && !hasCounterCost ?
-    interventionResourceId(actor) : null;
-  if (!rule && !implicitCounter) return publish(messageId);
+  const resourceCosts=resolveCosts(actor,rule,isIntervention);
+  if (!rule && !resourceCosts.some(cost=>cost.resourceId&&!cost.reason)) return publish(messageId);
   const use={actorUuid:actor.uuid,item:item?{uuid:item.uuid,type:item.type,name:item.name}:null,
-    rule:rule?{...rule,resourceCosts}:null,
-    isIntervention,implicitCounter};
+    rule:rule?{...rule,resourceCosts}:null, resourceCosts,
+    isIntervention};
   const message=await createAreaUseMessage(actor,use,publish,messageId);
   if (message) {
     try { await settleAreaUse(actor,message,use); }
@@ -303,34 +298,15 @@ async function commitCardUse({actor,item,message,isIntervention,actionId,executi
   const key=eventKeyFor(message,item,actionId);
   if (historyOf(actor)[key]) return historyOf(actor)[key];
   const rule=areaUse ? areaUse.rule : accountingRule(item,execution);
-  const explicit=areaUse ? (rule?.resourceCosts??[]) : resolvedResourceCosts(actor,rule?.resourceCosts??[]);
-  const hasInterventionCost=explicit.some(cost=>cost.kind==='intervention' ||
-    resourceKind(actor.system?.resources?.[cost.resourceId])==='intervention');
-  const counter=areaUse ? areaUse.implicitCounter :
-    (isIntervention && !hasInterventionCost ? interventionResourceId(actor) : null);
-  const combined=new Map();
-  const unresolved=explicit.filter(cost=>!cost.resourceId).map(cost=>({
-    resourceId:null,resourceName:cost.resourceName,amount:cost.amount,
-    reason:cost.reason??'unavailable'
-  }));
-  for (const cost of [...explicit,...(counter?[{resourceId:counter,amount:1,kind:'intervention'}]:[])]) {
-    if(!cost.resourceId)continue;
-    const previous=combined.get(cost.resourceId);
-    combined.set(cost.resourceId,{resourceId:cost.resourceId,
-      amount:(previous?.amount??0)+cost.amount,
-      kind:cost.kind??resourceKind(actor.system?.resources?.[cost.resourceId])??'class'});
-  }
-  const updates={},resourceChanges=[],skippedCosts=[...unresolved];
-  for (const cost of combined.values()) {
-    const row=actor.system?.resources?.[cost.resourceId];
-    const before=row?.current;
-    if (!row || typeof before!=='number' || !Number.isFinite(before)) {
-      skippedCosts.push({resourceId:cost.resourceId,amount:cost.amount,reason:'unavailable'});continue;
-    }
-    if (before<cost.amount) {
-      skippedCosts.push({resourceId:cost.resourceId,amount:cost.amount,reason:'insufficient'});continue;
-    }
-    const after=before-cost.amount;
+  // Old pending receipts carry their resolved explicit costs and implicit counter.
+  const resolved=areaUse ? (areaUse.resourceCosts??[...(rule?.resourceCosts??[]).map(cost=>({...cost,explicitId:true})),
+    ...(areaUse.implicitCounter?[{resourceId:areaUse.implicitCounter,kind:'intervention',amount:1,scope:'common'}]:[])]) : null;
+  const plan=resourceCostPlan(actor,item,execution,{resolved,isIntervention});
+  if(!rule&&!areaUse&&!plan.some(cost=>cost.resourceId&&[null,'insufficient','unavailable'].includes(cost.reason)))return null;
+  const updates={},resourceChanges=[],skippedCosts=[];
+  for (const cost of plan) {
+    if(cost.reason){skippedCosts.push(cost);continue;}
+    const before=cost.baseCurrent,after=before-cost.amount;
     updates[`system.resources.${cost.resourceId}.current`]=after;
     resourceChanges.push({resourceId:cost.resourceId,kind:cost.kind,before,after,delta:-cost.amount});
   }

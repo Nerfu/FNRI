@@ -48,7 +48,8 @@
               {
                 "resourceName": "Магическая сила",
                 "amount": 1,
-                "kind": "class"
+                "kind": "class",
+                "resourceKey": "class_magic"
               }
             ]
           }
@@ -93,7 +94,8 @@
               {
                 "resourceName": "Магическая сила",
                 "amount": 1,
-                "kind": "class"
+                "kind": "class",
+                "resourceKey": "class_magic"
               }
             ]
           }

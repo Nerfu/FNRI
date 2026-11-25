@@ -8,6 +8,9 @@ export function registerClassLifecycle(){
     if(actor.type!=='character'||userId!==game.user?.id)return;
     const raw=actor.toObject(true).system??{};
     const patch=classInitializationUpdate(raw,{hpBonus:permanentRacialStats(actor).hpMax});
+    const rows=raw.resources??{};
+    if(!Object.hasOwn(rows,"intervention")&&!Object.values(rows).some(row=>row.kind==="intervention"||["вмешательство","вмешательства","intervention","interventions"].includes(String(row.name??"").trim().toLowerCase())))
+      patch["system.resources.intervention"]={name:"Вмешательства",kind:"intervention",current:1,max:1};
     if(Object.keys(patch).length)actor.updateSource(foundry.utils.expandObject(patch));
   });
   Hooks.on('preUpdateActor',(actor,changed,_options,userId)=>{

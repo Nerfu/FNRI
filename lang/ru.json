@@ -784,6 +784,14 @@
       "racialAllowExcess": "Разрешить добавление дополнительных расовых свойств сверх лимита",
       "racialAllowExcessHint": "Позволяет выбирать дополнительные свойства сверх установленного числа."
     },
+    "ResourceAssignment": {
+      "label": "Назначение",
+      "unassigned": "Не назначено",
+      "intervention": "Вмешательства",
+      "class": "Классовый",
+      "other": "Прочий",
+      "effective": "Эффективное значение"
+    },
     "AbilityChat": {
       "toChat": "В чат",
       "noDescription": "Описание не заполнено",
@@ -801,7 +809,8 @@
       "actionFailed": "Не удалось выполнить действие",
       "applyTemporaryHp": "Применить временные HP",
       "applyEffect": "Применить эффект",
-      "ambiguousResource": "несколько ресурсов с одинаковым названием",
+      "ambiguousResource": "несколько подходящих назначений ресурса",
+      "resourceKindMismatch": "назначение ресурса не соответствует цене",
       "temporaryHpResult": "Временные HP",
       "expiredTemporaryHp": "Срок временных HP этого применения уже истёк. Исходный срок сохраняется; при необходимости измените HP вручную.",
       "projectionActorsLabel": "Связанные Actor",

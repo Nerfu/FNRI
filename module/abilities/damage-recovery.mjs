@@ -8,12 +8,11 @@
  * ActiveEffect snapshot is copied into ChatMessage data.
  */
 import {canReadChatContent} from '../data/chat-visibility.mjs';
-import {queueActorWrite} from '../data/ability-accounting.mjs';
+import {queueActorWrite,resolveResourceCost} from '../data/ability-accounting.mjs';
 import {stableDocumentId} from '../data/document-id.mjs';
 import {applyHp} from '../damage/hp-actions.mjs';
 
 const SCOPE='fast-nri-v14';
-const keyFor=value=>String(value??'').trim().toLocaleLowerCase('ru');
 const escape=value=>String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const good=number=>Number.isSafeInteger(number)&&number>=0;
@@ -146,14 +145,12 @@ export async function applyDrainRestoration(message,kind){
     return queueActorWrite(actor,async()=>{
       if(!owned(actor))return null;
       if(actor.getFlag?.(SCOPE,'damageRecoveryApplied')?.[live.id]?.resource)return actor;
-      const wanted=keyFor(card.resourceName);
-      const rows=Object.entries(actor.system?.resources??{}).filter(([,row])=>
-        keyFor(row?.name)===wanted && (!row.kind || row.kind==='class'));
-      if(rows.length!==1){
+      const resolved=resolveResourceCost(actor.system?.resources,{resourceName:card.resourceName,kind:'class'});
+      if(resolved.reason){
         ui.notifications?.warn('Похищение: ресурс не найден или неоднозначен. Восстановите его вручную.');
         return null;
       }
-      const [id,row]=rows[0];
+      const id=resolved.resourceId,row=actor.system.resources[id];
       if(!Number.isFinite(row.current)){
         ui.notifications?.warn('Похищение: у ресурса нет числового значения.');return null;
       }

@@ -747,3 +747,7 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 
 .fast-nri-v14.fast-nri-sheet [data-fnri-panel="skills"] :is(.fnri-skill-row,.fnri-skill-column-head) {grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.65fr) 64px;gap:5px;}
 .fast-nri-sheet [data-fnri-panel="skills"] [hidden] {display:none!important;}
+
+.fast-nri-sheet .fnri-resource-read-only {display:none;}
+.fast-nri-sheet.fnri-config-locked .fnri-resource-read-only {display:block;}
+.fast-nri-sheet.fnri-config-locked .fnri-resource-edit-only {display:none!important;}

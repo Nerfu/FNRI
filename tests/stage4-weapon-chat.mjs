@@ -246,7 +246,7 @@ const blade={...bladeCard,id:'blade',uuid:'Actor.abc.Item.blade'};
 delete item.system.mechanics;
 item.flags={[ID]:{contentId:'fnri7.rulebook.weapon.004'}};
 actor.items={contents:[item,focus,blade]};actor.system.equipment={leftHand:item.id,rightHand:focus.id};
-actor.system.resources={magic:{name:'Магическая сила',kind:'class',current:4,max:4}};
+actor.system.resources={magic:{name:'Магическая сила',kind:'class',resourceKey:'class_magic',current:4,max:4}};
 foundry.applications.api.DialogV2.wait=async cfg=>chooseAuto({...cfg,content:cfg.content.replace(/<label\b[^>]*>[\s\S]*?<\/label>/g,row=>row.includes('Лезвие — +1d8')?row.replace(/<input\b/,'<input checked'):row)});
 const bladeAttack=await sendWeaponAttack(item,actor);
 assert.equal(attackFlag(bladeAttack).autoRerollTraits.catalyst,true);

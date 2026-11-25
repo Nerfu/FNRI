@@ -137,7 +137,7 @@ const {calculateDamage}=await import('../module/damage/damage-core.mjs');
 const drainCard=JSON.parse(readFileSync(new URL('../packs/_source/abilities/razrushenie-pokhishchenie--fci3gbdrs6si22i1.json',import.meta.url),'utf8'));
 const casterActor=actor('drainCaster'),victim=actor('drainVictim');
 const victimToken=token(victim),casterToken=token(casterActor);
-casterActor.system.hp.current=20;casterActor.system.resources={magic:{name:'Магическая сила',kind:'class',current:1,max:4}};
+casterActor.system.hp.current=20;casterActor.system.resources={magic:{name:'Магическая сила',kind:'class',resourceKey:'class_magic',current:1,max:4}};
 const drainItem={...drainCard,uuid:'Actor.drainCaster.Item.drain',parent:casterActor};uuids.set(drainItem.uuid,drainItem);
 const attack={version:2,revision:0,sourceUuid:drainItem.uuid,sourceActorUuid:casterActor.uuid,executionId:'invocation',degree:'great',effectDegree:'success',damageRules:drainCard.system.mechanics.executions[0].attack.damageRules,parts:[{id:'m1',kind:'die',faces:4,profilePart:'M1',value:2},{id:'m2',kind:'die',faces:4,profilePart:'M2',value:4},{id:'m3',kind:'die',faces:4,profilePart:'M3',value:3,excluded:true}],adjustments:{resistance:100}};
 const linked=message('drainLinked',{weaponDamage:attack},{whisper:['player','gm']});

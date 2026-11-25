@@ -784,6 +784,14 @@
       "racialAllowExcess": "Allow additional ancestry traits beyond the limit",
       "racialAllowExcessHint": "Allows selecting more additional traits than the normal limit."
     },
+    "ResourceAssignment": {
+      "label": "Assignment",
+      "unassigned": "Unassigned",
+      "intervention": "Interventions",
+      "class": "Class resource",
+      "other": "Other",
+      "effective": "Effective value"
+    },
     "AbilityChat": {
       "toChat": "Post to chat",
       "noDescription": "No description provided",
@@ -801,7 +809,8 @@
       "actionFailed": "Action failed",
       "applyTemporaryHp": "Apply temporary HP",
       "applyEffect": "Apply effect",
-      "ambiguousResource": "multiple matching resources",
+      "ambiguousResource": "multiple matching resource assignments",
+      "resourceKindMismatch": "resource assignment does not match cost",
       "temporaryHpResult": "Temporary HP",
       "expiredTemporaryHp": "Temporary HP from this use have already expired. The original deadline is retained; adjust HP manually if needed.",
       "projectionActorsLabel": "Linked Actors",

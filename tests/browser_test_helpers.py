@@ -10,7 +10,7 @@ def expand_actor_template(root, filename):
         source='<section class="fnri-body fnri-actor-body">'+source.split(marker,1)[1]
     def partial(match):
         name=match.group(1)
-        assert name in {'actor-actions','actor-core-skill','actor-custom-skill','actor-standard-action','actor-short-rest'}
+        assert name in {'actor-actions','actor-core-skill','actor-custom-skill','actor-standard-action','actor-short-rest','actor-resource'}
         return re.sub(r'\{\{> fnri-([\w-]+)\}\}',partial,(root/'templates'/f'{name}.hbs').read_text())
     return re.sub(r'\{\{> fnri-([\w-]+)\}\}',partial,source)
 

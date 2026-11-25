@@ -2,6 +2,7 @@ import {abilityAccountingStatus, abilityCostPreview} from './ability-accounting.
 
 const WARNING_KEYS = {
   ambiguous: 'ambiguousResource',
+  kindMismatch:'resourceKindMismatch',
   'intervention-resource-unknown': 'unassignedIntervention'
 };
 
@@ -14,7 +15,7 @@ export function interventionWarnings(actor, item = null, accounting = null) {
     if (warning.reason === 'insufficient') {
       return game.i18n.format('FASTNRI.InterventionOptions.insufficient', {resource:name});
     }
-    const key = WARNING_KEYS[warning.reason] ?? 'unavailable';
+    const key = warning.reason==='missing'&&warning.scope==='common'?'unassignedIntervention':WARNING_KEYS[warning.reason] ?? 'unavailable';
     const text = game.i18n.localize(`FASTNRI.AbilityChat.${key}`);
     return name ? `${text} (${name})` : text;
   });

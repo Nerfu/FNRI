@@ -72,7 +72,7 @@ export function classInitializationUpdate(raw,{hpBonus=0}={}){
   if(raw.level==null)patch['system.level']=1;
   if(raw.hp?.current==null)patch['system.hp.current']=(raw.hp?.max??rule.hp)+hpBonus;
   const r=rule.resource;
-  if(r && !Object.hasOwn(raw.resources??{},r.id) && !Object.values(raw.resources??{}).some(row=>normalize(row.name)===normalize(r.name))){
+  if(r && !Object.hasOwn(raw.resources??{},r.id) && !Object.values(raw.resources??{}).some(row=>row.kind==='class'&&row.resourceKey===r.id || normalize(row.name)===normalize(r.name))){
     const {id,...row}=r;
     patch[`system.resources.${id}`]=row;
   }
@@ -85,7 +85,8 @@ export function classResourceEntry(actor,rule=actorClassDefinition(actor)){
   const r=rule?.resource;
   if(actor?.type!=='character'||!r)return null;
   const rows=actor.system?.resources??{};
-  if(Object.hasOwn(rows,r.id))return [r.id,rows[r.id]];
+  const assigned=Object.entries(rows).filter(([id,row])=>id===r.id||row.resourceKey===r.id);
+  if(assigned.length)return assigned.length===1&&assigned[0][1].kind==='class'?assigned[0]:null;
   const matches=Object.entries(rows).filter(([id,row])=>/^[A-Za-z0-9_-]{1,64}$/.test(id)&&
     (!row.kind||row.kind==='class')&&normalize(row.name)===normalize(r.name));
   return matches.length===1?matches[0]:null;
