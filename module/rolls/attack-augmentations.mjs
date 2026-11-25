@@ -49,7 +49,7 @@ export function attackAugmentRule(item) {
   const parts=validatedDamageParts(raw.damageParts);
   if (!parts) return null;
   const requirements=isObject(raw.requirements)?raw.requirements:{};
-  return {id:raw.id,label:trimmed(raw.label)||trimmed(item.name),parts,singleTarget:raw.singleTarget===true,
+  return {id:raw.id,label:trimmed(raw.label)||trimmed(item.name),parts,singleTarget:raw.singleTarget===true,afterDefenses:raw.afterDefenses===true,
     requirements:{attackKind:trimmed(requirements.attackKind),
       weaponContentIds:Array.isArray(requirements.weaponContentIds)
         ? requirements.weaponContentIds.map(trimmed).filter(Boolean) : []}};
@@ -115,7 +115,7 @@ export function selectedAttackAugments(context) {
 
 /** Minimal, immutable roll-component data; no Item contents or effect snapshot. */
 export function attackAugmentDamageParts(augments,{redactSources=false}={}) {
-  return augments.flatMap((augment,augmentIndex)=>augment.rule.parts.map((part,index)=>({
+  return augments.filter(augment=>!augment.rule.afterDefenses).flatMap((augment,augmentIndex)=>augment.rule.parts.map((part,index)=>({
     id:`augment-${augmentIndex}-${index}`,kind:'die',faces:part.faces,formula:part.formula,
     damageType:part.damageType,partOrigin:'attackAugment',spellDamage:augment.item.system?.mechanics?.attackAugment?.spellDamage===true || augment.item.flags?.[SCOPE]?.contentId==='fnri7.rulebook.ability.warlock.blade',traits:[],
     ...(augment.rule.singleTarget?{singleTarget:true,targetUuid:augment.targetUuid??null}:{}),
@@ -137,4 +137,13 @@ export function readAttackAugmentDamageParts(raw) {
       ...(part.singleTarget===true?{singleTarget:true,targetUuid:typeof part.targetUuid==='string'?part.targetUuid:null}:{}),
       source:typeof part.source==='string'?part.source:null};
   });
+}
+
+/** Separate post-defense rolls, not part of the original profile. */
+export function postDefenseDamageOffers(augments,{redactSources=false}={}) {
+  return augments.filter(a=>a.rule.afterDefenses).map((a,index)=>({
+    id:`after-${index}`,label:redactSources?null:a.rule.label,targetUuid:a.targetUuid??null,
+    singleTarget:a.rule.singleTarget,parts:a.rule.parts.map(p=>({...p})),
+    sourceUuid:redactSources?null:a.sourceUuid
+  }));
 }

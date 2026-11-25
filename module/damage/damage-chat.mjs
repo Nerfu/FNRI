@@ -1,5 +1,6 @@
 import {canReadChatContent} from '../data/chat-visibility.mjs';
 import {renderAreaChat} from './area-attack.mjs';
+import {directedPostDefenseChoices,publishPostDefenseDamage} from './post-defense-damage.mjs';
 /** A single view over version-2 damage snapshots, including linked interventions. */
 import {damageDisplay} from './damage-core.mjs';
 import {applyCardDamage,renderHpReport} from './hp-actions.mjs';
@@ -63,13 +64,16 @@ export function renderDamageCard(message,html) {
     (h.source??l('intervention')))).join(' → ')));
   // The latest defensive result may still be followed by Cover Ally.
   // Other interventions keep the existing GM override and menu rules.
-  if(!messageIntervention(message) || isCurrentDirectedCoverSource(message)) {
+  if(!card.postDefenseOrigin && (!messageIntervention(message) || isCurrentDirectedCoverSource(message))) {
     const intervene=actionButton(l('intervention'),event=>initiateIntervention(message,{skipPreroll:!!event?.shiftKey}));
     intervene.classList.add('fnri-intervene-button');
     container.append(intervene);
   }
   const row=element('div','fnri-damage-bottom');
-  if(values.active) {
+  if(card.noCritical===true) {
+    const apply=actionButton(l('apply'),()=>applyCardDamage(message,{critical:false}));
+    apply.classList.add('fnri-apply-button');row.append(apply);
+  } else if(values.active) {
     const crit=actionButton(l('applyCritical'),()=>applyCardDamage(message,{critical:true}));
     crit.classList.add('fnri-apply-button');crit.classList.add('fnri-crit-active');
     const normal=actionButton(l('applyNormal'),()=>applyCardDamage(message,{critical:false}));
@@ -85,6 +89,8 @@ export function renderDamageCard(message,html) {
     row.append(apply,crit);
   }
   container.append(row);
+  for(const choice of directedPostDefenseChoices(message))
+    container.append(actionButton(choice.label,()=>publishPostDefenseDamage(choice,()=>directedPostDefenseChoices(message))));
   anchor.append(container);
 }
 
@@ -98,6 +104,21 @@ export function refreshDamageMessage(message) {
 
 export function registerDamageChatControls() {
   Hooks.on('updateChatMessage',msg=>refreshDamageMessage(msg));
+  const refreshLinked=msg=>{
+    const card=msg.getFlag?.(ID,'weaponDamage');
+    const rootId=card?.postDefenseOrigin?.rootMessageId??(card?.postDefenseDamage?.length?card.attackMessageId:null)??
+      msg.getFlag?.(ID,'areaIntervention')?.rootMessageId;
+    if(!rootId)return;
+    for(const related of game.messages?.contents??[]){
+      if(related.id===msg.id)continue;
+      const c=related.getFlag?.(ID,'weaponDamage');
+      if((related.id===rootId&&c?.postDefenseDamage?.length)||
+        (c?.attackMessageId===rootId&&c?.postDefenseDamage?.length)||
+        related.getFlag?.(ID,'areaResult')?.rootMessageId===rootId)refreshDamageMessage(related);
+    }
+  };
+  Hooks.on('createChatMessage',refreshLinked);
+  Hooks.on('deleteChatMessage',refreshLinked);
   Hooks.on('renderChatMessageHTML',(msg,html)=>{
     renderDamageCard(msg,html);renderHpReport(msg,html);
     highlightDiceResults(msg,html);

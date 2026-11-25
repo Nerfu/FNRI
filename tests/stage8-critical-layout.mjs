@@ -99,3 +99,10 @@ assert.equal(hpReports.map(x=>x.flags[ID].hpReport.critical).join(','),
 game.user.isGM=false;
 await assert.rejects(()=>setMessageCritical(message20,'true',3));
 console.log('PASS stage 8: always two damage actions, critical/normal primary order, x3 display, GM override and audit');
+
+game.user.isGM=true;
+const post=msgFor({...crit,isIntervention:true,noCritical:true,postDefenseOrigin:{rootMessageId:'attack',parentMessageId:'defense'}});
+const postLayout=layout(post);assert.equal(postLayout.children[2].children[0].textContent,'total: 22');
+assert.ok(!postLayout.children.some(c=>c.textContent==='intervention'));assert.deepEqual(postLayout.children.at(-1).children.map(c=>c.textContent),['apply']);
+assert.equal(await setMessageCritical(post,'true',3),false);assert.equal(calculateDamage(post.getFlag(ID,'weaponDamage'),{critical:true}).total,22);
+console.log('PASS post-defense card exposes normal damage only');

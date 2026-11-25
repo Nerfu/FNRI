@@ -91,7 +91,7 @@ export async function initiateIntervention(message,{skipPreroll=false,actionId=n
   if(!card||card.version!==2)throw new Error('Intervention requires a component damage card');
   const pendingDice=card.parts?.some(p=>p.kind==='die'&&p.pending);
   if(pendingDice)ui.notifications?.warn(tr('unrolledDice'));
-  const afterDefense = messageIntervention(message);
+  const afterDefense = !!card.postDefenseOrigin || messageIntervention(message);
   if(afterDefense && !isCurrentDirectedCoverSource(message))ui.notifications?.warn(tr('interventionBlocked'));
   const token=await chooseControlledToken();if(!token)return null;
   const actor=actorForToken(token);

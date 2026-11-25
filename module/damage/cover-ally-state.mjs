@@ -94,7 +94,7 @@ export function coverRecipients(defender, uuids = []) {
 
 export function isCurrentDirectedCoverSource(message) {
   const card = flag(message, 'weaponDamage');
-  if (!canReadChatContent(message) || card?.version !== 2 || card.areaAttack || card.cancelled ||
+  if (!canReadChatContent(message) || card?.version !== 2 || card.areaAttack || card.postDefenseOrigin || card.cancelled ||
       card.parts?.some(part => part.pending)) return false;
   if (card.attackMessageId && messageIntervention(game.messages?.get(card.attackMessageId))) return false;
   if (messageIntervention(message) && !card.previousMessageId) return false;

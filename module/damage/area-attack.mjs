@@ -2,6 +2,7 @@
  * No updateChatMessage calls; published rolls and result cards never change.
  */
 import {canReadChatContent,chatAudience} from '../data/chat-visibility.mjs';
+import {postDefenseChoices,publishPostDefenseDamage} from './post-defense-damage.mjs';
 import {selectAreaDamageParts} from './area-damage-profile.mjs';
 import {ATTACK_DEGREES,resolveAttackDegree,resolveCheckDegree,naturalAttackingD20} from '../rolls/attack-core.mjs';
 import {CHECK_DEFENSES, messageIntervention} from '../rolls/attack-properties.mjs';
@@ -444,6 +445,21 @@ export function registerAreaFollowUpButtons() {
   Hooks.on('deleteChatMessage',refresh);
 }
 
+export function areaPostDefenseChoices(message){
+  const root=game.messages?.get(rootId(message));
+  if(!canRead(root)||!canRead(message)||!sameCoverAudience(root,message))return [];
+  const card=baseOf(root)?.card;
+  if(!card||card.cancelled)return [];
+  // Resolve the current chain, never a stale area result snapshot.
+  const rows=liveAreaRows(root);
+  return postDefenseChoices(root,message,card,offer=>{
+    const target=offer.targetUuid;
+    if(!target)return 'manual';
+    if(hiddenTarget(target))return false;
+    const row=rows.find(row=>row.tokenUuid===target);
+    return !row?.degree?'manual':['partial','success','great'].includes(row.degree);
+  });
+}
 function areaButtons(message,anchor){
   const actions=document.createElement('div');actions.className='fnri-area-actions';
   const card=message.getFlag(ID,'weaponDamage');
@@ -471,6 +487,8 @@ function areaButtons(message,anchor){
     }
     actions.append(details);
   }
+  if(card?.areaAttack?.version===1||result?.version===1)for(const choice of areaPostDefenseChoices(message))
+    actions.append(button(choice.label,()=>publishPostDefenseDamage(choice,()=>areaPostDefenseChoices(message))));
   anchor.append(actions);
 }
 export function renderAreaChat(message,html){

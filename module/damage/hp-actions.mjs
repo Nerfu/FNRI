@@ -8,6 +8,7 @@ import {
 } from './cover-ally-state.mjs';
 /** Explicit HP changes with per-application report and undo (no automatic HP). */
 import {calculateDamage, planHpChange, reverseHpChange} from './damage-core.mjs';
+import {previewDeclaredDamageDefenses} from './periodic-damage.mjs';
 import {planDeathTransition,reconcileDeathEffects,deathStateOf,deathStateUpdate} from './death-lifecycle.mjs';
 import {planResponsiveDamage,planResponsiveDeath} from './responsive-healing.mjs';
 import {readTempHpState,layeredHpSnapshot,equalTempHpState,tempHpReceipt,sameTempHpReceipt,restoreTempHpReceipt,tempHpMax,planManualTempHpEdit,cappedTempHpExpiry,tempHpStateUpdate,TEMP_HP_FLAG,reconcileTempHpEffects} from './temporary-hp-layers.mjs';
@@ -276,6 +277,16 @@ async function applyDirectedDamage(message,card,{critical,actor=null,token=null,
       if (!snapshot) {ui.notifications?.warn(game.i18n.localize('FASTNRI.CoverAlly.changed'));return null;}
       coverApplicationKey=`ally:${coverScope(message)}:${uuid}`;
     }
+  }
+  if(card.postDefenseOrigin) {
+    if(!actor&&!token){const recipient=await chooseHpRecipient();if(!recipient)return null;({actor,token}=recipient);}
+    const defenses=previewDeclaredDamageDefenses(actor??actorForToken(token),snapshot);
+    const immune=new Set(defenses.immunePartIds);
+    snapshot={...snapshot,parts:snapshot.parts.map(p=>({...p,immune:p.immune||immune.has(p.id)})),
+      adjustments:{...snapshot.adjustments,resistance:Math.max(snapshot.adjustments?.resistance??0,defenses.resistance),
+        vulnerability:Math.max(snapshot.adjustments?.vulnerability??0,defenses.vulnerability)}};
+    if(!defenses.complete)ui.notifications?.warn(t('postDefenseReview'));
+    critical=false;
   }
   const values=calculateDamage(snapshot,{critical});
   return applyHp({kind:'damage',amount:values.total,sourceMessage:message,actor,token,critical,

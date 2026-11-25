@@ -292,6 +292,7 @@ export async function setMessageCritical(msg,mode='auto',multiplier=2) {
   const card=get(msg,'weaponDamage');
   if(card?.version!==2 || !['auto','true','false'].includes(mode))
     throw new Error('Unsupported critical edit');
+  if(card.noCritical===true)return false;
   if(mode==='true' && (!Number.isFinite(multiplier) || multiplier<=1))
     throw new Error('Invalid critical multiplier');
   const next=copy(card);
@@ -347,6 +348,7 @@ export async function executeRollEditorAction(msg,{partId,action,value}={}) {
 export function criticalCheckboxState(msg) {
   const card=get(msg,'weaponDamage');
   if(card?.version!==2)return null;
+  if(card.noCritical===true)return false;
   return card.manualCritical===null || card.manualCritical===undefined
     ? criticalDamageRule(card).triggered : !!card.manualCritical;
 }
@@ -428,7 +430,7 @@ export function renderRollEditorContent(msg,{feedback='',page=0,query='',interve
     `${esc(get(msg,'rollEdit')?.offset??0)}</span>${button('offset',l('set'))}</div>`:'';
   const interventionState=typeof interventionDraft==='boolean'?interventionDraft:messageIntervention(msg);
   const criticalState=typeof criticalDraft==='boolean'?criticalDraft:criticalCheckboxState(msg);
-  const critical=isDamage?`<label class="fnri-editor-boolean-toggle">`+
+  const critical=isDamage&&card.noCritical!==true?`<label class="fnri-editor-boolean-toggle">`+
     `<input type="hidden" name="criticalPresent" value="1">`+
     `<input type="checkbox" name="critical" value="true" ${criticalState?'checked':''}>`+
     `${esc(l('criticalToggle'))}</label>`:'';

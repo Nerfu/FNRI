@@ -624,7 +624,12 @@
       "partialPreview": "Calculate",
       "partialImmuneDice": "Dice removed by immunity",
       "selectOneToken": "Select one token",
-      "selectHpChannel": "Choose the HP channel"
+      "selectHpChannel": "Choose the HP channel",
+      "postDefenseDamage": "Damage after defenses",
+      "postDefenseReview": "Review damage defenses manually.",
+      "postDefenseUnavailable": "Follow-up damage was already rolled or the hit is no longer confirmed.",
+      "postDefenseManual": "Confirm hit manually",
+      "postDefenseAfter": "After defenses"
     },
     "Builtin": {
       "readOnly": "Built-in ability. View only; cannot be edited or deleted.",

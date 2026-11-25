@@ -41,6 +41,7 @@ export function snapshotDamageParts(roll, definitions, {damageType='физиче
  * but a private card may define another inclusive natural-d20 threshold.
  * Never derive it from the modified roll total. */
 export function criticalDamageRule(card) {
+  if(card?.noCritical===true)return {threshold:20,multiplier:1,triggered:false};
   const raw=Number(card?.criticalThreshold);
   const threshold=Number.isInteger(raw) && raw>=1 && raw<=20 ? raw : 20;
   const multiplier=Number(card?.naturalCritMultiplier ?? card?.criticalMultiplier);
@@ -77,7 +78,7 @@ export function calculateDamage(card, {critical}={}) {
   const manualMultiplier=Number(card?.manualCritMultiplier);
   const chosenMultiplier=card?.manualCritical===true && finite(manualMultiplier) && manualMultiplier>1
     ? manualMultiplier : criticalRule.multiplier;
-  const multiplier=card?.cancelled ? 1 : (multiply ? chosenMultiplier : 1);
+  const multiplier=card?.cancelled || card?.noCritical===true ? 1 : (multiply ? chosenMultiplier : 1);
   const base=Math.max(0,gross-penalty);
   const resistance=card?.damageRules?.ignoreResistance === true ? 0 : (damageParts.length ? nonNegative(a.resistance) : 0);
   const vulnerability=damageParts.length ? nonNegative(a.vulnerability) : 0;
@@ -97,8 +98,8 @@ export function damageChoices(card) {
  * and vulnerability; never multiply an already mitigated normal total. */
 export function damageDisplay(card) {
   const values=damageChoices(card);
-  const active=card?.manualCritical===true ||
-    (card?.manualCritical!==false && values.rule.triggered);
+  const active=card?.noCritical!==true && (card?.manualCritical===true ||
+    (card?.manualCritical!==false && values.rule.triggered));
   const {normal,critical}=values;
   if(!active) return {...values,active,expression:String(normal.total)};
   if(card?.cancelled) return {...values,active,expression:'0'};

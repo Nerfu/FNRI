@@ -3,7 +3,7 @@ import {createPrivateAreaSourceMessage} from '../data/private-area-source.mjs';
 import {parseAreaDamageProfile} from '../damage/area-damage-profile.mjs';
 import {captureAreaOutcomeInstructions} from '../equipment/area-outcome-snapshot.mjs';
 import {finishCardAccounting,normalizedCardActionId} from '../data/ability-accounting.mjs';
-import {attackAugmentEntries,selectedAttackAugments,attackAugmentWarnings,attackAugmentDamageParts,readAttackAugmentDamageParts} from '../rolls/attack-augmentations.mjs';
+import {attackAugmentEntries,selectedAttackAugments,attackAugmentWarnings,attackAugmentDamageParts,readAttackAugmentDamageParts,postDefenseDamageOffers} from '../rolls/attack-augmentations.mjs';
 import {cardEffectLinks} from '../effects/chat-effect-links.mjs';
 import {projectionSpatialPreview,resolveSpellOrigin} from '../projection/projection.mjs';
 import {spatialAttackContext} from '../spatial/spatial-context.mjs';
@@ -198,6 +198,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   const hideSource=privateAreaSource || (!areaDeclared && !!actor && actor.hasPlayerOwner!==true &&
     (audienceMessage ? redactActorSourceForAudience(actor,audienceMessage) : ['public','ic'].includes(mode)));
   const damageAdditions=attackAugmentDamageParts(attackAugments,{redactSources:hideSource});
+  const postDefenseDamage=postDefenseDamageOffers(attackAugments,{redactSources:hideSource});
   // Do not expose hidden GM-controlled token coordinates/UUIDs in a public
   // ChatMessage flag; the caster's selected point remains private in that case.
   const publicOrigin=hideSource&&spatialOrigin ? {kind:spatialOrigin.kind,
@@ -239,6 +240,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       name:privateAreaSource?null:augment.rule.singleTarget?augment.rule.label:augment.item.name,sourceUuid:hideSource?null:augment.sourceUuid,
       ...(augment.rule.singleTarget?{singleTarget:true,targetUuid:augment.targetUuid??null}: {})
     })),damageAdditions}:{}),
+    ...(postDefenseDamage.length?{postDefenseDamage}:{}),
     profile:profileKind==='magic' ? {failure:profile.failure,partial:profile.partial,
       success:profile.success,great:profile.great} : {A:profile.A,B:profile.B,C:profile.C},
     ...(profileKind==='magic'?{profileKind:'magic'}:{}), damageType, properties,
@@ -292,7 +294,8 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     const areaOutcomeInstructions=captureAreaOutcomeInstructions({sourceItem,weaponItem:usedWeapon,
       executionId:execution?.id??null,weaponTraitIds:selectedTraitIds,redact:hideSource});
     areaDamage={roll:damageRoll,card:{version:2,attackMessageId:null,previousMessageId:null,
-      name,degree:null,effectDegree:null,profile:data.profile,gameRerollTraits:data.gameRerollTraits,autoRerollTraits:data.autoRerollTraits,
+      name,degree:null,effectDegree:null,profile:data.profile,
+      ...(data.postDefenseDamage?{postDefenseDamage:data.postDefenseDamage}:{}),gameRerollTraits:data.gameRerollTraits,autoRerollTraits:data.autoRerollTraits,
       ...(areaOutcomeInstructions?{areaOutcomeInstructions}:{}),
       // Private NPC source rules are not copied into a public ChatMessage.
       // The authorized GM may resolve the current source Item at application.
@@ -343,7 +346,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       const flags=chatData.flags[SYSTEM_ID];
       flags.weaponAttack.areaAttack.targets=targets;
       flags.weaponDamage.areaAttack.targets=targets;
-      for(const row of [...(flags.weaponAttack.attackAugments??[]),...(flags.weaponAttack.damageAdditions??[]),...flags.weaponDamage.parts])
+      for(const row of [...(flags.weaponAttack.attackAugments??[]),...(flags.weaponAttack.damageAdditions??[]),...(flags.weaponAttack.postDefenseDamage??[]),...(flags.weaponDamage.postDefenseDamage??[]),...flags.weaponDamage.parts])
         if(row.singleTarget && hiddenIds.has(row.targetUuid))row.targetUuid=null;
     }
     message=privateAreaSource ?
@@ -517,6 +520,7 @@ export async function sendWeaponDamage(message, degree, {rerollLowWeaponDice=fal
       attackTotal:Number.isFinite(correctedTotal)?correctedTotal:data.attackTotal,
       naturalD20:data.naturalD20,profileKind:data.profileKind??'physical'}}:{}),
     name:data.name,degree,effectDegree:degree,profile:data.profile,
+    ...(data.postDefenseDamage?{postDefenseDamage:data.postDefenseDamage}:{}),
     ...(Array.isArray(data.attackAugments)?{attackAugments:data.attackAugments.map(a=>a.name)}:{}),
     ...(data.profileKind==='magic'?{profileKind:'magic'}:{}),sourceUuid:data.sourceUuid,
     ...(data.executionId?{executionId:data.executionId}:{}),

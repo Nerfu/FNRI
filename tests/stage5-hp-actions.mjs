@@ -134,3 +134,17 @@ for (const [mode,whisper,blind] of [
 }
 assert.equal(appliedModes,beforeDerived+5,'apply current client mode once per source-less report');
 console.log('PASS stage 14 HP visibility: derived preserves source; source-less uses current public/gm/blind/self/ic');
+
+// Separate post-defense damage reads defenses for the selected recipient,
+// never inherits a critical or consumes a new attack/ability use.
+const spark=makeMsg({flags:{[ID]:{weaponDamage:{version:2,revision:0,noCritical:true,
+  isIntervention:true,postDefenseOrigin:{rootMessageId:'attack',parentMessageId:'defense',targetUuid:'other'},
+  parts:[{id:'p1',kind:'die',value:3,damageType:'магический'},{id:'p2',kind:'die',value:4,damageType:'магический'}],
+  naturalD20:20,manualCritical:true,adjustments:{}}}}});
+actor.flags[ID]={...(actor.flags[ID]??{}),damageDefenses:{resistances:[{trait:'магический',value:2}],vulnerabilities:[{trait:'магический',value:1}]}};
+const sparked=await applyCardDamage(spark,{critical:true});
+assert.equal(sparked.getFlag(ID,'hpReport').requested,6);assert.equal(sparked.getFlag(ID,'hpReport').critical,false);
+assert.equal(sparked.getFlag(ID,'hpReport').multiplier,1);assert.equal(await revertHpReport(sparked),true);
+actor.flags[ID].damageDefenses={immunities:['магический'],vulnerabilities:[{trait:'магический',value:10}]};
+const immune=await applyCardDamage(spark);assert.equal(immune.getFlag(ID,'hpReport').requested,0);
+console.log('PASS post-defense damage: per-recipient mitigation, no critical, independent HP and undo');
