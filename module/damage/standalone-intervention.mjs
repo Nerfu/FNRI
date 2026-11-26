@@ -30,7 +30,7 @@ async function chooseStat(stats){
   const result=await foundry.applications.api.DialogV2.input({window:{title:tr('chooseDefense')},content:`<select name="defense">${stats.map(stat=>`<option value="${esc(stat)}">${esc(tr('stat_'+stat))}</option>`).join('')}</select>`,ok:{label:tr('select')},rejectClose:false});
   return stats.includes(result?.defense)?result.defense:null;
 }
-export async function standaloneIntervention(actor,id=null,{choice=null,stat=null,source=null,skipPreroll=false,actionId=null,accountingItem=null}={}){
+export async function standaloneIntervention(actor,id=null,{choice=null,stat=null,source=null,skipPreroll=false,actionId=null,accountingItem=null,defenseToken=null}={}){
   if(!canExecuteAction(actor)||(source&&!canReadChatContent(source)))return null;
   if(!choice){
     const choices=()=>standaloneInterventionChoices(actor).filter(c=>id==='dodge'?c.kind==='dodge':id?c.id===id:true);
@@ -61,5 +61,5 @@ export async function standaloneIntervention(actor,id=null,{choice=null,stat=nul
     }
   }
   if(!formula)return declare();
-  return postCheckRoll({actor,formula,formulaForActor,label:name,kind:'intervention',defenseStat:stat,sourceItem:item,accountingItem,actionId,execution,isIntervention:true,skipPreroll,targetTokens:[],audienceMessage:source});
+  return postCheckRoll({actor,formula,formulaForActor,label:name,kind:'intervention',defenseStat:stat,defenseToken,usesDefenseStat:!!formulaForActor,sourceItem:item,accountingItem,actionId,execution,isIntervention:true,skipPreroll,targetTokens:[],audienceMessage:source});
 }

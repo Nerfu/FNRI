@@ -19,7 +19,7 @@
     {
       "_id": "f7Status00000004",
       "name": "Застигнут врасплох",
-      "img": "icons/svg/aura.svg",
+      "img": "icons/skills/melee/shield-damaged-broken-blue.webp",
       "type": "base",
       "showIcon": 2,
       "statuses": [
@@ -47,5 +47,6 @@
       "source": "Fast NRI 7.0 rulebook.md / Состояния"
     }
   },
-  "_id": "fci0rcmfnx30sgox"
+  "_id": "fci0rcmfnx30sgox",
+  "img": "icons/skills/melee/shield-damaged-broken-blue.webp"
 }

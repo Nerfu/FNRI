@@ -17,7 +17,7 @@
     {
       "_id": "f7Hindrance00002",
       "name": "Плохая видимость",
-      "img": "icons/svg/aura.svg",
+      "img": "icons/magic/air/fog-gas-smoke-dense-blue.webp",
       "type": "base",
       "showIcon": 2,
       "statuses": [
@@ -44,5 +44,6 @@
       "source": "Fast NRI 7.0 rulebook.md / Штрафы помехи"
     }
   },
-  "_id": "fci3hu01kgxuso5j"
+  "_id": "fci3hu01kgxuso5j",
+  "img": "icons/magic/air/fog-gas-smoke-dense-blue.webp"
 }

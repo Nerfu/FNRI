@@ -82,8 +82,17 @@ export function calculateDamage(card, {critical}={}) {
   const base=Math.max(0,gross-penalty);
   const resistance=card?.damageRules?.ignoreResistance === true ? 0 : (damageParts.length ? nonNegative(a.resistance) : 0);
   const vulnerability=damageParts.length ? nonNegative(a.vulnerability) : 0;
+  const beforeReduction=Math.max(0,base*multiplier-resistance)+vulnerability;
+  // A2.3: decrease the FINAL physical damage once, without introducing
+  // separate resistance/vulnerability pools or changing selectable dice.
+  const physical=damageParts.filter(p=>['физический','physical'].includes(String(p.damageType??'').trim().toLocaleLowerCase('ru')));
+  const physicalCap=physical.length===damageParts.length ? beforeReduction :
+    physical.reduce((sum,p)=>sum+p.value,0)*multiplier;
+  const physicalReduction=card?.cancelled || !physical.length ? 0 :
+    Math.min(nonNegative(a.physicalReduction),physicalCap,beforeReduction);
   return {gross, penalty, multiplier, resistance, vulnerability,
-    total:card?.cancelled ? 0 : Math.max(0,base*multiplier-resistance)+vulnerability,
+    ...(Object.hasOwn(a,'physicalReduction')?{physicalReduction}:{}),
+    total:card?.cancelled ? 0 : beforeReduction-physicalReduction,
     activeParts:damageParts.length};
 }
 
@@ -116,6 +125,7 @@ export function damageDisplay(card) {
     if(base*n<critical.resistance)expression=`max(0, ${expression})`;
   }
   if(critical.vulnerability)expression+=` + ${critical.vulnerability}`;
+  if(critical.physicalReduction)expression+=` − ${critical.physicalReduction}`;
   return {...values,active,expression:`${expression} = ${critical.total}`};
 }
 

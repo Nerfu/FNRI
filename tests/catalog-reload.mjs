@@ -29,7 +29,7 @@ globalThis._del=Symbol('DELETE');
 installTemplateMock();
 const {FastNRICharacterSheet}=await mod('module/sheets/sheets.mjs');
 const clone=x=>structuredClone(x);
-function makeActor({name='Тестовый герой',skills=initialSkillEntries()}={}){
+function makeActor({name='Тестовый герой',skills={...initialSkillEntries(),starter_primary:{name:"",kind:"specialization",dice:"1d6"},starter_secondary:{name:"",kind:"specialization",dice:"1d4"}}}={}){
   const stored={name,system:{skills:clone(skills),resources:{},equipmentSlots:{},equipment:{leftHand:'',rightHand:'',armor:''},
     hp:{current:null,max:null,temp:null},ac:{partial:null,success:null,great:null},
     defenses:{awareness:null,reflex:null,fortitude:null,will:null},speed:null}};
@@ -58,8 +58,8 @@ let sheet=new FastNRICharacterSheet({actor});
 sheet._configurationLocked=false;
 let ctx=await sheet._prepareContext({});
 assert.deepEqual(ctx.catalogGroups.map(g=>g.rows.length),[3,3,3,3,4]);
-assert.equal(ctx.skillRows.length,2,'two blank starting specialization entries');
-assert.deepEqual(ctx.skillRows.map(x=>x.dice),['1d6','1d4']);
+assert.equal(ctx.ungroupedSpecializations.length,2,'two blank starting specialization entries');
+assert.deepEqual(ctx.ungroupedSpecializations.map(x=>x.dice),['1d6','1d4']);
 assert.equal(Object.keys(actor._source.system.skills).length,18);
 assert.ok(ctx.catalogGroups[0].rows.every(x=>x.dice===''));
 // Explicit edits only touch their own row. No object-wide skills update.
@@ -73,7 +73,7 @@ await actor.update({name:'Переименованный персонаж'});
 await sheet._addRow('skills',{name:'Мореходство',kind:'skill',dice:'2d8',modifier:null,value:null});
 await sheet._addRow('skills',{name:'Легенды леса',kind:'specialization',dice:'2d6',modifier:null,value:null});
 ctx=await sheet._prepareContext({});
-assert.equal(ctx.skillRows.length,4);
+assert.equal(ctx.skillRows.length,1);
 assert.equal(ctx.catalogGroups.flatMap(g=>g.rows).length,16);
 assert.equal(actor.updates.some(([p])=>p==='system.skills'),false,'never overwrite the whole dictionary');
 const saved=clone(actor._source);
@@ -84,8 +84,8 @@ assert.equal(actorRestart.name,'Переименованный персонаж'
 assert.equal(after.catalogGroups.flatMap(g=>g.rows).length,16);
 assert.equal(after.catalogGroups[0].rows.find(x=>x.id==='core_athletics').dice,'1d10');
 assert.equal(after.catalogGroups[0].rows.find(x=>x.id==='core_acrobatics').modifier,2);
-assert.deepEqual(after.skillRows.slice(-2).map(r=>r.name),['Мореходство','Легенды леса']);
-assert.deepEqual(after.skillRows.slice(0,2).map(r=>r.dice),['1d6','1d4']);
+assert.deepEqual(after.skillRows.map(r=>r.name),['Мореходство']);
+assert.deepEqual(after.ungroupedSpecializations.slice(0,2).map(r=>r.dice),['1d6','1d4']);
 // Simulate an existing pre-0.1.9 Actor: base skills virtual until first edit.
 const prior=makeActor({skills:{old99:{name:'Свой старый навык',kind:'skill',dice:'3d4',modifier:0,value:null}}});
 const oldSheet=new FastNRICharacterSheet({actor:prior});

@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {specializationStatus as status,specializationPresets} from '../module/sheets/specialization-display.mjs';
+import {initialSkillEntries} from '../module/data/skills-catalog.mjs';
+const spec=(name,dice,group='field')=>({name,kind:'specialization',dice,group});
+const skills=initialSkillEntries();const check=(mode='strict',pc=true)=>status(skills,mode,pc);
+assert.equal(check().canAdd,true);assert.ok(check().warnings.includes('specMissing'));
+skills.a=spec('Лес','1d6');assert.equal(check().canAdd,true);
+skills.b=spec('','1d4','physical');assert.equal(check().canAdd,false);assert.ok(check().warnings.includes('specUnnamed'));
+skills.b.name='Ремесло';assert.deepEqual(check().warnings,[]);
+skills.b.dice='1d6';assert.ok(check().warnings.includes('specDice'));
+skills.a.dice='1d4';skills.b.dice='1d4';assert.ok(check().warnings.includes('specDice'));skills.b.dice='1d6';
+skills.a.dice='1d4';assert.deepEqual(check().warnings,[]);
+skills.a.name=' ремесло ';assert.ok(check().warnings.includes('specDuplicateName'));
+skills.c=spec('Море','2d6');assert.ok(check().warnings.includes('specExtra'));assert.equal(check('warning').canAdd,true);assert.deepEqual(check('free').warnings,[]);assert.equal(check('free').canAdd,true);assert.equal(check('strict',false).showHint,false);
+const before=structuredClone(skills);check();assert.deepEqual(skills,before);
+delete skills.b;delete skills.c;assert.equal(check().canAdd,true);
+assert.deepEqual(specializationPresets('strict'),['1d6','1d4']);assert.equal(specializationPresets('warning').length,5);
+console.log('PASS specialization count, base dice, distinct names, free/warning/NPC, no data changes');

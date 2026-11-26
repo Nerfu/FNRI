@@ -5,6 +5,7 @@
 import {canReadChatContent} from '../data/chat-visibility.mjs';
 import {stableDocumentId} from '../data/document-id.mjs';
 import {attackOutcomeForDamageCard, confirmedAttackDamage, resolveOutcomeItem} from './attack-outcomes.mjs';
+import {newEndingInstance} from '../effects/effect-ending.mjs';
 import {createCardEffectData} from '../effects/apply-card-effect.mjs';
 import {createPeriodicDamageEffect,preparePeriodicDamage} from '../effects/periodic-effect.mjs';
 import {calculatePeriodicTick,declaredPeriodicDefenses} from '../damage/periodic-damage.mjs';
@@ -139,6 +140,7 @@ export async function applyAttackOutcomeEffects(message, options={}) {
     data.flags ??= {};
     data.flags[SCOPE] ??= {};
     data.flags[SCOPE].attackOutcomeApplication = true;
+    if(data.flags[SCOPE].effectEnding==='general')data.flags[SCOPE].effectEndingInstance=newEndingInstance();
     if (decision.instruction.afterDamage) {
       data.flags[SCOPE].attackOutcomeReportKey = stableDocumentId('hpr', options.damageReportId);
     }

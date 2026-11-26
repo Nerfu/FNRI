@@ -41,17 +41,9 @@ export function deathStateUpdate(actor,state,reason) {
 function conditionOf(effect) {
   return effect?.getFlag?.(SCOPE,'conditionId') ?? effect?.flags?.[SCOPE]?.conditionId ?? null;
 }
-function present(actor,id) {
-  // A manually disabled effect is an intentional edit, not permission to
-  // create an additional identical condition on the next asynchronous retry.
-  const own=actor.effects?.contents??[];
-  const inherited=typeof actor.allApplicableEffects==='function'
-    ? [...actor.allApplicableEffects()] : [];
-  return [...own,...inherited].some(effect=>conditionOf(effect)===id);
-}
 function generated(actor,id) {
   return (actor.effects?.contents??[]).filter(effect=>
-    conditionOf(effect)===id && effect.getFlag?.(SCOPE,'deathLifecycle')?.version===1);
+    effect.id===stableDocumentId('fzd',[actor.uuid,id]) && conditionOf(effect)===id && effect.getFlag?.(SCOPE,'deathLifecycle')?.version===1);
 }
 async function templateFor(id) {
   const key=IDS[id];
@@ -75,7 +67,7 @@ export async function reconcileDeathEffects(actor) {
   if (shouldBeUnconscious) {
     const create=[];
     for (const id of ['unconscious','prone']) {
-      if (present(actor,id)) continue;
+      if (generated(actor,id).length) continue;
       const source=await templateFor(id);
       if (!source) {missing.push(IDS[id]);continue;}
       const newId=stableDocumentId('fzd',[actor.uuid,id]);

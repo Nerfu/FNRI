@@ -1,3 +1,4 @@
+import {activeConditionEffect, effectHasStatus} from './active-effect.mjs';
 /**
  * Rulebook condition consequences on the PREPARED Actor data (Foundry v14).
  * Native ActiveEffect instances are the sources. No names, icon matching,
@@ -7,40 +8,23 @@
  * non-stacking -2 penalty. Future field/circumstance reasons can advertise
  * the same explicit conditionId/status instead of adding another modifier.
  */
-const SCOPE = 'fast-nri-v14';
 const OFF_GUARD_SOURCES = new Set(['prone', 'grabbed', 'offguard']);
 const AC_FIELDS = ['partial', 'success', 'great'];
 const DEFENSE_FIELDS = ['awareness', 'reflex', 'fortitude', 'will'];
 
-function isEnabled(effect) {
-  // Foundry v14: the native "active" accessor includes the disabled,
-  // expiry and suppression rules. strength=0 is also a local removal state.
-  return effect && effect.disabled !== true && effect.active !== false &&
-    effect.isSuppressed !== true &&
-    effect.flags?.[SCOPE]?.effectState?.strength !== 0;
-}
-
-function describesOffGuard(effect) {
-  const conditionId = effect.flags?.[SCOPE]?.conditionId;
-  if (OFF_GUARD_SOURCES.has(conditionId)) return true;
-  const statuses = effect.statuses;
-  return [...OFF_GUARD_SOURCES].some(id =>
-    statuses?.has?.(`fnri7-${id}`) ||
-    (Array.isArray(statuses) && statuses.includes(`fnri7-${id}`)));
+function hasActiveCondition(actor, ids) {
+  const effects = actor?.allApplicableEffects?.() ?? actor?.effects?.contents ?? actor?.effects ?? [];
+  for (const effect of effects) {
+    if (activeConditionEffect(effect) && [...ids].some(id => effectHasStatus(effect,id))) return true;
+  }
+  return false;
 }
 
 /** Read live Actor/Token ActiveEffects; multiple independent sources count once.
  * Use allApplicableEffects so transferred Item effects are not silently lost.
  */
 export function isOffGuard(actor) {
-  if (!actor) return false;
-  const iterable = typeof actor.allApplicableEffects === 'function'
-    ? actor.allApplicableEffects()
-    : (actor.effects?.contents ?? []);
-  for (const effect of iterable) {
-    if (isEnabled(effect) && describesOffGuard(effect)) return true;
-  }
-  return false;
+  return hasActiveCondition(actor, OFF_GUARD_SOURCES);
 }
 
 /** Called AFTER native ActiveEffects have been prepared. This is derived data,
@@ -55,4 +39,39 @@ export function prepareConditionDefenses(system) {
   for (const field of DEFENSE_FIELDS) {
     if (Number.isFinite(system.defenses?.[field])) system.defenses[field] -= 2;
   }
+}
+
+/** Slow is one derived consequence regardless of the number of sources. */
+export function isSlowed(actor) {
+  return hasActiveCondition(actor, ['slowed']);
+}
+
+/** After native changes and permanent contributions; never persist the result.
+ * Rulebook: speed and its calculated values have a minimum of 1.
+ * An unset speed stays unset; immobilization is not a numeric speed change.
+ */
+export function prepareConditionSpeed(system) {
+  if (!Number.isFinite(system?.speed)) return;
+  if (isSlowed(system.parent)) system.speed = Math.floor(system.speed / 2);
+  system.speed = Math.max(1, system.speed);
+}
+
+/** Frightened is one check modifier, not a hindrance penalty. */
+export function isFrightened(actor) {
+  return hasActiveCondition(actor, ['frightened']);
+}
+
+/** Weakened is one consequence of all active sources, not a per-die modifier. */
+export function isWeakened(actor) {
+  return hasActiveCondition(actor, ['weakened']);
+}
+
+/** Explicit weapon/category or unarmed declaration; never infer from its name,
+ * a physical profile alone, or an unrelated spellcasting weapon. */
+export function weakenedAttackReduction(actor, {sourceKind, weaponItem, attackKind, profileKind}={}) {
+  if (profileKind !== 'physical' || !isWeakened(actor)) return 0;
+  if (sourceKind === 'unarmed') return 2;
+  if (weaponItem?.type !== 'weapon') return 0;
+  const category = String(weaponItem.system?.category ?? '').trim().toLocaleLowerCase('ru');
+  return attackKind === 'melee' || ['луки','bows','bow'].includes(category) ? 2 : 0;
 }

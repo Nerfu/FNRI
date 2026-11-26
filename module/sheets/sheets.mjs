@@ -1,7 +1,9 @@
+import {CREATURE_SIZES,creatureSize,setCreatureSize} from "../data/creature-size.mjs";
 import {capCurrentHp} from "../damage/hp-limit.mjs";
 import {modifierGroups} from "./modifier-view.mjs";
 import {actorSideContext,setActorSide} from '../data/actor-side.mjs';
 import {skillFormulaDisplay} from './skill-formula-display.mjs';
+import {specializationStatus, specializationPresets} from "./specialization-display.mjs";
 import {abilitySource} from '../data/ability-source.mjs';
 import {resourceAssignment,resourceAssignments} from "../data/ability-accounting.mjs";
 import {configurationControl,applySheetLock,initialSheetLock,saveSheetLock} from './sheet-lock.mjs';
@@ -14,7 +16,7 @@ import {chooseCharacterOption} from "./character-choice.mjs";
 import {classSelectionUpdate,classNames,classDefinition,prepareClassBaseStats,DOUBLE_INVOCATION_ID} from "../data/classes.mjs";
 import {permanentRacialStats} from "../data/character-contributions.mjs";
 import {chooseByButtons} from '../rolls/button-choice.mjs';
-import {isProjectionActor,projectionCaster,projectionLink,projectionActorsForAbility,
+import {isProjectionActor,projectionCaster,projectionArmorForActor,projectionLink,projectionActorsForAbility,
   linkProjectionActor,unlinkProjectionActor,worldProjectionActor,worldProjectionAbility} from '../projection/projection.mjs';
 import {publishAbility} from '../abilities/ability-chat.mjs';
 import { actorJournalRows } from "../data/actor-journal.mjs";
@@ -80,8 +82,8 @@ const DICE_PRESETS = Object.freeze({
   specialization: ["1d6", "1d4", "1d8", "1d10", "1d12"]
 });
 
-function diceOptions(kind, current, customEditing = false, manualAllowed = skillAllocationMode()==='free') {
-  const available = DICE_PRESETS[kind] ?? DICE_PRESETS.skill;
+function diceOptions(kind, current, customEditing = false, manualAllowed = skillAllocationMode()==='free', mode=skillAllocationMode()) {
+  const available = kind==='specialization' ? specializationPresets(mode) : DICE_PRESETS.skill;
   // Keep the custom editor open after an empty value is saved and the Actor
   // sheet is re-rendered by Foundry's document update notifications.
   const selected = customEditing && manualAllowed ? DICE_CUSTOM :
@@ -210,9 +212,9 @@ function preparedSkillRow(row, actor, customEditors) {
     hasSkillGroup: SKILL_GROUPS.includes(row.group),
     isSkill: row.kind !== "specialization",
     diceKind: row.kind === "specialization" ? "specialization" : "skill",
-    diceOptions: diceOptions(row.kind === "specialization" ? "specialization" : "skill", String(row.dice ?? ""), customEditors.has(row.id), skillAllocationMode(actor)==='free'),
-    skillDiceOptions: diceOptions("skill", String(row.dice ?? ""), customEditors.has(row.id), skillAllocationMode(actor)==='free'),
-    specializationDiceOptions: diceOptions("specialization", String(row.dice ?? ""), customEditors.has(row.id), skillAllocationMode(actor)==='free'),
+    diceOptions: diceOptions(row.kind === "specialization" ? "specialization" : "skill", String(row.dice ?? ""), customEditors.has(row.id), skillAllocationMode(actor)==='free',skillAllocationMode(actor)),
+    skillDiceOptions: diceOptions("skill", String(row.dice ?? ""), customEditors.has(row.id), skillAllocationMode(actor)==='free',skillAllocationMode(actor)),
+    specializationDiceOptions: diceOptions("specialization", String(row.dice ?? ""), customEditors.has(row.id), skillAllocationMode(actor)==='free',skillAllocationMode(actor)),
     hasCustomDice: customEditors.has(row.id) ||
       (!!row.dice && !DICE_PRESETS[row.kind === "specialization" ? "specialization" : "skill"].includes(row.dice)),
     hasLegacyValue: row.value !== null && row.value !== undefined
@@ -345,7 +347,6 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     this._abilityListEditing = false;
     this._skillSummaryState = null;
     this._restPending = false;
-    this._skillsFilter = "all";
     this._groupState = new Map();
     this._expandedSkillActions = new Set();
     this._pendingSheetActions = new Set();
@@ -454,7 +455,6 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   _applyConfigurationLock() {
     applySheetLock(this.element, this.configurationLocked || !this.isEditable);
-    this._applySkillFilter();
     this._applyAbilityList();
     const button=this.element?.querySelector?.('[data-action="toggleSheetLock"]');
     if (!button) return;
@@ -827,11 +827,6 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   }
 
-  _applySkillFilter() {
-    for (const row of this.element?.querySelectorAll?.("[data-fnri-skill-entry]") ?? []) {
-      row.hidden = (this.configurationLocked || !this.isEditable) && this._skillsFilter === "assigned" && row.dataset.fnriDiceAssigned !== "true";
-    }
-  }
 
   /** Sending a description never runs or spends the ability. */
   static async publishAbility(_event, button) {
@@ -1124,7 +1119,8 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
   static async addSpecialization(_event, button) {
     const group=button?.dataset?.group;
-    await this._addRow("skills", { name: "", kind: "specialization", group:SKILL_GROUPS.includes(group)?group:"", dice: "", modifier: null, value: null });
+    if(!SKILL_GROUPS.includes(group))return;
+    await this._addRow("skills", { name: "", kind: "specialization", group, dice: "", modifier: null, value: null });
   }
   static async removeSkill(_event, button) {
     await this._removeRow("skills", button.dataset.id);
@@ -1249,12 +1245,12 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!input) return;
     const activeKind = kind === "specialization" ? "specialization" : "skill";
     const current = input.value;
-    const selected = diceOptions(activeKind,current,this._customDiceEditors.has(id),skillAllocationMode(this.actor)==='free').find(entry=>entry.selected)?.value??"";
+    const selected = diceOptions(activeKind,current,this._customDiceEditors.has(id),skillAllocationMode(this.actor)==='free',skillAllocationMode(this.actor)).find(entry=>entry.selected)?.value??"";
     for (const picker of root.querySelectorAll("[data-fnri-dice-picker]")) {
       if (picker.dataset.rowId !== id) continue;
       if(picker.dataset.fnriSingleDice!==undefined){
         picker.dataset.fnriDicePicker=activeKind;
-        picker.replaceChildren(...diceOptions(activeKind,current,this._customDiceEditors.has(id),skillAllocationMode(this.actor)==='free').map(entry=>{
+        picker.replaceChildren(...diceOptions(activeKind,current,this._customDiceEditors.has(id),skillAllocationMode(this.actor)==='free',skillAllocationMode(this.actor)).map(entry=>{
           const option=document.createElement('option');option.value=entry.value;option.textContent=entry.label;option.selected=entry.selected;option.disabled=!!entry.disabled;return option;
         }));
         continue;
@@ -1277,11 +1273,6 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     const parsed = isNumber ? numberFromInput(control.value) : { valid: true, value: control.value };
     if (!parsed.valid) return this._invalidNumber(control);
     control.setCustomValidity?.("");
-    if (collection === "skills" && field === "dice") {
-      const row = control.closest?.("[data-fnri-skill-entry]");
-      if (row) row.dataset.fnriDiceAssigned = String(!!String(parsed.value ?? "").trim());
-      this._applySkillFilter();
-    }
     const fieldKey = "system." + collection + "." + id + "." + field;
     void this._queueWrite(async () => {
       const raw=this.actor.toObject?.(true)?.system??this.actor.system;
@@ -1432,15 +1423,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       const save=()=>{if(this.isEditable&&!this.configurationLocked)this._setSkillFormulaOverride(field.dataset.skillFormula,field.value).catch(()=>{});};
       if(this._skillViewSnapshot?.source===field)queueMicrotask(()=>{if(field.isConnected)save();});else save();
     });
-    const filter = root.querySelector?.("[data-fnri-skill-filter]");
-    if (filter) {
-      filter.value = this._skillsFilter;
-      filter.addEventListener("change", event => {
-        this._skillsFilter = event.currentTarget.value === "assigned" ? "assigned" : "all";
-        this._applySkillFilter();
-      });
-      this._applySkillFilter();
-    }
+
     for (const section of root.querySelectorAll?.("[data-fnri-section]") ?? []) {
       section.addEventListener("toggle", event => {
         this._sectionState.set(event.currentTarget.dataset.fnriSection, event.currentTarget.open);
@@ -1498,6 +1481,11 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
         if (this.configurationLocked && configurationControl(control)) return;
         const field = control.name;
         if (field !== "name" && !field.startsWith("system.")) return;
+        if (field === "system.size") {
+          const size=control.value;
+          void this._queueWrite(async()=>{if(!await setCreatureSize(this.actor,size))throw new Error("Size update unavailable");},field).catch(()=>{});
+          return;
+        }
         if (control.hasAttribute?.("data-fnri-hp-math") &&
             (field === "system.hp.current" || field === "system.hp.temp")) {
           const typed = control.value;
@@ -1620,15 +1608,18 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     return {
       ...context,
       actor, system: base, modifierGroups:modifierGroups(actor,localized), effectiveSystem: actor.system, effectiveDiffs, editable: this.isEditable,
+      creatureSizeOptions: CREATURE_SIZES.map(value=>({value,label:localized("CreatureSize."+value),selected:value===creatureSize(base.size)})),
       projectionSheet: isProjectionActor(actor) && !this._showProjectionFull,
       projectionFullAvailable: isProjectionActor(actor),
       projectionOwner: projectionCaster(actor) ? {name: projectionCaster(actor).name} : null,
       projectionAc: (() => {
-        const ac = projectionCaster(actor)?.system?.ac ?? actor.system?.ac;
+        const ac = projectionArmorForActor(actor) ?? actor.system?.ac;
         return ['partial','success','great'].map(k => showStat(ac?.[k])).join(' / ');
       })(),
       quickHpOpen: this._quickHpOpen,
-      skillFilterAssigned: this._skillsFilter === "assigned",
+      showCustomSkills: skillAllocationMode(actor)==='free',
+      specializationStatus: (()=>{const status=specializationStatus(actor.toObject?.(true)?.system?.skills??completeSkills,skillAllocationMode(actor),actor.type==='character');return {...status,warnings:status.warnings.map(code=>({code,label:localized("SkillAllocation."+code)}))};})(),
+      ungroupedSpecializations: rowsOf(completeSkills).filter(row=>!BASIC_SKILLS_BY_ROW_ID.has(row.id)&&row.kind==='specialization'&&!SKILL_GROUPS.includes(row.group)).map(row=>preparedSkillRow(row,actor,this._customDiceEditors)),
       sections: Object.fromEntries(Object.entries(SECTION_DEFAULTS).map(([id, initial]) =>
         [id, this._sectionState.get(id) ?? initial])),
       customGroupExpanded: this._groupState.get("custom") ?? true,
@@ -1698,7 +1689,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
             namedActions: skillActionRows(skill.id), actionsExpanded: this._expandedSkillActions.has(id)};
         })
       })),
-      skillRows: rowsOf(completeSkills).filter(row => !BASIC_SKILLS_BY_ROW_ID.has(row.id) && !(row.kind==="specialization"&&SKILL_GROUPS.includes(row.group)))
+      skillRows: rowsOf(completeSkills).filter(row => !BASIC_SKILLS_BY_ROW_ID.has(row.id) && row.kind!=="specialization")
         .map(row => preparedSkillRow(row, actor, this._customDiceEditors)),
       resourceRows: resourceRows(base.resources,actor.system.resources),
       journalRows: actorJournalRows(actor)
@@ -1745,7 +1736,7 @@ export class FastNRICharacterSheet extends ActorBase {
       return {...row,pool,displayFormula:pool?skillFormulaDisplay(row,this.actor.system.skills?.[row.id]??row,this.actor,{origin:pool.source,originalFace:die&&allocation.rows[skill.id].override===null?die.size:null}):row.displayFormula,formulaOpen:skill&&this._skillFormulaEditors.has(skill.id)};
     };
     return {...context, system:base, roleDetails: roleDetails(this.actor.system),
-      pcSkillView:true, rawHp:{...raw.hp,current:this.actor.system.hp?.current}, basePotionMax:raw.potionsBaseMax??3,
+      rawHp:{...raw.hp,current:this.actor.system.hp?.current}, basePotionMax:raw.potionsBaseMax??3,
       effectiveDiffs:{speed:base.speed!==this.actor.system.speed, ...Object.fromEntries(["hp","ac","defenses"].map(group=>[group,Object.fromEntries(Object.keys(base[group]??{}).map(key=>[key,base[group][key]!==this.actor.system[group]?.[key]]))]))},
       resourceRows:resourceRows(raw.resources,this.actor.system.resources),
       catalogGroups:context.catalogGroups.map(g=>({...g,rows:g.rows.map(playSkill),specializations:g.specializations.map(playSkill)})), skillRows:context.skillRows.map(playSkill),

@@ -16,8 +16,8 @@ for actor_type in ('character','npc'):
   assert len(parsed.select('[data-fnri-quick-hp]'))==(0 if actor_type=='character' else 1)
   assert len(parsed.select('[data-fnri-hp-math]'))==(2 if actor_type=='character' else 0)
   assert len(parsed.select('[data-fnri-save-state]'))==1
-  assert len(parsed.select('[data-fnri-skill-filter]'))==1
-  assert len(parsed.select('[data-fnri-skill-entry]'))==3
+  assert len(parsed.select('[data-fnri-skill-filter]'))==0
+  assert len(parsed.select('[data-fnri-skill-entry]'))==4
   assert not parsed.select('[data-action="openSkillEditor"], [data-action="toggleCharacterEditor"]')
   assert len(parsed.select('[data-action="rollAbility"]'))==1
   assert [x.get('data-fnri-section') for x in parsed.select('details[data-fnri-section]')]==[
@@ -37,7 +37,7 @@ html='''<div class="application fast-nri-v14 fast-nri-sheet" style="width:760px;
 <button data-action="toggleSheetLock">Lock</button><button data-action="chooseActorSide"><i></i></button><div class="fnri-hp-inputs"><label>Current HP<input name="system.hp.current" data-dtype="Number" data-integer="true" data-fnri-hp-math value="11"></label><label>Temp HP<input name="system.hp.temp" data-dtype="Number" data-integer="true" data-fnri-hp-math value="0"></label></div></div>
 <nav class="fnri-tabs"><button data-fnri-target="characteristics">Characteristics</button><button data-fnri-target="skills">Skills</button><button data-fnri-target="abilities">Abilities</button></nav>
 <div data-fnri-panel="characteristics"><details data-fnri-section="resources" open><summary>Resources</summary><input name="system.wealth" value="10"><div class="fnri-entry fnri-resource-row" data-fnri-resource="potions"><span>Potions</span><button data-action="adjustResource" data-resource="potions" data-delta="-1">−</button><input name="system.potionsUsed" data-dtype="Number" data-integer="true" value="3" class="fnri-number"><span>/</span><span>3</span><button data-action="adjustResource" data-resource="potions" data-delta="1">+</button><span></span></div><div class="fnri-entry fnri-resource-row" data-fnri-resource="mana"><input data-row-collection="resources" data-row-id="mana" data-row-field="name" value="Mana"><button data-action="adjustResource" data-resource="row" data-id="mana" data-delta="-1">−</button><input data-row-collection="resources" data-row-id="mana" data-row-field="current" value="2" class="fnri-number"><span>/</span><input data-row-collection="resources" data-row-id="mana" data-row-field="max" value="4" class="fnri-number"><button data-action="adjustResource" data-resource="row" data-id="mana" data-delta="1">+</button><button>Delete</button></div></details></div>
-<div data-fnri-panel="skills"><select data-fnri-skill-filter><option value="all">All</option><option value="assigned">With dice</option></select>
+<div data-fnri-panel="skills">
 <button data-action="toggleSkillGroup" data-group="physical" aria-expanded="true">Physical</button>
 <div data-fnri-skill-group-content="physical"><div data-fnri-skill-entry data-fnri-dice-assigned="false">Acrobatics</div><div data-fnri-skill-entry data-fnri-dice-assigned="true">Athletics</div></div></div>
 <div data-fnri-panel="abilities"><li data-item-id="ab1"><button data-action="rollAbility">Roll ability</button></li></div>
@@ -139,22 +139,21 @@ for(const action of ['toggleSkillGroup','toggleQuickHp','rollAbility','adjustRes
   edit(inp,'12','current',12)
   page.locator('[data-action="toggleSheetLock"]').click()
   page.wait_for_function('sheet.configurationLocked===true')
-  # Filter and collapse are local UI; no writes to actor.
+  # Group collapse are local UI; no writes to actor.
   page.locator('[data-fnri-target="skills"]').click()
-  page.locator('[data-fnri-skill-filter]').select_option('assigned')
-  assert page.locator('[data-fnri-skill-entry]:visible').count()==1
+  assert page.locator('[data-fnri-skill-entry]:visible').count()==2
   page.locator('[data-action="toggleSkillGroup"]').click()
   assert page.locator('[data-fnri-skill-group-content]').is_hidden()
   page.locator('[data-action="toggleSkillGroup"]').click()
   assert page.locator('[data-fnri-skill-group-content]').is_visible()
-  assert page.locator('[data-fnri-skill-entry]:visible').count()==1
-  # Opening the local lock exposes all rows without losing the saved filter.
+  assert page.locator('[data-fnri-skill-entry]:visible').count()==2
+  # All rows stay visible with either lock state.
   page.locator('[data-action="toggleSheetLock"]').click()
   page.wait_for_function('sheet.configurationLocked===false')
   assert page.locator('[data-fnri-skill-entry]:visible').count()==2
   page.locator('[data-action="toggleSheetLock"]').click()
   page.wait_for_function('sheet.configurationLocked===true')
-  assert page.locator('[data-fnri-skill-entry]:visible').count()==1
+  assert page.locator('[data-fnri-skill-entry]:visible').count()==2
   # Real actions, including rapid clicks while the delayed write is pending.
   page.locator('[data-fnri-target="characteristics"]').click()
   plus=page.locator('[data-fnri-resource="potions"] button[data-delta="1"]')
@@ -193,4 +192,4 @@ for(const action of ['toggleSkillGroup','toggleQuickHp','rollAbility','adjustRes
   assert page.evaluate('window.actor.system.hp.temp')==4
   page.close()
  finally:browser.close()
-print('PASS: Chromium quick HP, save/error/retry, skill filter/groups, collapsible details, tab flags, ability roll')
+print('PASS: Chromium quick HP, save/error/retry, skill groups, collapsible details, tab flags, ability roll')

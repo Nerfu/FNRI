@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {CONDITION_STATUSES,CONDITION_CARD_LINKS} from '../module/effects/condition-statuses.generated.mjs';
+import {toggleHudCondition,conditionHudClass} from '../module/effects/condition-hud.mjs';
+import {remindConditionsAtTurnStart,expireInformationalMarkers,conditionReminderEntries} from '../module/effects/condition-turn.mjs';
+import {reconcileDeathEffects} from '../module/damage/death-lifecycle.mjs';
+const S='fast-nri-v14';
+const messages=new Map();
+globalThis.game={user:{id:'gm',isGM:true},users:{contents:[{id:'gm',isGM:true},{id:'owner'},{id:'other'}]},messages,packs:new Map(),items:{contents:[]}};
+globalThis.foundry={applications:{ux:{TextEditor:{async enrichHTML(s){return s;}}}}};
+globalThis.ChatMessage={getSpeaker:()=>({alias:'actor'}),async create(data){messages.set(data._id,{...data,getFlag(s,k){return this.flags?.[s]?.[k]}});}};
+function effect(id,extra={}){const e={...structuredClone(CONDITION_STATUSES[id]),...extra};e.getFlag=function(s,k){return this.flags?.[s]?.[k]};e.update=async function(patch){if('flags.core.overlay' in patch){this.flags.core??={};this.flags.core.overlay=patch['flags.core.overlay'];}};return e;}
+const actor={uuid:'Actor.pc',name:'PC',type:'character',documentName:'Actor',isOwner:true,system:{hp:{current:0}},flags:{[S]:{deathState:{version:1}}},getFlag(s,k){return this.flags?.[s]?.[k]},testUserPermission:u=>u.id==='owner',effects:{contents:[],get(id){return this.contents.find(e=>e.id===id)}},allApplicableEffects(){return [...this.effects.contents,...this.inherited??[]]},async createEmbeddedDocuments(_,rows){return rows.map(row=>{const e=effect(row.statuses[0],{...structuredClone(row),id:row._id});this.effects.contents.push(e);return e;});},async deleteEmbeddedDocuments(_,ids){this.effects.contents=this.effects.contents.filter(e=>!ids.includes(e.id));},async update(){}};
+const a=effect('fnri7-grabbed',{id:'a'}),b=effect('fnri7-grabbed',{id:'b'});actor.effects.contents=[a,b];actor.inherited=[effect('fnri7-grabbed',{id:'item'})];
+const h=await toggleHudCondition(actor,'fnri7-grabbed');assert.equal(actor.effects.contents.length,3);assert.equal(h.flags[S].hudCondition,'fnri7-grabbed');assert.ok(h.flags[S].effectEndingInstance);
+await toggleHudCondition(actor,'fnri7-grabbed',{asOverlay:true});assert.equal(h.flags.core.overlay,true);
+await toggleHudCondition(actor,'fnri7-grabbed');assert.deepEqual(actor.effects.contents,[a,b]);assert.equal(actor.inherited.length,1);
+// A copied HUD effect is a new independent manual source, not the palette instance.
+const copy=effect('fnri7-grabbed',{id:'copied',flags:structuredClone(h.flags)});actor.effects.contents.push(copy);await toggleHudCondition(actor,'fnri7-grabbed');await toggleHudCondition(actor,'fnri7-grabbed');assert.ok(actor.effects.get('copied'));actor.effects.contents.pop();
+let delegated=0;class Base{static DEFAULT_OPTIONS={actions:{effect:{buttons:[0,2],handler(){delegated++}}}};constructor(){this.actor=actor;}_getStatusEffectChoices(){return {grab:{id:'fnri7-grabbed',isActive:true,isOverlay:false,cssClass:'effect-control active'},dead:{id:'dead',isActive:true}};}async render(){}}
+const HUD=conditionHudClass(Base),hud=new HUD(),click=HUD.DEFAULT_OPTIONS.actions.effect.handler;
+assert.equal(hud._getStatusEffectChoices().grab.isActive,false);await click.call(hud,{button:0},{dataset:{statusId:'fnri7-grabbed'}});assert.equal(hud._getStatusEffectChoices().grab.isActive,true);await click.call(hud,{button:0},{dataset:{statusId:'fnri7-grabbed'}});assert.equal(hud._getStatusEffectChoices().grab.isActive,false);await click.call(hud,{button:0},{dataset:{statusId:'dead'}});assert.equal(delegated,1);
+const stun=effect('fnri7-stunned',{id:'stun'}),old=effect('fnri7-stunned',{id:'unmarked'});delete old.flags[S].informationalMarker;
+actor.effects.contents.push(stun,old,effect('fnri7-slowed',{id:'disabled',disabled:true}),effect('fnri7-offguard',{id:'expired',duration:{expired:true}}),effect('fnri7-prone',{id:'suppressed',isSuppressed:true}));
+assert.deepEqual(conditionReminderEntries(actor).map(e=>e.name),['Захвачен','Оглушён']);
+const combat={id:'combat',started:true,round:1},cb={id:'pc',actor};await remindConditionsAtTurnStart(combat,cb,{round:1});await remindConditionsAtTurnStart(combat,cb,{round:1});assert.equal(messages.size,1);const msg=[...messages.values()][0];assert.deepEqual(msg.whisper,['gm','owner']);assert.ok(msg.content.includes(CONDITION_CARD_LINKS.stunned.uuid));assert.ok(!msg.content.includes('Не забудьте'));assert.equal((msg.content.match(/Оглушён/g)??[]).length,1);
+await remindConditionsAtTurnStart(combat,{...cb,hidden:true},{round:2});assert.deepEqual([...messages.values()][1].whisper,['gm']);
+actor.effects.contents.push(effect('fnri7-slowed',{id:'private',flags:{[S]:{conditionId:'slowed',abilityResultMessageId:'missing'}}}));await remindConditionsAtTurnStart(combat,cb,{round:3});assert.deepEqual([...messages.values()][2].whisper,['gm']);actor.effects.contents.pop();
+await expireInformationalMarkers(combat,cb,{round:1,skipped:true});assert.ok(actor.effects.get('stun'));await expireInformationalMarkers(combat,cb,{round:1});assert.ok(!actor.effects.get('stun'));assert.ok(actor.effects.get('unmarked'));actor.effects.contents.push(effect('fnri7-stunned',{id:'later'}));await expireInformationalMarkers(combat,cb,{round:1});assert.ok(actor.effects.get('later'));await expireInformationalMarkers(combat,cb,{round:2});assert.ok(!actor.effects.get('later'));
+// 0 HP reconciliation must create its own sources despite manually applied ones.
+const manual=effect('fnri7-unconscious',{id:'manual'});actor.effects.contents=[manual];actor.inherited=[];
+for(const id of ['unconscious','prone']){const raw=structuredClone(CONDITION_STATUSES['fnri7-'+id]);delete raw.id;delete raw.hud;const card={documentName:'Item',flags:{[S]:{contentId:'fnri7.rulebook.condition.'+id}},effects:{contents:[]}};card.effects.contents.push({...raw,parent:card,uuid:'Item.'+id+'.ActiveEffect.template',toObject:()=>structuredClone(raw),getFlag(s,k){return this.flags?.[s]?.[k]}});game.items.contents.push(card);}
+await reconcileDeathEffects(actor);assert.equal(actor.effects.contents.length,3);await reconcileDeathEffects(actor);assert.equal(actor.effects.contents.length,3);actor.system.hp.current=5;actor.flags[S].deathState=null;await reconcileDeathEffects(actor);assert.ok(actor.effects.get('manual'));assert.equal(actor.effects.contents.length,2);assert.ok(actor.effects.contents.some(e=>e.flags[S].conditionId==='prone'));
+console.log('PASS condition HUD isolated source, marker turn expiry, compact linked private reminders, and independent 0-HP sources (mocks)');

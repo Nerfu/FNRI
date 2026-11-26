@@ -1,0 +1,136 @@
+import assert from 'node:assert/strict';
+import {formationForTarget,hasAvailableReach,defenseFormationForActor} from '../module/spatial/formation.mjs';
+import {tokenDistance,minimumCellGap} from '../module/spatial/geometry.mjs';
+import {selectedTargetSnapshot} from '../module/rolls/attack-properties.mjs';
+import {prepareRoll,surroundedDefenseAdjustment} from '../module/rolls/roll-context.mjs';
+import {acceptPreroll} from './foundry-test-helpers.js';
+const scene={id:'s'},grid={size:100,isSquare:true,measurePath:([a,b])=>({spaces:Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y))/100}),getCenterPoint:({i,j})=>({x:(j+.5)*100,y:(i+.5)*100})};
+const actor=(id)=>({uuid:`Actor.${id}`,type:'npc',name:'Shared',system:{hp:{current:10},level:1,equipment:{},ac:{partial:10,success:15,great:20},defenses:{reflex:10,fortitude:10,awareness:10,will:10}},items:new Map(),effects:{contents:[]}});
+const initContents=a=>{a.items.contents=[];return a;};
+let n=0;
+const token=(a,x,y,side=1,w=1,h=w)=>({actor:a,name:'Same Name',document:{uuid:`Scene.s.Token.${++n}`,parent:scene,x:x*100,y:y*100,width:w,height:h,disposition:side,hidden:false}});
+const a=initContents(actor('a')),b=actor('b'),target=token(a,0,0,1,2),e1=token(b,2,0,-1,2),e2=token(b,-1,1,-1),ally=token(actor('ally'),1,2,1);
+const calc=(...ts)=>formationForTarget(target,ts,{grid});
+assert.deepEqual(calc(e1,e2),{threats:2,formation:1,surrounded:true,uncertain:false,standing:true});
+assert.equal(calc(target,{...target},e1,{...e1},e2).threats,2); // one TOKEN per creature, not one cell or Actor
+assert.equal(calc(e1,e2,ally).surrounded,false);
+const condition=id=>({statuses:new Set([`fnri7-${id}`])});
+ally.actor.effects.contents=[condition('grabbed')];assert.equal(calc(e1,e2,ally).formation,1);
+ally.actor.effects.contents=[condition('prone')];assert.equal(calc(e1,e2,ally).formation,1);
+ally.actor.effects.contents=[{...condition('prone'),disabled:true}];assert.equal(calc(e1,e2,ally).formation,2);
+a.effects.contents=[condition('grabbed')];assert.equal(calc(e1).formation,0);assert.equal(calc(e1).surrounded,true);a.effects.contents=[];
+b.effects.contents=[condition('prone')];assert.equal(calc(e1,e2).threats,0);
+b.effects.contents=[condition('unconscious')];assert.equal(calc(e1,e2).threats,0);
+b.effects.contents=[condition('grabbed')];assert.equal(calc(e1,e2).threats,2);b.effects.contents=[];
+const reach=token(actor('reach'),3,0,-1),r=reach.actor;
+const spear={id:'w',type:'weapon',system:{attackKind:'melee',distance:2,grip:'2',level:1,proficiencyMode:'no'}};
+r.items.set('w',spear);r.system.equipment={leftHand:'w'};
+assert.equal(calc(reach).threats,0);r.system.equipment.rightHand='w';assert.equal(calc(reach).threats,1);assert.ok(hasAvailableReach(r));
+spear.system.level=2;assert.equal(calc(reach).threats,0);spear.system.level=1;spear.system.grip='1+';r.system.equipment.rightHand='shield';assert.equal(calc(reach).threats,0);delete r.system.equipment.rightHand;assert.equal(calc(reach).threats,1);
+spear.system.attackKind='ranged';assert.equal(calc(reach).threats,0);spear.system.attackKind='melee';
+assert.equal(calc(reach).formation,1); // two cells is not adjacency
+const unknown=token(actor('unknown'),3,1,0);assert.equal(calc(unknown).uncertain,false);unknown.document.x=200;assert.equal(calc(unknown).uncertain,true);assert.equal(calc(e1,e2,unknown).surrounded,false);
+unknown.document.disposition=-2;assert.equal(calc(unknown).uncertain,true);unknown.document.hidden=true;assert.deepEqual(calc(e1,e2,unknown),calc(e1,e2));
+const broken=token(actor('broken'),2,0,-1);broken.document.getOccupiedGridSpaceOffsets=()=>[];assert.equal(calc(e1,e2,broken).uncertain,true);assert.equal(calc(e1,e2,broken).surrounded,false);
+const brokenTarget=token(a,0,0);brokenTarget.document.getOccupiedGridSpaceOffsets=()=>[];assert.equal(formationForTarget(brokenTarget,[e1],{grid}),null);
+const overlap=token(actor('overlap'),1,1,-1);assert.equal(calc(e1,e2,overlap).uncertain,true);assert.equal(calc(e1,e2,overlap).surrounded,false);
+const otherScene=token(actor('other'),2,0,-1);otherScene.document.parent={id:'other'};assert.equal(calc(otherScene).threats,0);
+const unknownTarget=token(actor('emptyHp'),0,0);delete unknownTarget.actor.system.hp.current;assert.equal(formationForTarget(unknownTarget,[e2],{grid}).uncertain,true);
+// Distance uses the native metric, not Euclidean closest-pair guess: 5,0 vs 4,4.
+const src=token(a,0,0),dst=token(b,0,0);src.document.getOccupiedGridSpaceOffsets=()=>[{i:0,j:0}];dst.document.getOccupiedGridSpaceOffsets=()=>[{i:0,j:5},{i:4,j:4}];assert.equal(minimumCellGap(src,dst,grid),4);assert.equal(tokenDistance(src,dst,grid),4);
+globalThis.game={user:{isGM:true},i18n:{localize:k=>k}};
+globalThis.canvas={scene,grid,tokens:{placeables:[target,e1,e2],controlled:[target]}};
+assert.equal(selectedTargetSnapshot([target],'ac').ac.partial,8);for(const stat of ['awareness','fortitude','reflex','will'])assert.equal(selectedTargetSnapshot([target],stat).difficulty,8);
+assert.equal(defenseFormationForActor(a).surrounded,true);
+const opts={actor:a,kind:'intervention',defenseStat:'reflex',usesDefenseStat:true,formula:'1d20 + 10',skipDialog:true};
+assert.equal((await prepareRoll(opts)).expression,'1d20 + 10 + (-2)');
+assert.equal((await prepareRoll({...opts,usesDefenseStat:false})).expression,'1d20 + 10');
+assert.equal((await prepareRoll({...opts,kind:'skill'})).expression,'1d20 + 10');
+assert.equal((await prepareRoll({...opts,effectEnding:true})).expression,'1d20 + 10');
+// Already-prepared offguard does not stack, while Frightened remains independent.
+a.effects.contents=[condition('offguard'),condition('grabbed')];a.system.defenses.reflex=8;assert.equal(selectedTargetSnapshot([target],'reflex').difficulty,8);assert.equal((await prepareRoll({...opts,formula:'1d20 + 8'})).expression,'1d20 + 8');
+a.effects.contents=[condition('frightened')];assert.equal((await prepareRoll(opts)).expression,'1d20 + 10 + (-2) + (-2)');a.effects.contents=[];a.system.defenses.reflex=10;
+const copy=token(a,12,12);canvas.tokens.placeables.push(copy);canvas.tokens.controlled=[target,copy];assert.equal(defenseFormationForActor(a),null);assert.equal(surroundedDefenseAdjustment(a,{...opts,defenseToken:target}),-2);assert.equal(surroundedDefenseAdjustment(a,{...opts,defenseToken:copy}),0);assert.equal(surroundedDefenseAdjustment(a,{...opts,defenseToken:e1}),0);
+let dialog;globalThis.foundry={applications:{api:{DialogV2:{wait:async c=>{dialog=c;return acceptPreroll({...c,content:c.content.replace(/ checked/g,'')});}}}}};
+const confirmed=await prepareRoll({...opts,defenseToken:target,skipDialog:false});
+assert.equal(confirmed.expression,'1d20 + 10 + (-2)');assert.doesNotMatch(dialog.content,/surroundedDefense|Цель окружена|Угрозы:|Строй:/);
+assert.equal(confirmed.selected.length,0);assert.equal(confirmed.contributions[0].value,'1d20 + 10 + (-2)');
+// Movement while the dialog is open must be reflected only at confirmation.
+globalThis.foundry.applications.api.DialogV2.wait=async c=>{e2.document.y=900;return acceptPreroll(c);};
+assert.equal((await prepareRoll({...opts,defenseToken:target,skipDialog:false})).expression,'1d20 + 10');e2.document.y=100;
+// Projection's borrowed AC and own defensive characteristic have different sources.
+const caster=actor('caster'),projection=actor('projection');
+caster.documentName=projection.documentName='Actor';
+caster.getFlag=()=>null;projection.getFlag=(_scope,key)=>key==='projection'?{version:2,casterUuid:caster.uuid}:null;
+game.actors={contents:[caster,projection]};
+const proj=token(projection,0,0,1);canvas.tokens.placeables=[proj,token(b,1,0,-1),token(b,0,1,-1)];
+assert.equal(selectedTargetSnapshot([proj]).ac.partial,8);
+projection.effects.contents=[condition('offguard')];assert.equal(selectedTargetSnapshot([proj]).ac.partial,8);
+projection.effects.contents=[];caster.effects.contents=[condition('offguard')];caster.system.ac={partial:8,success:13,great:18};
+assert.equal(selectedTargetSnapshot([proj]).ac.partial,8);assert.equal(selectedTargetSnapshot([proj],'reflex').difficulty,8);
+canvas.tokens.placeables=[proj];assert.equal(selectedTargetSnapshot([proj],'reflex').difficulty,10);
+assert.equal(selectedTargetSnapshot([proj]).ac.partial,10); // caster off-guard is independent
+// Surrounding of projection applies even when caster is off-guard; own condition never stacks.
+canvas.tokens.placeables=[proj,token(b,1,0,-1),token(b,0,1,-1)];
+assert.equal(selectedTargetSnapshot([proj]).ac.partial,8);
+projection.effects.contents=[condition('offguard')];assert.equal(selectedTargetSnapshot([proj]).ac.partial,8);
+projection.effects.contents=[];caster.effects.contents=[];caster.system.ac={partial:10,success:15,great:20};
+const casterToken=token(caster,10,10,1);canvas.tokens.placeables=[proj,casterToken,token(b,11,10,-1),token(b,10,11,-1)];
+assert.equal(selectedTargetSnapshot([casterToken]).ac.partial,8);assert.equal(selectedTargetSnapshot([proj]).ac.partial,10);
+// Formation is a read-only roll-time circumstance, never an effect lifecycle.
+const independent=initContents(actor('independent')),subject=token(independent,0,0),enemyA=token(b,1,0,-1),enemyB=token(b,0,1,-1);
+canvas.tokens.placeables=[subject,enemyA,enemyB];canvas.tokens.controlled=[subject];
+const before=structuredClone(independent.system);
+assert.equal(selectedTargetSnapshot([subject]).ac.partial,8);
+assert.equal(independent.effects.contents.length,0);
+assert.deepEqual(independent.system,before);
+enemyB.document.y=800;
+assert.equal(selectedTargetSnapshot([subject]).ac.partial,10);
+assert.equal(independent.effects.contents.length,0);
+const explicit=condition('offguard');independent.effects.contents=[explicit];
+independent.system.ac={partial:8,success:13,great:18};
+const withExplicit=structuredClone(independent.system);
+assert.equal(formationForTarget(subject,canvas.tokens.placeables,{grid}).surrounded,false);
+assert.equal(selectedTargetSnapshot([subject]).ac.partial,8);
+enemyB.document.y=100;
+assert.equal(formationForTarget(subject,canvas.tokens.placeables,{grid}).surrounded,true);
+assert.equal(selectedTargetSnapshot([subject]).ac.partial,8);
+enemyB.document.y=800;
+assert.equal(selectedTargetSnapshot([subject]).ac.partial,8);
+assert.deepEqual(independent.effects.contents,[explicit]);
+assert.deepEqual(independent.system,withExplicit);
+console.log('formation-control: PASS — token identity, actual cells, reach/access, uncertainty, independent defense checks and override');
+
+// R104: invisible creatures are not threats. Their own attack makes its target
+// off-guard only in this attack snapshot, never through an ActiveEffect.
+const unseen=token(actor('unseen'),1,0,-1),visibleEnemy=token(actor('visibleEnemy'),0,1,-1);
+const subject2=token(initContents(actor('subject2')),0,0,1);
+unseen.actor.effects.contents=[condition('invisible')];
+canvas.tokens.placeables=[subject2,unseen,visibleEnemy];canvas.tokens.controlled=[subject2];
+assert.equal(formationForTarget(subject2,canvas.tokens.placeables,{grid}).threats,1);
+assert.equal(formationForTarget(subject2,canvas.tokens.placeables,{grid}).surrounded,false);
+assert.equal(selectedTargetSnapshot([subject2]).ac.partial,10);
+assert.equal(selectedTargetSnapshot([subject2],'ac',{attackOffGuard:true}).ac.partial,8);
+assert.equal(selectedTargetSnapshot([subject2],'reflex',{attackOffGuard:true}).difficulty,8);
+const {invisibleAttackSource}=await import('../module/spatial/spatial-context.mjs');
+assert.equal(invisibleAttackSource(unseen.actor,{tokenUuid:unseen.document.uuid}),true);
+assert.equal(invisibleAttackSource(unseen.actor,{kind:'projection',tokenUuid:visibleEnemy.document.uuid}),false);
+const {defenseConditionSummary}=await import('../module/rolls/roll-context.mjs');
+const defence={...opts,actor:subject2.actor,defenseToken:subject2,attackOffGuard:true};
+const result=await prepareRoll(defence);
+assert.equal(result.expression,'1d20 + 10 + (-2)');assert.equal(result.defenseOffGuard,true);
+assert.match(defenseConditionSummary(result),/−2/);assert.equal(result.selected.length,0);
+const ordinary=await prepareRoll({...defence,attackOffGuard:false});
+assert.equal(ordinary.expression,'1d20 + 10');assert.equal(defenseConditionSummary(ordinary),'');
+subject2.actor.effects.contents=[condition('offguard')];subject2.actor.system.defenses.reflex=8;
+assert.equal((await prepareRoll({...defence,formula:'1d20 + 8'})).expression,'1d20 + 8');
+subject2.actor.effects.contents=[];subject2.actor.system.defenses.reflex=10;
+const third=token(actor('third'),-1,0,-1);canvas.tokens.placeables.push(third);
+assert.equal(formationForTarget(subject2,canvas.tokens.placeables,{grid}).surrounded,true);
+assert.equal(selectedTargetSnapshot([subject2],'ac',{attackOffGuard:true}).ac.partial,8);
+assert.equal((await prepareRoll(defence)).expression,'1d20 + 10 + (-2)');
+assert.equal(subject2.actor.effects.contents.length,0);
+unseen.actor.effects.contents=[{...condition('invisible'),disabled:true}];
+assert.equal(formationForTarget(subject2,canvas.tokens.placeables,{grid}).threats,3);
+assert.equal(invisibleAttackSource(unseen.actor,{tokenUuid:unseen.document.uuid}),false);
+console.log('R104 invisible threat and attack-local off-guard, defense result, no stacking: PASS');

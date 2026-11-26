@@ -87,7 +87,7 @@
         <label>{{localize "FASTNRI.Fields.success"}} (B)<input type="text" name="system.damageProfile.B" value="{{system.damageProfile.B}}" placeholder="1d8" {{#unless editable}}disabled{{/unless}}></label>
         <label>{{localize "FASTNRI.Fields.great"}} (+C)<input type="text" data-dtype="Number" inputmode="decimal" name="system.damageProfile.C" value="{{system.damageProfile.C}}" placeholder="3" {{#unless editable}}disabled{{/unless}}></label>
       </div>
-      <div class="fnri-grid-3 fnri-critical-rules">
+      <div class="fnri-grid-2 fnri-critical-rules">
         <label>{{localize "FASTNRI.Damage.criticalThreshold"}}<input type="number" min="1" max="20" step="1" data-dtype="Number" name="system.mechanics.attack.criticalThreshold" value="{{system.mechanics.attack.criticalThreshold}}" placeholder="20" {{#unless editable}}disabled{{/unless}}></label>
         <label>{{localize "FASTNRI.Damage.criticalMultiplier"}}<input type="number" min="2" step="1" data-dtype="Number" name="system.mechanics.attack.criticalMultiplier" value="{{system.mechanics.attack.criticalMultiplier}}" placeholder="2" {{#unless editable}}disabled{{/unless}}></label>
       </div>
@@ -163,7 +163,7 @@
           <label>+C<input type="text" data-dtype="Number" name="system.mechanics.unarmedAttack.damageProfile.C" value="{{system.mechanics.unarmedAttack.damageProfile.C}}" placeholder="2" {{#unless editable}}disabled{{/unless}}></label>
         </div>
         <label>{{localize "FASTNRI.Weapon.damageType"}}<input name="system.mechanics.unarmedAttack.damageType" value="{{system.mechanics.unarmedAttack.damageType}}" {{#unless editable}}disabled{{/unless}}></label>
-        <div class="fnri-grid-3 fnri-critical-rules">
+        <div class="fnri-grid-2 fnri-critical-rules">
           <label>{{localize "FASTNRI.Damage.criticalThreshold"}}<input type="number" min="1" max="20" step="1" data-dtype="Number" name="system.mechanics.unarmedAttack.criticalThreshold" value="{{system.mechanics.unarmedAttack.criticalThreshold}}" placeholder="20" {{#unless editable}}disabled{{/unless}}></label>
           <label>{{localize "FASTNRI.Damage.criticalMultiplier"}}<input type="number" min="2" step="1" data-dtype="Number" name="system.mechanics.unarmedAttack.criticalMultiplier" value="{{system.mechanics.unarmedAttack.criticalMultiplier}}" placeholder="2" {{#unless editable}}disabled{{/unless}}></label>
         </div>
@@ -171,7 +171,7 @@
     {{/if}}
     {{#if gearPhysicalAttack}}
       <details class="fnri-critical-rules"><summary>{{localize "FASTNRI.Damage.criticalSettings"}}</summary>
-        <div class="fnri-grid-3">
+        <div class="fnri-grid-2">
           <label>{{localize "FASTNRI.Damage.criticalThreshold"}}<input type="number" min="1" max="20" step="1" data-dtype="Number" name="system.mechanics.attack.criticalThreshold" value="{{system.mechanics.attack.criticalThreshold}}" placeholder="20" {{#unless editable}}disabled{{/unless}}></label>
           <label>{{localize "FASTNRI.Damage.criticalMultiplier"}}<input type="number" min="2" step="1" data-dtype="Number" name="system.mechanics.attack.criticalMultiplier" value="{{system.mechanics.attack.criticalMultiplier}}" placeholder="2" {{#unless editable}}disabled{{/unless}}></label>
         </div>

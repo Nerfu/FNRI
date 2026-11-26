@@ -17,7 +17,7 @@
     {
       "_id": "f7Hindrance00004",
       "name": "Темнота",
-      "img": "icons/svg/aura.svg",
+      "img": "icons/magic/light/orb-shadow-blue.webp",
       "type": "base",
       "showIcon": 2,
       "statuses": [
@@ -44,5 +44,6 @@
       "source": "Fast NRI 7.0 rulebook.md / Штрафы помехи"
     }
   },
-  "_id": "fci13nrnmvxwpyf5"
+  "_id": "fci13nrnmvxwpyf5",
+  "img": "icons/magic/light/orb-shadow-blue.webp"
 }

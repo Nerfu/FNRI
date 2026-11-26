@@ -1,3 +1,6 @@
+import {registerCreatureSizes,setCreatureSize} from "./module/data/creature-size.mjs";
+import {conditionHudClass} from './module/effects/condition-hud.mjs';
+import {registerConditionStatuses} from './module/effects/condition-statuses.mjs';
 import {registerHpLimit} from "./module/damage/hp-limit.mjs";
 import {registerInitialSheetLock} from './module/sheets/sheet-lock.mjs';
 import {registerActorSides} from './module/data/actor-side.mjs';
@@ -54,6 +57,8 @@ import {
 const SYSTEM_ID = "fast-nri-v14";
 
 Hooks.once("init", () => {
+  registerConditionStatuses();
+  CONFIG.Token.hudClass = conditionHudClass(CONFIG.Token.hudClass ?? foundry.applications.hud.TokenHUD);
   registerCheckLinks();
   registerRacialSettings();
   registerSkillAllocationSettings();
@@ -61,6 +66,7 @@ Hooks.once("init", () => {
   CONFIG.Item.documentClass = racialItemDocumentClass(CONFIG.Item.documentClass ?? foundry.documents.Item);
   registerClassLifecycle();
   registerActorSides();
+  registerCreatureSizes();
   registerInitialSheetLock();
   // Foundry native _onEndTurn executes only on designated GM.
   CONFIG.Combat.documentClass = FastNRICombat;
@@ -116,6 +122,7 @@ Hooks.once("init", () => {
   registerDeathLifecycle();
   // The approved Rest action is shared by the sheet button and this public system API.
   game.system.api ??= {};
+  game.system.api.setCreatureSize = setCreatureSize;
   game.system.api.restActor = restActor;
   game.system.api.abilityAccountingStatus = abilityAccountingStatus;
   game.system.api.retryCardAccounting = retryCardAccounting;

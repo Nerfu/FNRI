@@ -2,7 +2,7 @@ import {createSpellResultMessage} from '../data/private-area-source.mjs';
 import {currentMessageMode, resolveMessageMode} from '../data/chat-visibility.mjs';
 import {finishCardAccounting,normalizedCardActionId} from '../data/ability-accounting.mjs';
 import {cardEffectLinks} from '../effects/chat-effect-links.mjs';
-import {prepareRoll,finalizeRollEffects,visibleRollInfluences,fixedRollComponents,redactActorSourceForAudience} from "./roll-context.mjs";
+import {prepareRoll,finalizeRollEffects,visibleRollInfluences,fixedRollComponents,redactActorSourceForAudience,defenseConditionSummary} from "./roll-context.mjs";
 import {weaponTraitOptions,selectedWeaponTraitIds} from '../equipment/weapon-traits.mjs';
 import {naturalAttackingD20,resolveCheckDegree} from './attack-core.mjs';
 import {CHECK_DEFENSES,selectedTargetSnapshot} from './attack-properties.mjs';
@@ -41,18 +41,17 @@ export async function postCheckRoll({ formula, label, actor = null, mode, isInte
   formulaForActor=null, skipPreroll=false, sourceItem=null, actionId=null, accountingItem=null,
   defenseStat=null,weaponItem=null,difficulty=null,execution=null,audienceMessage=null,
   resultKind=null,targetTokens=null,standardActionId=null,targetDifficultyModifier=null,
-  compareEachTarget=false,recordRecipient=false,spellCast=null,declaredSpellWeapon=false,spatialInfo=null }) {
+  compareEachTarget=false,recordRecipient=false,spellCast=null,declaredSpellWeapon=false,spatialInfo=null,effectEnding=false,defenseToken=null,usesDefenseStat=false }) {
   const usesTargetDefense = CHECK_DEFENSES.includes(targetDefense);
   const declaredTargets = usesTargetDefense || recordRecipient
     ? [...(targetTokens ?? game.user?.targets ?? [])] : null;
   const context = await prepareRoll({actor,kind,skillId,defenseStat,formula,
-    formulaForActor,skipDialog:skipPreroll,label,sourceItem,weaponItem,declaredSpellWeapon,spatialInfo});
+    formulaForActor,skipDialog:skipPreroll,label,sourceItem,weaponItem,declaredSpellWeapon,spatialInfo,effectEnding,defenseToken,usesDefenseStat});
   if (context === null) return null; // Closing the preparation window changes nothing.
   const expression = context.expression.trim();
   if (!expression) throw new Error("empty-formula");
   if (typeof Roll.validate === "function" && !Roll.validate(expression)) throw new Error("invalid-formula");
   const sharedActionId=normalizedCardActionId(actionId);
-  const roll = await new Roll(expression, context.actor?.getRollData?.() ?? {}).evaluate();
   const visibilityMode = audienceMessage ? (audienceMessage.blind ? 'blind' :
     (audienceMessage.whisper?.length ? 'gm' : 'public')) : resolveMessageMode(mode, currentMessageMode());
   const targets = declaredTargets && ['public', 'ic'].includes(visibilityMode) && !recordRecipient
@@ -64,10 +63,13 @@ export async function postCheckRoll({ formula, label, actor = null, mode, isInte
   const targetDifficulties = new Map();
   if (compareEachTarget && usesTargetDefense) {
     for (const token of targets) {
-      const snapshot = selectedTargetSnapshot([token],targetDefense);
+      const uuid=token?.document?.uuid??token?.uuid;
+      if(uuid&&targetDifficulties.has(uuid))continue;
+      const snapshot = targets.length===1?target:selectedTargetSnapshot([token],targetDefense);
       if (snapshot.uuid) targetDifficulties.set(snapshot.uuid,snapshot.difficulty);
     }
   }
+  const roll = await new Roll(expression, context.actor?.getRollData?.() ?? {}).evaluate();
   const naturalD20 = naturalAttackingD20(roll);
   const resolved = resolveCheckDegree({total:roll.total,naturalD20,
     difficulty:Number.isFinite(difficulty) ? difficulty : targetDifficulty});
@@ -88,7 +90,7 @@ export async function postCheckRoll({ formula, label, actor = null, mode, isInte
   const messageData = {
     ...audience,
     speaker,
-    flavor: `<strong>${safeText(label)}</strong>${cardEffectLinks(sourceItem)}`,
+    flavor: `<strong>${safeText(label)}</strong>${cardEffectLinks(sourceItem)}${safeText(defenseConditionSummary(context))}`,
     flags:{'fast-nri-v14':{...(sharedActionId?{compositeActionId:sharedActionId}:{}),
       ...(execution?.id?{abilityExecution:{executionId:execution.id,sourceItemUuid:sourceItem?.uuid??null,actorUuid:actor?.uuid??null}}:{}),
       ...(resultKind==='temporaryHp' && execution?.id ? {abilityResult:{version:1,kind:'temporaryHp',

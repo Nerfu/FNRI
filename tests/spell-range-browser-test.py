@@ -35,7 +35,9 @@ with sync_playwright() as p:
                         page.evaluate('([distance,theme,attack])=>draw(distance,theme,attack)',[distance,theme,attack])
                         info=page.locator('.fnri-spatial-info')
                         assert f'{distance} / 8 клеток' in info.inner_text()
-                        assert ('Угрозы:' in info.inner_text())==attack
+                        # ROADMAP 103: formation is not displayed in any preroll.
+                        assert 'Угрозы:' not in info.inner_text()
+                        assert 'Строй:' not in info.inner_text()
                         assert page.locator('.fnri-spell-range-warning').count()==int(distance>8)
                         assert info.evaluate('(e)=>e.scrollWidth<=e.clientWidth')
         print('PASS spell range actual preroll markup, warning, widths 360/420/760, light and dark')

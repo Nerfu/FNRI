@@ -1,3 +1,4 @@
+import {activeConditionEffect} from '../effects/active-effect.mjs';
 /**
  * Fast NRI 7.0 — Stage 3C.1/3C.2: periodic damage data and pure calculations.
  * Every native Actor ActiveEffect is a distinct instance; neither its title,
@@ -56,9 +57,7 @@ export function readPeriodicData(effect) {
 
 export function isActivePeriodicEffect(effect) {
   return effect?.parent?.documentName === 'Actor' && effect.id &&
-    effect.disabled !== true && effect.active !== false &&
-    effect.isSuppressed !== true &&
-    effect.flags?.[PERIODIC_SCOPE]?.effectState?.strength !== 0 &&
+    activeConditionEffect(effect) &&
     readPeriodicData(effect).version === 1;
 }
 
@@ -105,8 +104,7 @@ export function inspectDamageDefenseSources(actor) {
     const id=effect?.uuid??effect?.id;
     if (id && seen.has(id)) continue;
     if (id) seen.add(id);
-    if (effect?.disabled || effect?.active === false || effect?.isSuppressed === true ||
-        effect?.flags?.[PERIODIC_SCOPE]?.effectState?.strength === 0) continue;
+    if (!activeConditionEffect(effect)) continue;
     const data = effect?.flags?.[PERIODIC_SCOPE]?.damageDefenses;
     if (data && typeof data === 'object')
       sources.push({kind:'active-effect',id:id??null,rule:data});

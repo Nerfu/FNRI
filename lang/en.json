@@ -13,10 +13,18 @@
     }
   },
   "FASTNRI": {
+    "CreatureSize": {
+      "label": "Size",
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large",
+      "huge": "Huge",
+      "syncIncomplete": "Some token dimensions could not be updated."
+    },
     "AbilitySource": {
       "editList": "Edit list",
       "done": "Done",
-      "racial": "Racial property"
+      "racial": "General property"
     },
     "ActorSide": {
       "syncIncomplete": "Some token sides could not be updated. The character remains the authoritative side.",
@@ -127,9 +135,6 @@
       "primarySpecialization": "Primary — 1d6",
       "secondarySpecialization": "Secondary — 1d4",
       "acShort": "AC",
-      "skillFilter": "Show",
-      "skillAll": "All",
-      "skillAssigned": "With dice",
       "contextual": "Situational modifiers"
     },
     "Sections": {
@@ -151,8 +156,9 @@
       "roll": "Card roll",
       "effects": "Effects and numeric adjustments",
       "itemEffects": "Card effects",
-      "customChecks": "Custom Skills and Specializations",
-      "characteristics": "Characteristics"
+      "customChecks": "Custom skills",
+      "characteristics": "Characteristics",
+      "skillsAndSpecializations": "Skills and specializations"
     },
     "Hints": {
       "combatResourceRecoveryFailed": "Some class resources could not be updated at combat start. Check them manually.",
@@ -477,6 +483,13 @@
       "replace": "Preferred variant (base remains available)",
       "unarmedOption": "Additional option"
     },
+    "EffectEnding": {
+      "endTurn": "End of turn",
+      "removed": "Removed",
+      "remains": "Remains",
+      "manual": "Not removed automatically",
+      "privateRecovery": "Effect ending checks processed. Private result details are unavailable after reload."
+    },
     "PeriodicDamage": {
       "damage": "damage",
       "resistance": "Resistance",
@@ -540,6 +553,7 @@
       "changedHp": "HP changed since application. Undo the stored delta against current values?",
       "error": "Action failed",
       "penalty": "Damage penalty",
+      "physicalReduction": "Final physical damage reduction",
       "resistance": "Resistance",
       "vulnerability": "Vulnerability",
       "defenseVsIntervention": "Directed Defense normally cannot respond to an Intervention; check card exceptions",
@@ -679,6 +693,10 @@
       "selfDefenseLimits": "Reach attacks remain melee. Self-Defense is unavailable against an area of effect. A specific card may replace the chosen defense, Combat Die, or another explicitly named part. Apply direct held-item modifiers; do not add AC."
     },
     "EffectPanel": {
+      "EndingMode": "Effect ending",
+      "EndingMode_unset": "Default",
+      "EndingMode_general": "General check (DC 15)",
+      "EndingMode_particular": "Specific rule / manual",
       "Title": "Effects",
       "FromItem": "Item effect",
       "LeftHint": "Left click: increase Effect strength if specified",
@@ -723,6 +741,8 @@
       "FormulaPartialFailure": "Some effect formulas could not be evaluated; previous values were preserved. Open the effect editor."
     },
     "Preroll": {
+      "frightened": "Frightened",
+      "surroundedDefense": "Surrounded",
       "multipleSpecializations": "Multiple specializations require the GM's agreement.",
       "specializations": "Specializations",
       "title": "Prepare roll",
@@ -974,7 +994,14 @@
       "modifierShort": "Mod.",
       "specializations": "Specializations",
       "customSkills": "Custom skills",
-      "freeDie": "Unassigned die"
+      "freeDie": "Unassigned die",
+      "specHint": "Choose two specializations: one 1d6 and one 1d4.",
+      "specMissing": "Missing specializations.",
+      "specExtra": "Extra specializations.",
+      "specUnnamed": "Unnamed specializations.",
+      "specDuplicateName": "Duplicate specialization names.",
+      "specDice": "One 1d6 and one 1d4 required.",
+      "savedSkills": "Saved skills"
     },
     "CharacterEditor": {
       "potionBase": "Base potion limit",
@@ -1005,8 +1032,22 @@
       "replacement": "Value replacement",
       "heldShield": "When holding a shield",
       "focus": "With selected compatible weapon; non-stacking",
-      "rollKinds": {"skill": "Skill", "ability": "Ability", "attack": "Attack", "intervention": "Intervention", "damage": "Damage", "maneuver": "Maneuver", "heal": "Healing"},
-      "offGuard": "Off guard"
+      "frightened": "Frightened",
+      "frightenedScope": "Except checks to end effects",
+      "weakened": "Weakened",
+      "weakenedScope": "Final physical damage from melee weapons, unarmed attacks and bows after defenses",
+      "rollKinds": {
+        "d20Check": "d20 checks",
+        "skill": "Skill",
+        "ability": "Ability",
+        "attack": "Attack",
+        "intervention": "Intervention",
+        "damage": "Damage",
+        "maneuver": "Maneuver",
+        "heal": "Healing"
+      },
+      "offGuard": "Off guard",
+      "slowed": "Slowed"
     }
   }
 }

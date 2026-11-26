@@ -2,7 +2,7 @@
   "id": "fast-nri-v14",
   "title": "Fast NRI 7.0",
   "description": "Отдельная игровая система Fast NRI 7.0 для Foundry VTT 14",
-  "version": "0.2.0.4",
+  "version": "0.2.1",
   "compatibility": {
     "minimum": 14,
     "verified": 14
@@ -41,7 +41,7 @@
   "socket": false,
   "type": "system",
   "manifest": "https://raw.githubusercontent.com/Nerfu/FNRI/main/system.json",
-  "download": "https://github.com/Nerfu/FNRI/releases/download/v0.2.0.4/fast-nri-v14.zip",
+  "download": "https://github.com/Nerfu/FNRI/releases/download/v0.2.1/fast-nri-v14.zip",
   "url": "https://github.com/Nerfu/FNRI",
   "packs": [
     {

@@ -6,7 +6,7 @@ import {sameCoverAudience,hasIntervened} from './cover-ally-state.mjs';
 import {finishCardAccounting} from '../data/ability-accounting.mjs';
 import {naturalAttackingD20, ATTACK_DEGREES, resolveDirectedEffectDegree} from '../rolls/attack-core.mjs';
 import {CHECK_DEFENSES, messageIntervention} from '../rolls/attack-properties.mjs';
-import {prepareRoll, finalizeRollEffects} from '../rolls/roll-context.mjs';
+import {prepareRoll, finalizeRollEffects, defenseConditionSummary} from '../rolls/roll-context.mjs';
 import {counteractionOutcome} from './damage-core.mjs';
 
 const SCOPE = 'fast-nri-v14';
@@ -35,13 +35,13 @@ export async function initiateCounteraction(message, {target,skipPreroll=false,r
   const check=original?.getFlag?.(SCOPE,'checkRoll');
   const stat=damage?.targetDefense??check?.targetDefense;
   const capturedAudience=original?chatAudience(original):null;
-  const independent=()=>standaloneIntervention(actor,'counteraction',{choice:{id:'counteraction',counteraction:true,menuWarningsShown},stat,source:capturedAudience,skipPreroll});
+  const independent=()=>standaloneIntervention(actor,'counteraction',{choice:{id:'counteraction',counteraction:true,menuWarningsShown},stat,source:capturedAudience,skipPreroll,defenseToken:target?.documentName==='Actor'?null:target});
   const continuation=m=>!!(m?.getFlag?.(SCOPE,'weaponDamage')?.previousMessageId || m?.getFlag?.(SCOPE,'checkRoll')?.previousMessageId);
   if(!visible||(messageIntervention(current)&&!continuation(current))||!CHECK_DEFENSES.includes(stat)||!(damage?.version===2||check?.result))return independent();
   const targetUuid=damage?.originalTargetUuid??check?.result?.targetUuid;
   if(!targetUuid)return independent();
   const token=await fromUuid(targetUuid);
-  if(token?.actor?.uuid!==actor.uuid)return independent();
+  if(token?.actor?.uuid!==actor.uuid || (target?.documentName!=='Actor' && (target?.document??target)?.uuid!==targetUuid))return independent();
   if(damage?.cancelled||damage?.parts?.some(part=>part.pending))return independent();
   const degree=damage?.degree??check?.result?.degree;
   const total=damage?.attackTotal??current.getFlag(SCOPE,'rollEdit')?.currentTotal??check?.result?.total;
@@ -54,7 +54,7 @@ export async function initiateCounteraction(message, {target,skipPreroll=false,r
   if(!menuWarningsShown){const warnings=interventionWarnings(actor);if(warnings.length)ui.notifications?.warn(warnings.join(' · '));}
   const label = game.i18n.localize('FASTNRI.Damage.counteraction');
   const context = await prepareRoll({actor,kind:'intervention',defenseStat:stat,formula,
-    formulaForActor,skipDialog:skipPreroll,label});
+    formulaForActor,skipDialog:skipPreroll,label,defenseToken:token,usesDefenseStat:true,attackOffGuard:damage?.attackOffGuard===true});
   if (!context) return null;
   const roll = await new Roll(context.expression,context.actor?.getRollData?.() ?? {}).evaluate();
   const natural = naturalAttackingD20(roll);
@@ -96,7 +96,7 @@ export async function initiateCounteraction(message, {target,skipPreroll=false,r
       previousMessageId:current.id,result:{...check.result,degree:resolved,total}}};
   }
   const data = await roll.toMessage({speaker:ChatMessage.getSpeaker({actor}),
-    flavor:label,flags:{[SCOPE]:flags}}, {create:false});
+    flavor:label+defenseConditionSummary(context),flags:{[SCOPE]:flags}}, {create:false});
   data.whisper = [...(current.whisper ?? [])];
   data.blind = current.blind === true;
   const finalSource=game.messages?.get?game.messages.get(current.id):current;

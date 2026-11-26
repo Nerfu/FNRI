@@ -1,5 +1,6 @@
 import {tokenSide} from '../data/actor-side.mjs';
 import {tokenDistance} from '../spatial/geometry.mjs';
+import {isOffGuard} from '../effects/condition-calculations.mjs';
 
 /** Fast NRI v14: actor-level Projection link, not token-level ownership.
  * One ability Item may refer to any number of world Actors. Each projection
@@ -167,7 +168,8 @@ export function resolveSpellOrigin(caster,{controlled=null,scene=null,allowProje
   return {
     kind:chosenProjection?'projection':'caster',
     tokenUuid:doc?.uuid??null,sceneId:doc?.parent?.id??null,
-    tokenName:chosen?.name??caster?.name??'',
+    tokenName:doc?.name??chosen?.name??caster?.name??'',
+    hidden:doc?.hidden===true||chosen?.visible===false,
     point:center&&Number.isFinite(center.x)&&Number.isFinite(center.y)?{x:center.x,y:center.y}:null,
     warning
   };
@@ -192,13 +194,24 @@ export function projectionSpatialPreview(origin,targets=[],{grid=null}={}){
   }catch{return {distanceSpaces:null};}
 }
 
-/** Current AC follows caster; projection retains its own HP/conditions.
- * ActiveEffects and other rules that alter the caster's CURRENT AC are read,
- * not copied to the template or persistently written into token actors.
+/** Borrow current prepared caster AC, excluding ONLY its own off-guard.
+ * The condition preparation applies one -2 to finite AC thresholds; undo that
+ * contribution without dropping equipment, permanent or other active modifiers.
+ * No document updates: projection HP and conditions remain independent.
  */
-export function projectionArmorForToken(token){
-  const caster=projectionCaster(token?.actor);
+export function projectionBorrowedArmor(actor){
+  const caster=projectionCaster(actor);
   const ac=caster?.system?.ac;
-  return ac && [ac.partial,ac.success,ac.great].every(Number.isFinite)
-    ? {partial:ac.partial,success:ac.success,great:ac.great} : null;
+  if(!ac || ![ac.partial,ac.success,ac.great].every(Number.isFinite))return null;
+  const restore=isOffGuard(caster)?2:0;
+  return {partial:ac.partial+restore,success:ac.success+restore,great:ac.great+restore};
+}
+export function projectionArmorForActor(actor){
+  const ac=projectionBorrowedArmor(actor);
+  if(!ac)return null;
+  const penalty=isOffGuard(actor)?2:0;
+  return {partial:ac.partial-penalty,success:ac.success-penalty,great:ac.great-penalty};
+}
+export function projectionArmorForToken(token){
+  return projectionArmorForActor(token?.actor);
 }

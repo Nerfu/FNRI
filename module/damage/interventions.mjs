@@ -17,7 +17,7 @@ import {chooseControlledToken,actorForToken} from './hp-actions.mjs';
 import {matchesDefenseChange, resolveDefenseContext} from './defense-context.mjs';
 import {counteractionFormula, initiateCounteraction} from './counteraction.mjs';
 import {ATTACK_DEGREES} from '../rolls/attack-core.mjs';
-import {prepareRoll,finalizeRollEffects,visibleRollInfluences,redactActorSourceForAudience} from '../rolls/roll-context.mjs';
+import {prepareRoll,finalizeRollEffects,visibleRollInfluences,redactActorSourceForAudience,defenseConditionSummary} from '../rolls/roll-context.mjs';
 const ID='fast-nri-v14';
 const tr=k=>game.i18n.localize('FASTNRI.Damage.'+k);
 const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -98,7 +98,7 @@ export async function initiateIntervention(message,{skipPreroll=false,actionId=n
   if (!(game.user.isGM || actor.isOwner || actor.canUserModify?.(game.user, 'update'))) {
     ui.notifications?.warn(tr('noPermission'));return null;
   }
-  const standalone=choice=>standaloneIntervention(actor,null,{choice,source:capturedAudience,skipPreroll,actionId,accountingItem});
+  const standalone=choice=>standaloneIntervention(actor,null,{choice,source:capturedAudience,skipPreroll,actionId,accountingItem,defenseToken:token});
   const capturedAudience=chatAudience(message);
   const revision=card.revision??0;
   const answered = () => hasIntervened(message,actor);
@@ -138,8 +138,10 @@ export async function initiateIntervention(message,{skipPreroll=false,actionId=n
       chosenStat=form.defense;
     }
   }
+  const authoredFormula=String(rule?.rollFormula||selected.item?.system?.rollFormula||'').trim();
+  const usesDefenseStat=selected.builtin || (isDefense&&!authoredFormula);
   const adapted=selected.builtin ? selfDefenseFormula(actor,card.attackKind,chosenStat) :
-    {expression:String(rule?.rollFormula||selected.item?.system?.rollFormula||'').trim() ||
+    {expression:authoredFormula ||
       (isDefense?selfDefenseFormula(actor,card.attackKind,chosenStat).expression:''),warnings:[]};
   // Card-owned penalty applies to CHECK-based defenses only, not to AC,
   // non-check defensive effects or arbitrary other rolls.
@@ -166,8 +168,8 @@ export async function initiateIntervention(message,{skipPreroll=false,actionId=n
   }
   // Share the same selection and ephemeral prepared Actor as other rolls.
   const context=adapted.expression?await prepareRoll({actor,kind:'intervention',
-    defenseStat:chosenStat,formula:adapted.expression,skipDialog:skipPreroll,sourceItem:selected.item??null,
-    label:selected.name,formulaForActor:selected.builtin?temp=>
+    defenseStat:chosenStat,defenseToken:token,usesDefenseStat,attackOffGuard:card.attackOffGuard===true&&!!card.originalTargetUuid&&token.document?.uuid===card.originalTargetUuid,formula:adapted.expression,skipDialog:skipPreroll,sourceItem:selected.item??null,
+    label:selected.name,formulaForActor:usesDefenseStat?temp=>
       (defensePenalty ? `(${selfDefenseFormula(temp,card.attackKind,chosenStat).expression}) + (${defensePenalty})` :
         selfDefenseFormula(temp,card.attackKind,chosenStat).expression):null}):null;
   if(adapted.expression && context===null)return null;
@@ -217,7 +219,7 @@ export async function initiateIntervention(message,{skipPreroll=false,actionId=n
     cancelled:outcome?.cancelled??false});
   const sharedActionId=normalizedCardActionId(actionId);
   const chatData={speaker:ChatMessage.getSpeaker({actor,token:token.document}),
-    content:`<strong>${esc(selected.name)}</strong> · ${esc(token.name)}`,
+    content:`<strong>${esc(selected.name)}</strong> · ${esc(token.name)}${esc(defenseConditionSummary(context))}`,
     whisper:Array.isArray(message.whisper)?[...message.whisper]:[],
     blind:message.blind===true,
     flags:{[ID]:{weaponDamage:next,

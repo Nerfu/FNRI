@@ -135,17 +135,17 @@ actor.system.hp.current=0;
 const zeroContext=await sheet._prepareContext({});
 assert.equal(zeroContext.summary.hp,'0 / 25','zero must remain visible');
 
-assert.equal(context.skillRows[0].modifier,1,'skill edit field shows original number');
-assert.equal(context.skillRows[0].effectiveModifier,3,'display/roll use prepared modifier');
-assert.equal(context.skillRows[0].hasEffectiveModifier,true);
+assert.equal(context.ungroupedSpecializations[0].modifier,1,'skill edit field shows original number');
+assert.equal(context.ungroupedSpecializations[0].effectiveModifier,3,'display/roll use prepared modifier');
+assert.equal(context.ungroupedSpecializations[0].hasEffectiveModifier,true);
 
-assert.equal(context.skillRows[0].specializationDiceOptions.find(x=>x.selected).value,'__custom__','stored formulas are not migrated');
-assert.equal(context.skillRows[0].specializationDiceOptions.find(x=>x.value==='1d4').selected,false);
+assert.equal(context.ungroupedSpecializations[0].specializationDiceOptions.find(x=>x.selected).value,'__custom__','stored formulas are not migrated');
+assert.equal(context.ungroupedSpecializations[0].specializationDiceOptions.find(x=>x.value==='1d4').selected,false);
 // Existing custom dice must stay visible and unchanged; a preset is not a migration.
 baseSystem.skills.sample.dice='3d8 + 1d6';
 const customContext=await sheet._prepareContext({});
-assert.equal(customContext.skillRows[0].specializationDiceOptions.find(x=>x.selected).value,'__custom__');
-assert.equal(customContext.skillRows[0].hasCustomDice,true);
+assert.equal(customContext.ungroupedSpecializations[0].specializationDiceOptions.find(x=>x.selected).value,'__custom__');
+assert.equal(customContext.ungroupedSpecializations[0].hasCustomDice,true);
 assert.equal(baseSystem.skills.sample.dice,'3d8 + 1d6');
 baseSystem.skills.sample.dice='2d6';
 

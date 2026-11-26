@@ -4,10 +4,11 @@ import {parseAreaDamageProfile} from '../damage/area-damage-profile.mjs';
 import {captureAreaOutcomeInstructions} from '../equipment/area-outcome-snapshot.mjs';
 import {finishCardAccounting,normalizedCardActionId} from '../data/ability-accounting.mjs';
 import {selectedAttackAugments,attackAugmentWarnings,attackAugmentDamageParts,readAttackAugmentDamageParts,postDefenseDamageOffers} from '../rolls/attack-augmentations.mjs';
+import {weakenedAttackReduction} from '../effects/condition-calculations.mjs';
 import {cardEffectLinks} from '../effects/chat-effect-links.mjs';
 import {projectionSpatialPreview,resolveSpellOrigin} from '../projection/projection.mjs';
 import {directedSpellRange,chooseSpellWeapon,spellWeaponOptions,spellExecutionRule} from '../spatial/spell-range.mjs';
-import {spatialAttackContext} from '../spatial/spatial-context.mjs';
+import {spatialAttackContext,invisibleAttackSource} from '../spatial/spatial-context.mjs';
 /**
  * Fast NRI 7.0: directed physical weapon attacks with optional native target.
  * Does not change HP, effects, time, resources or document ownership.
@@ -176,7 +177,13 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   }
   const sharedActionId=normalizedCardActionId(actionId);
   if (typeof Roll.validate === 'function' && !Roll.validate(expression)) throw new Error('Invalid attack formula');
-  const target = selectedTargetSnapshot(declaredTargets,targetDefense);
+  // Snapshot the numeric contribution at declaration; later damage clicks and
+  // independent recipients must not depend on the current source Actor/Item.
+  const physicalReduction=weakenedAttackReduction(actor,{sourceKind,weaponItem:usedWeapon,
+    attackKind:normalizeAttackKind(attackKind),profileKind});
+  const attackCircumstances={attackOffGuard:invisibleAttackSource(actor,spatialOrigin)};
+  const target = selectedTargetSnapshot(declaredTargets,targetDefense,attackCircumstances);
+  const areaSnapshots=areaDeclared?declaredTargets.map(token=>declaredTargets.length===1?target:selectedTargetSnapshot([token],targetDefense,attackCircumstances)):null;
   const roll = await new Roll(expression, context.actor?.getRollData?.() ?? {}).evaluate();
   const natural = naturalAttackingD20(roll);
   const rollResult = {total:roll.total,naturalD20:natural};
@@ -195,7 +202,9 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   const postDefenseDamage=postDefenseDamageOffers(attackAugments,{redactSources:hideSource});
   // Do not expose hidden GM-controlled token coordinates/UUIDs in a public
   // ChatMessage flag; the caster's selected point remains private in that case.
-  const publicOrigin=hideSource&&spatialOrigin ? {kind:spatialOrigin.kind,
+  const hiddenProjection=spatialOrigin?.kind==='projection' && (spatialOrigin.hidden===true ||
+    (globalThis.canvas?.tokens?.placeables??[]).some(t=>t.document?.uuid===spatialOrigin.tokenUuid && (isHiddenToken(t)||t.visible===false)));
+  const publicOrigin=(hideSource||hiddenProjection)&&spatialOrigin ? {kind:spatialOrigin.kind,
     tokenName:spatialOrigin.kind==='projection'?'Проекция':'Источник',
     tokenUuid:null,sceneId:null,point:null} : spatialOrigin;
   const isArea=areaDeclared;
@@ -209,8 +218,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     ui.notifications?.warn('Профиль урона области в карточке не распознан; расчёт по нему недоступен.');
   // Targets here already exclude hidden tokens before preparing preroll and
   // spatial modifiers. No hidden Actor or Token identifiers reach area flags.
-  const publishedTargets=declaredTargets;
-  const areaTargets=isArea?publishedTargets.map(token=>selectedTargetSnapshot([token],targetDefense)).map((target,index)=>{
+  const areaTargets=isArea?areaSnapshots.map((target,index)=>{
     // Resolve once from the declaration snapshot.  Publishing raw AC or
     // defense thresholds as public ChatMessage flags leaks target statistics.
     // Later intervention recalculations only need the original degree.
@@ -219,17 +227,18 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       resolveAttackDegree({...rollResult,ac:target.ac})) : null;
     return {key:target.uuid??`unresolved-${index}`,name:target.name??`Цель ${index+1}`,
       status:target.status,uuid:target.uuid??null,
-      initialDegree:initial?.ok?initial.degree:null};
+      initialDegree:initial?.ok?initial.degree:null,...(target.attackOffGuard?{attackOffGuard:true}:{})};
   }):null;
   const data = {
     ...(isArea?{areaAttack:{version:1,targets:areaTargets,selectionManual:true,
       ...(parsedAreaDamageProfile?.ok?{damageProfile:parsedAreaDamageProfile.profile}:{}),
       ...(parsedAreaDamageProfile?.ok===false?{damageProfileInvalid:true}:{})}}:{}),
     version:1, name, sourceUuid:privateAreaSource?null:sourceUuid, sourceKind,
+    ...(physicalReduction?{physicalReduction}:{}),
     ...(publicOrigin?.tokenUuid || publicOrigin?.kind==='projection' ? {spatialOrigin:{kind:publicOrigin.kind,
       tokenUuid:publicOrigin.tokenUuid,sceneId:publicOrigin.sceneId,
       point:publicOrigin.point,tokenName:publicOrigin.tokenName,
-      distanceSpaces:privateAreaSource?null:distanceSpaces}} : {}),
+      distanceSpaces:privateAreaSource||hiddenProjection?null:distanceSpaces}} : {}),
     ...(attackAugments.length?{attackAugments:attackAugments.map(augment=>({
       name:privateAreaSource?null:augment.rule.singleTarget?augment.rule.label:augment.item.name,sourceUuid:hideSource?null:augment.sourceUuid,
       ...(augment.rule.singleTarget?{singleTarget:true,targetUuid:augment.targetUuid??null}: {})
@@ -241,11 +250,12 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     ...(execution?.attack?.damageRules && typeof execution.attack.damageRules==='object' ?
       {damageRules:{ignoreResistance:execution.attack.damageRules.ignoreResistance===true,
         ignoreTempHp:execution.attack.damageRules.ignoreTempHp===true}} : {}),
-    ...(!isArea && space.formation?{spatialConditions:{distanceSpaces:space.distanceSpaces,
-      threats:space.formation.threats,formation:space.formation.formation,
-      surrounded:space.formation.surrounded,uncertain:space.formation.uncertain,
+    ...(!isArea && target.formation?{spatialConditions:{distanceSpaces:hiddenProjection?null:space.distanceSpaces,
+      threats:target.formation.threats,formation:target.formation.formation,
+      surrounded:target.formation.surrounded,uncertain:target.formation.uncertain,
       defenseAdjusted:target.defenseAdjusted===true,
       hindrance:context.hindrance?.value??null}}:{}),
+    ...(!isArea&&target.attackOffGuard?{attackOffGuard:true}:{}),
     targetStatus:isArea?'multiple':target.status, targetName:isArea?null:target.name,
     suggestedDegree:isArea?null:suggestion, attackDegree:isArea?null:(degree?.ok ? degree.degree : null),
     naturalTwenty:degree?.ok ? degree.naturalTwenty : natural === 20,
@@ -306,7 +316,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       damageType,properties,criticalThreshold:Number(criticalThreshold)||20,
       naturalCritMultiplier:Number(criticalMultiplier)>1?Number(criticalMultiplier):2,
       cancelled:false,adjustments:{penalty:-penaltyComponents.reduce((sum,p)=>sum+p.value,0),
-        resistance:0,vulnerability:0},penaltyComponents,parts:storedParts,history:autoHistory,revision:0}};
+        resistance:0,vulnerability:0,...(data.physicalReduction===2?{physicalReduction:2}:{})},penaltyComponents,parts:storedParts,history:autoHistory,revision:0}};
   }
   const speaker = privateAreaSource ? {alias:'Fast NRI'} :
     (actor ? ChatMessage.getSpeaker({actor}) : ChatMessage.getSpeaker());
@@ -538,12 +548,14 @@ export async function sendWeaponDamage(message, degree, {rerollLowWeaponDice=fal
     originalAttackTotal:data.attackTotal ?? message.rolls?.[0]?.total ?? null,
     naturalD20:data.naturalD20 ?? null,sourceActorUuid:data.actorUuid ?? null,
     originalTargetUuid:data.originalTargetUuid ?? null,
+    ...(data.attackOffGuard?{attackOffGuard:true}:{}),
     ...(data.spatialOrigin ? {spatialOrigin:data.spatialOrigin} : {}),
     damageType:data.damageType,properties:data.properties,naturalTwenty:!!data.naturalTwenty,
     naturalCritMultiplier:Number(data.criticalMultiplier) > 1 ? Number(data.criticalMultiplier) : 2,
     criticalThreshold:threshold,criticalTriggered:triggered,
     manualCritical:null,manualCritMultiplier:Number(data.criticalMultiplier)>1?Number(data.criticalMultiplier):2,cancelled:false,
-    adjustments:{penalty:damagePenalty,resistance:0,vulnerability:0},
+    adjustments:{penalty:damagePenalty,resistance:0,vulnerability:0,
+      ...(data.physicalReduction===2?{physicalReduction:2}:{})},
     penaltyComponents,parts,history:autoHistory,revision:0};
   // Use Roll.toMessage to construct the native roll card, but do not allow
   // the current client's message mode to replace the original audience.

@@ -19,7 +19,7 @@
     {
       "_id": "f7Status00000005",
       "name": "Замедлен",
-      "img": "icons/svg/aura.svg",
+      "img": "icons/magic/movement/chevrons-down-yellow.webp",
       "type": "base",
       "showIcon": 2,
       "statuses": [
@@ -36,6 +36,7 @@
         "fast-nri-v14": {
           "conditionId": "slowed",
           "requiresManualResolution": true,
+          "effectEnding": "general",
           "rulesRef": "rulebook.md#состояния"
         }
       }
@@ -47,5 +48,6 @@
       "source": "Fast NRI 7.0 rulebook.md / Состояния"
     }
   },
-  "_id": "fci06z8101cy2waz"
+  "_id": "fci06z8101cy2waz",
+  "img": "icons/magic/movement/chevrons-down-yellow.webp"
 }

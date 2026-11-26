@@ -19,7 +19,7 @@
     {
       "_id": "f7Status00000009",
       "name": "Без сознания",
-      "img": "icons/svg/aura.svg",
+      "img": "icons/creatures/eyes/humanoid-single-blind.webp",
       "type": "base",
       "showIcon": 2,
       "statuses": [
@@ -47,5 +47,6 @@
       "source": "Fast NRI 7.0 rulebook.md / Состояния"
     }
   },
-  "_id": "fci2q524g8i0pfac"
+  "_id": "fci2q524g8i0pfac",
+  "img": "icons/creatures/eyes/humanoid-single-blind.webp"
 }

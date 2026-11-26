@@ -32,7 +32,8 @@ export function calculateSelectedDice(view,ids,actor,{kind='damage',penalty,resi
   if(kind==='heal')return {total:Math.trunc(Math.max(0,parts.reduce((sum,p)=>sum+p.value,0)+modifier)),complete:!manualFormula};
   // Old target's immunities and numerical defenses are not copied. Keep only
   // intrinsic rules (critical, damage traits, ignoring resistance/temp HP).
-  const card={...source,cancelled:false,parts,adjustments:{penalty,resistance:0,vulnerability:0}};
+  const card={...source,cancelled:false,parts,adjustments:{penalty,resistance:0,vulnerability:0,
+    ...(Object.hasOwn(source?.adjustments??{},'physicalReduction')?{physicalReduction:source.adjustments.physicalReduction}:{})}};
   const defenses=previewDeclaredDamageDefenses(actor,card);
   const immune=new Set(defenses.immunePartIds);
   card.parts=parts.map(p=>({...p,immune:immune.has(p.id)}));

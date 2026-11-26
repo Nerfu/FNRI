@@ -10,6 +10,8 @@ const l=key=>game.i18n.localize(`FASTNRI.Damage.${key}`);
 const own=msg=>!!globalThis.game?.user?.isGM && !!msg && msg.visible!==false && msg.isContentVisible!==false && (msg.canUserModify?.(game.user,'update')!==false);
 const get=(msg,key)=>msg?.getFlag?.(ID,key) ?? msg?.flags?.[ID]?.[key];
 const num=v=>Number(v);
+const damageAdjustmentKeys=card=>['penalty','resistance','vulnerability',
+  ...(Object.hasOwn(card?.adjustments??{},'physicalReduction')?['physicalReduction']:[])];
 export function editableMessage(msg) {
   return Boolean(msg && (get(msg,'weaponDamage')?.version===2 || Array.isArray(get(msg,'rollEdit')?.components) || msg.rolls?.some(r=>Number.isFinite(r.total))));
 }
@@ -74,7 +76,7 @@ export async function applyRollCorrection(msg,{partId,action,value}={}) {
     let next,old,current;
     if(partId.startsWith('adjustment:')) {
       const key=partId.slice('adjustment:'.length);
-      if(!['penalty','resistance','vulnerability'].includes(key)||action!=='set'||!Number.isFinite(value)||value<0)
+      if(!damageAdjustmentKeys(card).includes(key)||action!=='set'||!Number.isFinite(value)||value<0)
         throw new Error('Invalid damage adjustment');
       next=copy(card);old=next.adjustments?.[key]??0;
       next.adjustments??={};next.adjustments[key]=value;current=value;
@@ -421,7 +423,7 @@ export function renderRollEditorContent(msg,{feedback='',page=0,query='',interve
     button('excludeBulk',selected.size?l('excludeMarked'):l('excludeAll'))+
     button('restoreBulk',selected.size?l('restoreMarked'):l('restoreAll'))+
     `</div></div>`:'';
-  const adjustments=isDamage?['penalty','resistance','vulnerability'].map(k=>{
+  const adjustments=isDamage?damageAdjustmentKeys(card).map(k=>{
     const amount=Number(card.adjustments?.[k]??0);
     return `<div class="fnri-editor-adjust-row"><span>${esc(l(k))}: ${esc(amount)}</span>`+
       button(`adjustment:${k}`,l('set'))+`</div>`;
@@ -495,7 +497,7 @@ export async function saveRollEditorInput(msg,result,baseline={}) {
   if(op!=='none') {
     if(op.startsWith('adjustment:')) {
       const k=op.slice('adjustment:'.length);
-      if(!isDamage||!['penalty','resistance','vulnerability'].includes(k))throw Error('Invalid adjustment');
+      if(!isDamage||!damageAdjustmentKeys(card).includes(k))throw Error('Invalid adjustment');
       const value=Number(result[`adjustValue_${k}`]);
       if(!Number.isFinite(value)||value<0)throw Error('Invalid adjustment value');
       if(value!==Number(card.adjustments?.[k]??0))outcome=await executeRollEditorAction(msg,{partId:op,action:'set',value});
@@ -574,7 +576,7 @@ export async function promptEditorNumber(msg,operation,dialog=foundry.applicatio
     allowNegative=true; // GM is not bound by the natural die range when manually editing.
   } else if(operation.startsWith('adjustment:')) {
     const k=operation.slice('adjustment:'.length);
-    if(!['penalty','resistance','vulnerability'].includes(k))throw Error('Invalid adjustment');
+    if(!damageAdjustmentKeys(get(msg,'weaponDamage')).includes(k))throw Error('Invalid adjustment');
     current=get(msg,'weaponDamage')?.adjustments?.[k]??0;
   } else if(operation==='offset') {current=get(msg,'rollEdit')?.offset??0;allowNegative=true;}
   else throw Error('Action does not require a number');

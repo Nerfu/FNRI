@@ -42,7 +42,7 @@ with sync_playwright() as p:
    const {initialSkillEntries}=await import('fnri/module/data/skills-catalog.mjs');
    const {initialSkillAllocation,prepareSkillAllocation,resolveSkillAllocation}=await import('fnri/module/data/skill-allocation.mjs');
    window.raw={className:'Колдун',classTradition:'mysticism',skills:initialSkillEntries(),skillAllocation:initialSkillAllocation(),equipment:{},equipmentSlots:{},resources:{}};
-   raw.skills.starter_primary.name='Лес';
+   raw.skills.starter_primary={name:'Лес',kind:'specialization',dice:'1d6'};
    window.reprepare=()=>{actor.system=structuredClone(raw);actor.system.parent=actor;if(actor.type==='character')prepareSkillAllocation(actor.system);};
    window.result=()=>resolveSkillAllocation(raw,actor.items.contents);reprepare();
    actor.items.contents.push({id:'advanced',name:'Продвинутый',type:'ability',getFlag:()=>null,system:{mechanics:{racialProperty:{races:['human']},skillDice:{upgrades:[6,8]}}}});
@@ -55,7 +55,7 @@ with sync_playwright() as p:
   pool=panel.locator('.fnri-skill-edit-pool');medicine=panel.locator('[data-skill-die="medicine"]');stealth=panel.locator('[data-skill-die="stealth"]');mysticism=panel.locator('[data-skill-die="mysticism"]');summary=panel.locator('[data-allocation-complete]')
   assert panel.locator('[data-skill-die]').count()==16 and panel.locator('.fnri-core-skills .fnri-skill-group').count()==5
   expect(pool).to_be_hidden();expect(summary).to_be_hidden();expect(medicine).to_be_hidden();expect(panel.locator('[data-action="rollSkill"][data-id="core_medicine"]')).to_be_enabled()
-  page.locator('[data-fnri-skill-filter]').select_option('assigned');expect(panel.locator('[data-skill-row="core_medicine"]')).to_be_hidden()
+  expect(panel.locator('[data-fnri-skill-filter]')).to_have_count(0);expect(panel.locator('[data-skill-row="core_medicine"]')).to_be_visible()
   lock.click();expect(medicine).to_be_visible();expect(pool).to_contain_text('d6 × 2');expect(summary).to_be_visible()
   medicine.select_option('nominal:6')
   page.wait_for_function("actor.system.skills.core_medicine.dice==='1d6'");expect(pool).to_contain_text('d6 × 1')
@@ -80,10 +80,55 @@ with sync_playwright() as p:
   panel.locator('[data-action="addSpecialization"][data-group="physical"]').click();page.wait_for_function("raw.skills.newSpec?.group==='physical'")
   row=panel.locator('[data-skill-row="newSpec"]');expect(row).to_be_visible();name=row.locator('[data-row-field="name"]');name.fill('Акробат');name.press('Tab');page.wait_for_function("raw.skills.newSpec.name==='Акробат'")
   row.locator('[data-fnri-single-dice]').select_option('1d4');page.wait_for_function("raw.skills.newSpec.dice==='1d4'")
-  row.locator('[data-row-field="group"]').select_option('magical');page.wait_for_function("raw.skills.newSpec.group==='magical'")
-  expect(panel.locator('[data-fnri-skill-group-content="magical"] [data-skill-row="newSpec"]')).to_be_visible()
-  lock.click();expect(pool).to_be_hidden();expect(summary).to_be_hidden();expect(row.locator('[data-fnri-single-dice]')).to_be_hidden();expect(row.locator('[data-action="rollSkill"]')).to_be_enabled();expect(panel.locator('[data-skill-row="core_medicine"]')).to_be_hidden()
+  expect(row.locator('[data-row-field="group"]')).to_have_count(0)
+  expect(panel.locator('[data-fnri-skill-group-content="physical"] [data-skill-row="newSpec"]')).to_be_visible()
+  lock.click();expect(pool).to_be_hidden();expect(summary).to_be_hidden();expect(row.locator('[data-fnri-single-dice]')).to_be_hidden();expect(row.locator('[data-action="rollSkill"]')).to_be_enabled();expect(panel.locator('[data-skill-row="core_medicine"]')).to_be_visible()
   lock.click();expect(medicine).to_be_visible();row.locator('[data-action="removeSkill"]').click();page.wait_for_function("!raw.skills.newSpec")
+  # S.2: existing ungrouped specialization keeps ID/formula; group assignment is explicit.
+  page.evaluate("async()=>{mode='strict';await paint()}")
+  legacy=panel.locator('[data-skill-row="starter_primary"]')
+  expect(legacy.locator('[data-row-field="group"]')).to_be_visible()
+  legacy.locator('[data-row-field="group"]').select_option('field')
+  page.wait_for_function("raw.skills.starter_primary.group==='field'")
+  expect(panel.locator('[data-fnri-skill-group-content="field"] [data-skill-row="starter_primary"]')).to_be_visible()
+  expect(legacy.locator('[data-row-field="group"]')).to_have_count(0)
+  assert page.evaluate("raw.skills.starter_primary.dice==='1d6'")
+  # 0 -> 1 -> 2 actual clicks using unique IDs, no automatic starter rows.
+  page.evaluate("async()=>{delete raw.skills.starter_primary;window.specSeq=0;foundry.utils.randomID=()=>`spec${++specSeq}`;reprepare();await paint()}")
+  buttons=panel.locator('[data-action="addSpecialization"]');expect(buttons).to_have_count(5)
+  panel.locator('[data-action="addSpecialization"][data-group="physical"]').click()
+  page.wait_for_function("raw.skills.spec1?.group==='physical'");expect(buttons).to_have_count(5)
+  panel.locator('[data-action="addSpecialization"][data-group="magical"]').click()
+  page.wait_for_function("raw.skills.spec2?.group==='magical'");expect(buttons).to_have_count(0)
+  expect(panel.locator('[data-spec-warning="specUnnamed"]')).to_be_visible()
+  for id,name,die in [('spec1','Лес','1d6'),('spec2','Руны','1d4')]:
+   item=panel.locator(f'[data-skill-row="{id}"]');expect(item.locator('[data-row-field="group"]')).to_have_count(0)
+   assert item.locator('[data-fnri-single-dice] option').count()==3
+   item.locator('[data-row-field="name"]').fill(name);item.locator('[data-row-field="name"]').press('Tab')
+   page.wait_for_function(f"raw.skills.{id}.name==='{name}'")
+   item.locator('[data-fnri-single-dice]').select_option(die);page.wait_for_function(f"raw.skills.{id}.dice==='{die}'")
+  expect(panel.locator('[data-spec-warning]')).to_have_count(0)
+  for width in (360,420,760):
+   page.set_viewport_size({'width':width,'height':730})
+   for theme in ('theme-light','theme-dark'):
+    page.evaluate('(theme)=>document.documentElement.className=theme',theme)
+    for id in ('spec1','spec2'):
+     item=panel.locator(f'[data-skill-row="{id}"]')
+     assert item.evaluate("n=>{const [a,b,c]=n.children;return a.getBoundingClientRect().right<=b.getBoundingClientRect().left && b.getBoundingClientRect().right<=c.getBoundingClientRect().left && n.scrollWidth<=n.clientWidth+1}")
+  page.set_viewport_size({'width':420,'height':730})
+  # Effective die differs without changing the base validation.
+  page.evaluate("async()=>{actor.system.skills.spec1.dice='1d8';await paint()}")
+  expect(panel.locator('[data-spec-warning]')).to_have_count(0)
+  page.evaluate("async()=>{raw.skills.saved={name:'Мореходство',kind:'skill',dice:'2d6'};reprepare();await paint()}")
+  expect(panel.locator('.fnri-custom-group')).to_have_count(0);expect(panel.locator('.fnri-saved-skills [data-action="rollSkill"][data-id="saved"]')).to_be_visible()
+  for m in ('warning','free','strict'):
+   page.evaluate("async m=>{mode=m;await paint()}",m)
+   expect(buttons).to_have_count(0 if m=='strict' else 5)
+   expect(panel.locator('.fnri-custom-group')).to_have_count(1 if m=='free' else 0)
+   assert page.evaluate("raw.skills.saved.dice==='2d6'&&raw.skills.spec1.dice==='1d6'&&raw.skills.spec2.dice==='1d4'")
+  panel.locator('[data-skill-row="spec2"] [data-action="removeSkill"]').click();page.wait_for_function("!raw.skills.spec2");expect(buttons).to_have_count(5)
+  # Restore legacy fixture for subsequent existing regression cases.
+  page.evaluate("async()=>{delete raw.skills.spec1;delete raw.skills.saved;raw.skills.starter_primary={name:'Лес',kind:'specialization',dice:'1d6',group:'field'};foundry.utils.randomID=()=> 'newSpec';mode='free';reprepare();await paint()}")
   # Preserve a draft through a document update on another field, then commit it on blur.
   page.evaluate("sheet._flushWrites()")
   medicine.select_option('manual')
@@ -156,5 +201,5 @@ with sync_playwright() as p:
   picker.select_option('__custom__');field=npcrow.locator('[data-fnri-custom-dice]');field.fill('3d6');field.dispatch_event('change');page.wait_for_function("raw.skills.core_acrobatics.dice==='3d6'")
   npcrow.locator('[data-skill-release]').click();page.wait_for_function("raw.skills.core_acrobatics.dice==='' ")
   assert page.evaluate('raw.skills.core_acrobatics.modifier===3')
-  print('PASS inline PC/NPC skill panels: real templates, real lock, assigned filter, allocation nominal/return/upgrade/manual, grouped specialization create/edit/remove, no window')
+  print('PASS inline PC/NPC skill panels: real templates, real lock, allocation nominal/return/upgrade/manual, grouped specialization create/edit/remove, no window')
  finally: browser.close()

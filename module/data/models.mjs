@@ -1,11 +1,12 @@
+import {CREATURE_SIZES} from "./creature-size.mjs";
 import {prepareHpLimit} from "../damage/hp-limit.mjs";
 import {initialSkillAllocation,prepareSkillAllocation} from "./skill-allocation.mjs";
 import {prepareClassBaseStats,prepareSpellRangeBase} from "./classes.mjs";
 import {preparePermanentRacialStats} from "./character-contributions.mjs";
 import { prepareRoleDefenses } from "./roles.mjs";
 import { initialSkillEntries } from "./skills-catalog.mjs";
-import { prepareConditionDefenses } from "../effects/condition-calculations.mjs";
-import {projectionCaster} from "../projection/projection.mjs";
+import { prepareConditionDefenses, prepareConditionSpeed } from "../effects/condition-calculations.mjs";
+import {projectionArmorForActor} from "../projection/projection.mjs";
 /**
  * Fast NRI 7.0 — editable document data models.
  * Stage 2 adds unrestricted skill/specialization entries, resource lists,
@@ -46,6 +47,7 @@ function actorSchema() {
     className: text(),
     path: text(),
     hp: new F.SchemaField({ current: integer(), max: integer(), temp: integer() }),
+    size: new F.StringField({required:false,blank:false,initial:"medium",choices:CREATURE_SIZES}),
     speed: number(),
     spellRange: number(),
     combatDie: text(),
@@ -84,6 +86,7 @@ export class CharacterModel extends T {
     preparePermanentRacialStats(this);
     prepareRoleDefenses(this);
     prepareConditionDefenses(this);
+    prepareConditionSpeed(this);
     prepareHpLimit(this);
   }
 }
@@ -99,9 +102,9 @@ export class NPCModel extends T {
   prepareDerivedData() {
     super.prepareDerivedData();
     prepareConditionDefenses(this);
+    prepareConditionSpeed(this);
     prepareHpLimit(this);
-    const caster=projectionCaster(this.parent);
-    const ac=caster?.system?.ac;
+    const ac=projectionArmorForActor(this.parent);
     if(ac && [ac.partial,ac.success,ac.great].every(Number.isFinite)){
       this.ac.partial=ac.partial;
       this.ac.success=ac.success;

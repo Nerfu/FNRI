@@ -1,8 +1,7 @@
 import {tokenDistance,sameScene,hasCondition} from './geometry.mjs';
-import {projectionCaster} from '../projection/projection.mjs';
 import {weaponTraitOptions} from '../equipment/weapon-traits.mjs';
 import {standingLineObstacles} from './attack-line.mjs';
-import {formationForTarget} from './formation.mjs';
+import {isAreaAttack} from '../rolls/attack-properties.mjs';
 /** Snapshot the chosen source and declared target BEFORE opening preroll.
  * Provides independently toggleable attack modifiers. No new user manual UI.
  * Defender's "Застигнут врасплох" is NOT an attacker-side checkbox.
@@ -22,8 +21,7 @@ function spellRangeAtDistance(source,target,spellRange,distanceSpaces){
 }
 export function directedSpellSpatialContext({origin,targetTokens=[],spellRange=null,properties='',
   scene=globalThis.canvas?.scene,grid=globalThis.canvas?.grid,tokens=globalThis.canvas?.tokens?.placeables??[]}={}){
-  const props=propertySet(properties);
-  if(targetTokens.length!==1||!scene||grid?.isSquare!==true||props.includes('область действия')||props.includes('area'))return null;
+  if(targetTokens.length!==1||!scene||grid?.isSquare!==true||isAreaAttack(properties))return null;
   const source=tokens.find(t=>t?.document?.uuid&&t.document.uuid===origin?.tokenUuid),target=targetTokens[0];
   if(!source||!sameScene(source,target))return null;
   return spellRangeAtDistance(source,target,spellRange,tokenDistance(source,target,grid));
@@ -32,17 +30,14 @@ export function spatialAttackContext({origin,targetTokens=[],weaponItem=null,att
   properties='',spellRange=null,scene=globalThis.canvas?.scene,grid=globalThis.canvas?.grid,
   tokens=globalThis.canvas?.tokens?.placeables??[]}={}){
   const target=targetTokens?.length===1?targetTokens[0]:null;
-  const out={entries:[],distanceSpaces:null,lineCreatures:[],formation:null,
-    offGuardFromFormation:false,warnings:[]};
+  const out={entries:[],distanceSpaces:null,lineCreatures:[],warnings:[]};
   if(!target || !scene || grid?.isSquare!==true)return out;
   const source=tokens.find(t=>t?.document?.uuid && t.document.uuid===origin?.tokenUuid);
   if(!source || !sameScene(source,target))return out;
   out.distanceSpaces=tokenDistance(source,target,grid);
-  out.formation=formationForTarget(target,tokens,{grid});
-  out.offGuardFromFormation=out.formation?.surrounded===true;
   // No directed hindrances on area attacks; area targets belong to players/GM.
   const props=[...propertySet(properties),...propertySet(weaponItem?.system?.properties)];
-  if(props.includes('область действия')||props.includes('area'))return out;
+  if(isAreaAttack([properties,weaponItem?.system?.properties].filter(Boolean).join(', ')))return out;
   const directed=['melee','ranged'].includes(attackKind);
   if(!directed)return out;
   // Spell distance is advisory, never a weapon second-distance penalty.
@@ -90,15 +85,20 @@ export function spatialAttackContext({origin,targetTokens=[],weaponItem=null,att
  * prepared Actor defense already includes -2 if the condition is applied.
  * Surrounding does not create an ActiveEffect or a persistent combat log.
  */
-export function spatialDefenderSnapshot(snapshot,{formation=null}={},targetActor=null){
-  if(snapshot?.status!=='one'||!formation?.surrounded)return snapshot;
+export function invisibleAttackSource(actor,origin,{tokens=globalThis.canvas?.tokens?.placeables??[]}={}){
+  const source=origin?.tokenUuid?tokens.find(t=>(t.document??t)?.uuid===origin.tokenUuid):null;
+  if(origin?.kind==='projection'&&!source)return false;
+  return hasCondition(source?.actor??actor,['invisible']);
+}
+export function spatialDefenderSnapshot(snapshot,{formation=null,attackOffGuard=false}={},targetActor=null){
+  if(snapshot?.status!=='one'||(!formation?.surrounded&&!attackOffGuard))return snapshot;
+  const circumstance={surrounded:formation?.surrounded===true,...(attackOffGuard?{attackOffGuard:true}:{})};
   // The source condition was prepared into current defenses already.
-  const already=hasCondition(targetActor,['prone','grabbed','offguard']) ||
-    hasCondition(projectionCaster(targetActor),['prone','grabbed','offguard']);
-  if(already)return {...snapshot,surrounded:true,defenseAdjusted:false};
-  if(snapshot.ac)return {...snapshot,surrounded:true,defenseAdjusted:true,
+  const already=hasCondition(targetActor,['prone','grabbed','offguard']);
+  if(already)return {...snapshot,...circumstance,defenseAdjusted:false};
+  if(snapshot.ac)return {...snapshot,...circumstance,defenseAdjusted:true,
     ac:Object.fromEntries(Object.entries(snapshot.ac).map(([k,v])=>[k,v-2]))};
-  if(Number.isFinite(snapshot.difficulty))return {...snapshot,surrounded:true,
+  if(Number.isFinite(snapshot.difficulty))return {...snapshot,...circumstance,
     defenseAdjusted:true,difficulty:snapshot.difficulty-2};
   return snapshot;
 }

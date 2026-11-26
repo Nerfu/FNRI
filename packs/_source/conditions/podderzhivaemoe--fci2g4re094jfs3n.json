@@ -19,7 +19,7 @@
     {
       "_id": "f7Status00000010",
       "name": "Поддерживаемое",
-      "img": "icons/svg/aura.svg",
+      "img": "icons/magic/control/energy-stream-link-spiral-teal.webp",
       "type": "base",
       "showIcon": 2,
       "statuses": [
@@ -47,5 +47,6 @@
       "source": "Fast NRI 7.0 rulebook.md / Состояния"
     }
   },
-  "_id": "fci2g4re094jfs3n"
+  "_id": "fci2g4re094jfs3n",
+  "img": "icons/magic/control/energy-stream-link-spiral-teal.webp"
 }

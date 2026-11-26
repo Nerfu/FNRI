@@ -17,7 +17,7 @@
     {
       "_id": "f7Hindrance00001",
       "name": "Частичное укрытие",
-      "img": "icons/svg/aura.svg",
+      "img": "icons/skills/melee/shield-block-gray-orange.webp",
       "type": "base",
       "showIcon": 2,
       "statuses": [
@@ -44,5 +44,6 @@
       "source": "Fast NRI 7.0 rulebook.md / Штрафы помехи"
     }
   },
-  "_id": "fci023hzod5kbmxr"
+  "_id": "fci023hzod5kbmxr",
+  "img": "icons/skills/melee/shield-block-gray-orange.webp"
 }

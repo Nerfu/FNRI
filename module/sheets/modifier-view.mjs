@@ -4,10 +4,10 @@ import {actorRoleDefinition} from '../data/roles.mjs';
 import {racialPropertyRule,racialContentId} from '../data/racial-properties.mjs';
 import {permanentRacialStats} from '../data/character-contributions.mjs';
 import {equipmentDefensePreview} from '../equipment/item-properties.mjs';
-import {isOffGuard} from '../effects/condition-calculations.mjs';
+import {isOffGuard,isSlowed,isFrightened,isWeakened} from '../effects/condition-calculations.mjs';
 import {readEffectChangeRows} from '../effects/effect-formulas.mjs';
 import {resolveSkillAllocation} from '../data/skill-allocation.mjs';
-import {projectionCaster} from '../projection/projection.mjs';
+import {projectionBorrowedArmor,projectionArmorForActor} from '../projection/projection.mjs';
 import {itemSlot} from '../equipment/equipment.mjs';
 import {ruleComponents} from '../rolls/roll-contributions.mjs';
 import {potionResource} from '../data/potion-resource.mjs';
@@ -19,6 +19,7 @@ const show=v=>v===null||v===undefined||v===''?'—':String(v);
 const signed=v=>typeof v==='number'&&v>0?`+${v}`:show(v);
 export function modifierGroups(actor,t=k=>k){
   const raw=actor.toObject?.(true)?.system??actor.system??{}, effective=actor.system??{};
+  const borrowed=projectionArmorForActor(actor);
   const base=JSON.parse(JSON.stringify(raw));
   const pc=actor.type==='character';
   if(pc)prepareClassBaseStats(base);
@@ -36,7 +37,7 @@ export function modifierGroups(actor,t=k=>k){
     if(p==='potionMax')return t('Potions.name');
     return (g==='ac'?t('Fields.acShort')+' · ':'')+t('Fields.'+(p==='hp.max'?'hpMax':k??g));
   };
-  const group=p=>{if(!groups.has(p))groups.set(p,{name:label(p),total:show(get(effective,p)),sources:[]});return groups.get(p);};
+  const group=p=>{if(!groups.has(p))groups.set(p,{name:label(p),total:show(p.startsWith('ac.')&&borrowed?get({ac:borrowed},p):get(effective,p)),sources:[]});return groups.get(p);};
   const add=(p,source,value,note)=>group(p).sources.push({source,value:show(value),note});
   for(const [k,v] of Object.entries(role?.defenses??{}))add('defenses.'+k,role.name,signed(v),t('ModifierView.permanent'));
   if(pc){
@@ -55,10 +56,9 @@ export function modifierGroups(actor,t=k=>k){
       for(const k of ['partial','success','great'])add('ac.'+k,item.name,signed(Number.isFinite(authored)?authored:item.bonus),t(item.bonus===preview.protection&&preview.protection>0?'ModifierView.nonstack':'ModifierView.notSelected'));
     }
   }
-  const caster=!pc?projectionCaster(actor):null;
-  const casterAc=caster&&['partial','success','great'].every(k=>Number.isFinite(caster.system?.ac?.[k]));
-  if(isOffGuard(actor))for(const p of paths.filter(p=>(p.startsWith('ac.')&&!casterAc||p.startsWith('defenses.'))&&Number.isFinite(get(effective,p))))add(p,t('ModifierView.offGuard'),'-2',t('ModifierView.once'));
-  if(casterAc)for(const k of ['partial','success','great'])add('ac.'+k,t('ModifierView.projection'),caster.system.ac[k],t('ModifierView.replacement'));
+  const casterAc=!pc?projectionBorrowedArmor(actor):null;
+  if(casterAc)for(const k of ['partial','success','great'])add('ac.'+k,t('ModifierView.projection'),casterAc[k],t('ModifierView.replacement'));
+  if(isOffGuard(actor))for(const p of paths.filter(p=>(p.startsWith('ac.')||p.startsWith('defenses.'))&&Number.isFinite(p.startsWith('ac.')&&borrowed?get({ac:borrowed},p):get(effective,p))))add(p,t('ModifierView.offGuard'),'-2',t('ModifierView.once'));
   const contextual=(rows,source,active=true)=>{
     for(const row of Array.isArray(rows)?rows:[]){
       if(!row||typeof row!=='object')continue;
@@ -118,6 +118,9 @@ export function modifierGroups(actor,t=k=>k){
       contextual([{kinds,skillId,defenseStat,kind:'modifier',value:modifier},{kinds,skillId,defenseStat,kind:'replacement',...replace}],effect.name,active);
     }
   }
+  if(Number.isFinite(effective.speed)&&isSlowed(actor))add('speed',t('ModifierView.slowed'),'÷ 2',t('ModifierView.once'));
+  if(isFrightened(actor))add('contextual.d20Check',t('ModifierView.frightened'),'-2',t('ModifierView.frightenedScope'));
+  if(isWeakened(actor))add('contextual.damage',t('ModifierView.weakened'),'-2',t('ModifierView.weakenedScope'));
   for(const p of paths){
     const b=get(base,p),e=get(effective,p);
     if(b!==e&&!groups.get(p)?.sources.length)add(p,t('ModifierView.unknown'),show(e),'');

@@ -6,7 +6,7 @@ import {postDefenseChoices,publishPostDefenseDamage} from './post-defense-damage
 import {selectAreaDamageParts} from './area-damage-profile.mjs';
 import {ATTACK_DEGREES,resolveAttackDegree,resolveCheckDegree,naturalAttackingD20} from '../rolls/attack-core.mjs';
 import {CHECK_DEFENSES, messageIntervention} from '../rolls/attack-properties.mjs';
-import {prepareRoll,finalizeRollEffects,redactActorSourceForAudience} from '../rolls/roll-context.mjs';
+import {prepareRoll,finalizeRollEffects,redactActorSourceForAudience,defenseConditionSummary} from '../rolls/roll-context.mjs';
 import {counteractionFormula} from './counteraction.mjs';
 import {areaInterventionChoices} from './area-card-interventions.mjs';
 import {publishWithFollowUpOffers,availableAreaFollowUps,applyAreaFollowUp} from './area-follow-ups.mjs';
@@ -134,10 +134,26 @@ export function areaCoverCandidates(message, defender) {
   });
 }
 
+// Public snapshots contain degrees, not the target's private thresholds.
+// A changed shared check cannot safely reuse those degrees or infer them
+// from the target's current (possibly changed) statistics.
+export function areaCheckState(root){
+  const base=baseOf(root);
+  if(!base)return null;
+  const {card,area}=base;
+  const correction=root.getFlag(ID,'rollEditNative0');
+  const originalTotal=card.originalAttackTotal??root.rolls?.[0]?.total??area.attackTotal;
+  const total=correction?.currentTotal??area.attackTotal;
+  const changedD20=(correction?.components??[]).some(p=>p.kind==='die'&&p.faces===20&&
+    (p.added||p.excluded||p.value!==p.original));
+  return {total,changed:total!==originalTotal||changedD20};
+}
+
 export function resolveAreaResults(root,interventions=[]){
   const base=baseOf(root);
   if(!base)return null;
   const {card,area}=base;
+  const check=areaCheckState(root);
   return area.targets.map(t=>{
     // New snapshots retain only a degree, not private target AC/defense
     // values. A legacy work-in-progress snapshot may still hold thresholds.
@@ -147,6 +163,7 @@ export function resolveAreaResults(root,interventions=[]){
     let degree=ATTACK_DEGREES.includes(t.initialDegree)?t.initialDegree:
       (calculation?.ok?calculation.degree:null);
     const related=interventions.filter(r=>r.targetKey===t.key);
+    if(check.changed || related.some(r=>r.attackCheckTotal!=null&&r.attackCheckTotal!==check.total))degree=null;
     for(const intervention of related){
       if(!degree||!intervention.success)continue;
       if(intervention.naturalD20===20 && intervention.naturalTwentyCancels!==false){degree='failure';continue;}
@@ -175,7 +192,7 @@ export async function rollAreaIntervention(message,{skipPreroll=false}={}){
   const token=await targetToken(),actor=actorForToken(token);
   if(!actor||!canWrite(actor))return null;
   const capturedAudience=chatAudience(source);
-  const standalone=choice=>standaloneIntervention(actor,null,{choice,source:capturedAudience,skipPreroll});
+  const standalone=choice=>standaloneIntervention(actor,null,{choice,source:capturedAudience,skipPreroll,defenseToken:token});
   if(!base||!canReadChatContent(root)||!sameCoverAudience(root,capturedAudience))return standalone();
   const areaTarget = recipient => base.area.targets.find(target =>
     target.uuid===recipient.document?.uuid && recipient.document?.hidden!==true);
@@ -223,14 +240,15 @@ export async function rollAreaIntervention(message,{skipPreroll=false}={}){
   const formulaForActor=a=>chosen.formula??counteractionFormula(a,stat);
   const formula=formulaForActor(actor);
   if(!formula){ui.notifications?.warn('Не определена формула Защиты.');return standalone(chosen);}
-  const context=await prepareRoll({actor,kind:'intervention',defenseStat:stat,formula,
+  const context=await prepareRoll({actor,kind:'intervention',defenseStat:stat,defenseToken:token,usesDefenseStat:!chosen.formula,attackOffGuard:base.area.targets.some(t=>t.uuid===token.document?.uuid&&t.attackOffGuard===true),formula,
     formulaForActor,sourceItem:chosen.item,skipDialog:skipPreroll,label:kind});
   if(!context)return null;
   const roll=await new Roll(context.expression,context.actor?.getRollData?.()??{}).evaluate();
   const naturalD20=naturalAttackingD20(roll);
   const publishIndependent=()=>declareAction({actor,item:chosen.item,label:kind,source:capturedAudience,isIntervention:true,execution:{accounting:chosen.accounting},roll,context});
   if(naturalD20===null) {ui.notifications?.warn('Не определён результат d20 Вмешательства.');return publishIndependent();}
-  const success=naturalD20===20 || (naturalD20!==1&&roll.total>=base.area.attackTotal);
+  const attackCheckTotal=areaCheckState(root).total;
+  const success=naturalD20===20 || (naturalD20!==1&&roll.total>=attackCheckTotal);
   // Movement and safe destination are player/GM decisions; a checkbox records the result.
   let safe=false;
   if(chosen.kind==='dodge'&&success&&naturalD20!==20){
@@ -244,7 +262,7 @@ export async function rollAreaIntervention(message,{skipPreroll=false}={}){
   const record={version:1,rootMessageId:id,targetKey:target.key,targetName:target.name,kind,
     kindKey:chosen.kind,degreeReduction:chosen.reduction,
     naturalTwentyCancels:chosen.naturalTwentyCancels,
-    success,safe,
+    success,safe,attackCheckTotal,
     ...(chosen.kind==='dodge'?{movement,knockedDown}:{}),naturalD20,total:roll.total};
   // Movement and the native condition remain under participant control; the
   // complete decision is visible in this self-contained intervention message.
@@ -255,7 +273,7 @@ export async function rollAreaIntervention(message,{skipPreroll=false}={}){
     (success&&naturalD20!==20?' · '+game.i18n.localize(
       safe?'FASTNRI.AreaIntervention.safe':'FASTNRI.AreaIntervention.inside'):'') : '';
   const draft=await roll.toMessage({
-    flavor:`${esc(kind)} · ${esc(target.name)} — ${success?'Успех':'Провал'}${esc(notice)}`
+    flavor:`${esc(kind)} · ${esc(target.name)} — ${success?'Успех':'Провал'}${esc(notice)}${esc(defenseConditionSummary(context))}`
   },{create:false,messageMode:'public'});
   // The preroll/choice may have been open while someone deleted the attack.
   // If the linked calculation is stale, publish the already evaluated Roll
@@ -308,7 +326,7 @@ function resultsFor(message){
   const current=active(message),id=rootId(current),root=game.messages?.get(id);
   if(!current||!root||!canReadChatContent(current)||!canReadChatContent(root))return null;
   const result=snapshotOf(current);
-  return {root,rows:result?.version===1?result.results:resolveAreaResults(root,[])};
+  return {root,rows:result?.version===1&&!areaCheckState(root)?.changed?result.results:resolveAreaResults(root,[])};
 }
 async function selectedRecipients(message,{manual=false}={}){
   const all=[...(globalThis.canvas?.tokens?.controlled??[])];
@@ -316,13 +334,16 @@ async function selectedRecipients(message,{manual=false}={}){
   return all.filter(t=>manual || t.document?.hidden!==true && allowed.has(t.document?.uuid))
     .filter(t=>canWrite(actorForToken(t)));
 }
-function latestDamageReport(root,actor){
+export function latestAreaDamageReport(root,token){
+  const actor=actorForToken(token);
+  const tokenUuid=token?.document?.uuid;
+  if(!actor?.uuid||!tokenUuid)return null;
   return records().filter(m=>canRead(m)).reverse().find(m=>{
     const report=m.getFlag?.(ID,'hpReport');
     return report?.version===1 && report.kind==='damage' && report.reverted!==true &&
       report.pendingUndo!==true && report.sourceMessageId===root.id &&
       report.sourceRevision===(root.getFlag(ID,'weaponDamage')?.revision??0) &&
-      report.actorUuid===actor.uuid;
+      report.actorUuid===actor.uuid && report.tokenUuid===tokenUuid;
   })??null;
 }
 /** One explicit click for the selected recipients; no message is edited.
@@ -385,7 +406,7 @@ export async function applyAreaDamage(message,{degree=null,effect=false,both=fal
     if(effect||both){
       // Manual effect-only application may follow a previous HP click. The
       // afterDamage/requiresDamage conditions use its real, per-target report.
-      const confirmed=both?report:(report??latestDamageReport(resolved.root,actor));
+      const confirmed=both?report:(report??latestAreaDamageReport(resolved.root,token));
       const preview=await attackOutcomeForDamageCard(resolved.root,{
         target:actor,damageReportId:confirmed?.id??null,effectDegreeOverride:useDegree});
       let manualOutcomes=0;
@@ -505,10 +526,10 @@ export function renderAreaChat(message,html){
       const label=rerolled?game.i18n.localize('FASTNRI.GameReroll.currentDice'):'Кубы';
       const nativeTotals=html.querySelectorAll?.('.dice-roll .dice-total')??[];
       const nativePair=root===message&&message.getFlag(ID,'weaponAttack')&&message.rolls?.length===2&&nativeTotals.length===2&&
-        Number(nativeTotals[0].textContent?.trim())===attack.area.attackTotal&&Number(nativeTotals[1].textContent?.trim())===message.rolls[1].total;
+        Number(nativeTotals[0].textContent?.trim())===areaCheckState(root)?.total&&Number(nativeTotals[1].textContent?.trim())===message.rolls[1].total;
       // Only remove a duplicate when the actual native attack total is present.
       const diceText=`${label}: ${parts(attack.card).map(p=>p.value).join(' + ')||'—'}`;
-      total.textContent=nativePair?diceText:`Общая атака: ${attack.area.attackTotal??'—'} · ${diceText}`;
+      total.textContent=nativePair?diceText:`Общая атака: ${areaCheckState(root)?.total??'—'} · ${diceText}`;
       if(nativePair)for(const [i,caption] of ['Общая атака','Урон'].entries()){
         const roll=nativeTotals[i].closest?.('.dice-roll');
         if(roll&&!roll.querySelector('[data-fnri-area-roll-label]')){const name=document.createElement('small');name.dataset.fnriAreaRollLabel='';name.textContent=caption;roll.prepend(name);}
@@ -525,7 +546,7 @@ export function renderAreaChat(message,html){
         }
       }
     }
-    const rows=result?.version===1?result.results:resolveAreaResults(message,[]);
+    const rows=result?.version===1?(areaCheckState(root)?.changed?result.results.map(row=>({...row,degree:null,damage:null})):result.results):resolveAreaResults(message,[]);
     for(const degree of ATTACK_DEGREES.slice().reverse()){
       const matches=rows.filter(r=>r.degree===degree);
       if(!matches.length)continue;

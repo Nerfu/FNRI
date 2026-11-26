@@ -14,7 +14,7 @@ export function cardEffectLinks(item) {
 
 export function registerChatEffectDrag() {
   Hooks.on('renderChatMessageHTML', (_message,html)=>{
-    if(!html?.querySelectorAll)return;
+    if(!html?.querySelectorAll || (_message?.getFlag?.('fast-nri-v14','conditionReminder')||_message?.getFlag?.('fast-nri-v14','effectEndingReport')))return;
     // Native Item links are an existing way of posting a card to chat.
     // Expose its separate effect names without a new publication/apply button.
     for(const link of html.querySelectorAll('a.content-link[data-uuid]')) {

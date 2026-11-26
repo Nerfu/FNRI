@@ -234,7 +234,6 @@
 .fast-nri-v14.fast-nri-sheet .fnri-collapsible { display: block; }
 .fast-nri-v14.fast-nri-sheet .fnri-collapsible > summary { cursor: pointer; font-size: .94rem; font-weight: 600; }
 .fast-nri-v14.fast-nri-sheet .fnri-collapsible[open] > summary { margin-bottom: 9px; }
-.fast-nri-v14.fast-nri-sheet .fnri-skill-filter { min-width: 145px; max-width: 190px; }
 .fast-nri-v14.fast-nri-sheet .fnri-skill-group { margin-top: 11px; }
 .fast-nri-v14.fast-nri-sheet .fnri-skill-group-toggle {
   display: block; text-align: left; font-weight: 600; padding: 6px 7px;
@@ -841,3 +840,40 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fast-nri-v14.fast-nri-sheet .fnri-modifier-row > strong { flex: 0 0 auto; max-width: 45%; }
 .fast-nri-v14.fast-nri-sheet .fnri-modifier-row small { display: block; opacity: .8; }
 .fast-nri-v14.fast-nri-sheet .fnri-role-benefits { padding-inline-start: 1.3em; }
+
+/* S.2: three distinct cells, including rows with a legacy group selector. */
+.fast-nri-v14.fast-nri-sheet [data-fnri-panel="skills"] .fnri-custom-skill-row {align-items:start; min-width:0;}
+.fnri-custom-skill-row .fnri-skill-edit-only {min-width:0;}
+.fnri-custom-skill-row [data-row-field="group"] {margin-top:4px;}
+.fnri-custom-skill-row .fnri-legacy-field {grid-column:1 / -1;}
+.fnri-spec-hint {display:grid;gap:3px;margin-bottom:6px;}
+.fnri-saved-skills,.fnri-ungrouped-specializations {margin-bottom:8px;}
+.fast-nri-v14.fast-nri-sheet .fnri-saved-skill {display:grid;align-items:center;}
+
+/* 0.2.1 visual audit: respond to actual sheet content width, not just
+   the desktop viewport. The application frame and native resizing stay intact. */
+.fast-nri-v14.fast-nri-sheet .fnri-body { container: fnri-sheet / inline-size; min-width: 0; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-body :is(.fnri-grid-2,.fnri-grid-3,.fnri-grid-4) > label {
+  justify-content: flex-end;
+  overflow-wrap: anywhere;
+}
+.fast-nri-v14.fast-nri-sheet .fnri-item-body .fnri-critical-rules { margin-block: 9px; }
+.fast-nri-v14.fast-nri-sheet .fnri-item-body :is(.fnri-defense-settings,.fnri-weapon-property-reference) {
+  border-top: 1px solid var(--color-border-light-tertiary,#8886);
+  margin-block-start: 9px; padding-block-start: 8px;
+}
+@container fnri-sheet (max-width: 640px) {
+  .fast-nri-v14.fast-nri-sheet .fnri-summary-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .fast-nri-v14.fast-nri-sheet .fnri-form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@container fnri-sheet (max-width: 540px) {
+  .fast-nri-v14.fast-nri-sheet :is(.fnri-grid-3,.fnri-grid-4) { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .fast-nri-v14.fast-nri-sheet .fnri-effect-create { grid-template-columns: minmax(0,1fr) 75px; }
+  .fast-nri-v14.fast-nri-sheet .fnri-effect-create button { grid-column: 1 / -1; }
+}
+@container fnri-sheet (max-width: 390px) {
+  .fast-nri-v14.fast-nri-sheet .fnri-form-grid { grid-template-columns: 1fr; }
+  .fast-nri-v14.fast-nri-sheet .fnri-attack-slot .fnri-slot-name { min-width: 85px; }
+  .fast-nri-v14.fast-nri-sheet .fnri-attack-slot { gap: 5px; }
+  .fast-nri-v14.fast-nri-sheet .fnri-attack-slot.fnri-unarmed-row { grid-template-columns: minmax(80px,85px) minmax(0,1fr) max-content 34px; }
+}

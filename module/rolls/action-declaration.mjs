@@ -2,7 +2,7 @@
 import {createSpellResultMessage} from '../data/private-area-source.mjs';
 import {finishCardAccounting} from '../data/ability-accounting.mjs';
 import {canReadChatContent,chatAudience,currentMessageMode} from '../data/chat-visibility.mjs';
-import {redactActorSourceForAudience,finalizeRollEffects} from './roll-context.mjs';
+import {redactActorSourceForAudience,finalizeRollEffects,defenseConditionSummary} from './roll-context.mjs';
 const ID='fast-nri-v14';
 export const escapeActionText=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 export const actionText=k=>game.i18n.localize(`FASTNRI.SheetActions.${k}`);
@@ -19,7 +19,7 @@ export async function declareAction({actor,item=null,label,description='',isInte
   const details=description&&globalThis.foundry?.applications?.ux?.TextEditor?.enrichHTML
     ? await foundry.applications.ux.TextEditor.enrichHTML(String(description),{secrets:false,relativeTo:item??actor})
     : escapeActionText(description);
-  const rollSummary=Number.isFinite(roll?.total)?`<p>${escapeActionText(roll.formula??context?.expression??'')} = <strong>${roll.total}</strong></p>`:'';
+  const rollSummary=Number.isFinite(roll?.total)?`<p>${escapeActionText(roll.formula??context?.expression??'')} = <strong>${roll.total}</strong>${escapeActionText(defenseConditionSummary(context))}</p>`:'';
   const content=`<article class="fnri-action-declaration"><strong>${escapeActionText(label)}</strong>${details?`<div>${details}</div>`:''}${rollSummary}<p>${escapeActionText(actionText('manualConsequences'))}</p></article>`;
   const audience=actionAudience(source),redact=redactActorSourceForAudience(actor,audience);
   const data={speaker:actionSpeaker(actor,audience),...audience,content,

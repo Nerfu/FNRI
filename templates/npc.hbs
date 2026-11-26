@@ -74,6 +74,7 @@
   
   <div class="fnri-form-grid fnri-identity-grid">
 <label>{{localize "FASTNRI.Fields.name"}}<input type="text" name="name" value="{{actor.name}}" {{#unless editable}}disabled{{/unless}}></label>
+<label>{{localize "FASTNRI.CreatureSize.label"}}<select name="system.size" {{#unless editable}}disabled{{/unless}}>{{#each creatureSizeOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
 <label>{{localize "FASTNRI.Fields.rank"}}<input type="text" name="system.rank" value="{{system.rank}}" {{#unless editable}}disabled{{/unless}}></label>
 <label>{{localize "FASTNRI.Fields.role"}}<input type="text" name="system.role" value="{{system.role}}" {{#unless editable}}disabled{{/unless}}></label>
 <label>{{localize "FASTNRI.Fields.weight"}}<input class="fnri-number" type="text" data-dtype="Number" inputmode="decimal" name="system.weight" value="{{system.weight}}" {{#unless editable}}disabled{{/unless}}></label>
@@ -117,7 +118,10 @@
 {{> fnri-actor-short-rest}}
 </div>
 {{> fnri-actor-actions}}
-<div class="fnri-tab-content" data-fnri-panel="skills" {{#unless tabs.skills}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.skills"}}</h3><div class="fnri-row-head"><label class="fnri-skill-filter fnri-skill-read-only">{{localize "FASTNRI.Fields.skillFilter"}}<select data-fnri-skill-filter><option value="all" {{#unless skillFilterAssigned}}selected{{/unless}}>{{localize "FASTNRI.Fields.skillAll"}}</option><option value="assigned" {{#if skillFilterAssigned}}selected{{/if}}>{{localize "FASTNRI.Fields.skillAssigned"}}</option></select></label></div>
+<div class="fnri-tab-content" data-fnri-panel="skills" {{#unless tabs.skills}}hidden{{/unless}}><section class="fnri-panel "><h3>{{localize "FASTNRI.Sections.skillsAndSpecializations"}}</h3>
+{{#if specializationStatus.showHint}}<div class="fnri-spec-hint" data-fnri-lock-section><small>{{localize "FASTNRI.SkillAllocation.specHint"}}</small>{{#each specializationStatus.warnings}}<small class="fnri-racial-warning" data-spec-warning="{{this.code}}">{{this.label}}</small>{{/each}}</div>{{/if}}
+{{#if ungroupedSpecializations}}<div class="fnri-skill-group fnri-ungrouped-specializations"><small>{{localize "FASTNRI.SkillAllocation.unassignedSpecializations"}}</small><div class="fnri-stack">{{#each ungroupedSpecializations}}{{> fnri-actor-custom-skill}}{{/each}}</div></div>{{/if}}
+{{#unless showCustomSkills}}{{#if skillRows}}<div class="fnri-skill-group fnri-saved-skills"><small>{{localize "FASTNRI.SkillAllocation.savedSkills"}}</small><div class="fnri-stack">{{#each skillRows}}<div class="fnri-skill-row fnri-saved-skill" data-skill-row="{{this.id}}"><span class="fnri-skill-cell">{{this.name}}</span><span class="fnri-skill-cell" title="{{this.displayFormula.hint}}">{{this.displayFormula.arrow}}{{#if this.displayFormula.arrow}} {{/if}}{{this.displayFormula.base}}{{this.displayFormula.suffix}}</span><div class="fnri-skill-row-actions"><button type="button" data-action="rollSkill" data-id="{{this.id}}" title="{{localize 'FASTNRI.Actions.rollSkill'}}"><i class="fa-solid fa-dice-d20"></i></button></div></div>{{/each}}</div></div>{{/if}}{{/unless}}
 <div class="fnri-core-skills">
  {{#each catalogGroups}}
  <div class="fnri-skill-group">
@@ -129,18 +133,18 @@
  {{> fnri-actor-core-skill}}
  {{/each}}
  <div class="fnri-group-specializations-list">{{#if this.specializations}}<small>{{localize "FASTNRI.Fields.specialization"}}</small>{{/if}}
- {{#each this.specializations}}{{> fnri-actor-custom-skill}}{{/each}}{{#if @root.editable}}<button type="button" data-action="addSpecialization" data-group="{{this.id}}">{{localize "FASTNRI.Actions.addSpecialization"}}</button>{{/if}}</div>
+ {{#each this.specializations}}{{> fnri-actor-custom-skill}}{{/each}}{{#if @root.specializationStatus.canAdd}}{{#if @root.editable}}<button type="button" data-action="addSpecialization" data-group="{{this.id}}">{{localize "FASTNRI.Actions.addSpecialization"}}</button>{{/if}}{{/if}}</div>
  </div>
  </div></div>
  {{/each}}
  </div>
- <div class="fnri-skill-group fnri-custom-group">
+ {{#if showCustomSkills}}<div class="fnri-skill-group fnri-custom-group">
  <button type="button" class="fnri-skill-group-toggle" data-action="toggleSkillGroup" data-group="custom" aria-expanded="{{#if customGroupExpanded}}true{{else}}false{{/if}}">{{localize "FASTNRI.Sections.customChecks"}}</button>
  <div data-fnri-skill-group-content="custom" {{#unless customGroupExpanded}}hidden{{/unless}}>
  <div class="fnri-skill-column-head fnri-custom-head" aria-hidden="true"><span>{{localize "FASTNRI.Fields.name"}}</span><span>{{localize "FASTNRI.Fields.dice"}}</span><span></span></div>
  <div class="fnri-stack">{{#each skillRows}}
 {{> fnri-actor-custom-skill}}
-{{/each}}{{#if editable}}<button type="button" data-action="addSkill">{{localize "FASTNRI.Actions.addSkill"}}</button>{{/if}}</div></div></div></section></div>
+{{/each}}{{#if editable}}<button type="button" data-action="addSkill">{{localize "FASTNRI.Actions.addSkill"}}</button>{{/if}}</div></div></div>{{/if}}</section></div>
 <div class="fnri-tab-content" data-fnri-panel="abilities" {{#unless tabs.abilities}}hidden{{/unless}}>{{> fnri-actor-abilities}}</div>
 <div class="fnri-tab-content" data-fnri-panel="inventory" {{#unless tabs.inventory}}hidden{{/unless}}>
 <section class="fnri-panel"><h3>{{localize "FASTNRI.Sections.inventory"}}</h3>

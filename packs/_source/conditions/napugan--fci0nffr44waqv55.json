@@ -19,7 +19,7 @@
     {
       "_id": "f7Status00000007",
       "name": "Напуган",
-      "img": "icons/svg/aura.svg",
+      "img": "icons/magic/control/fear-fright-mask-orange.webp",
       "type": "base",
       "showIcon": 2,
       "statuses": [
@@ -36,6 +36,7 @@
         "fast-nri-v14": {
           "conditionId": "frightened",
           "requiresManualResolution": true,
+          "effectEnding": "general",
           "rulesRef": "rulebook.md#состояния"
         }
       }
@@ -47,5 +48,6 @@
       "source": "Fast NRI 7.0 rulebook.md / Состояния"
     }
   },
-  "_id": "fci0nffr44waqv55"
+  "_id": "fci0nffr44waqv55",
+  "img": "icons/magic/control/fear-fright-mask-orange.webp"
 }

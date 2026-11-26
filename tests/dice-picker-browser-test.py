@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 
 root = Path(__file__).resolve().parents[1]
 template=(root/'templates'/'actor-custom-skill.hbs').read_text()
-for required in ('data-fnri-single-dice','this.diceOptions','data-fnri-custom-dice','data-row-field="kind"','data-row-field="dice"'):
+for required in ('data-fnri-single-dice','this.diceOptions','data-fnri-custom-dice','data-row-field="dice"'):
     assert required in template,required
 
 html = '''<section id="sheet">
@@ -79,7 +79,7 @@ with sync_playwright() as p:
         # Document re-render must not hide the blank custom editor.
         result = page.evaluate('''async () => {
           const ctx = await window.sheet._prepareContext({});
-          const row = ctx.skillRows.find(row => row.id === 's1');
+          const row = ctx.ungroupedSpecializations.find(row => row.id === 's1');
           return {visible: row.hasCustomDice,
             selected: row.specializationDiceOptions.find(option => option.selected)?.value};
         }''')

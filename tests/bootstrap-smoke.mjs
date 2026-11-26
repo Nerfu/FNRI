@@ -26,7 +26,7 @@ class SheetMock {
 const deletes=Symbol('Foundry v14 _del');
 globalThis._del=deletes;
 globalThis.Hooks={once(name,fn){hooks.set(name,fn)},on(name,fn){hooks.set(name,fn)}};
-globalThis.CONFIG={Combat:{initiative:{}},Token:{},TextEditor:{enrichers:[]},Actor:{dataModels:{thirdPartyActor:class{}}},Item:{dataModels:{thirdPartyItem:class{}}}};
+globalThis.CONFIG={statusEffects:{dead:{id:'dead',name:'Dead'}},Combat:{initiative:{}},Token:{hudClass:class {static DEFAULT_OPTIONS={actions:{effect:{buttons:[0,2],handler(){}}}};}},TextEditor:{enrichers:[]},Actor:{dataModels:{thirdPartyActor:class{}}},Item:{dataModels:{thirdPartyItem:class{}}}};
 globalThis.game={settings:{get:(_scope,key)=>key==='skillAllocationMode'?'free':'public',register(){},registerMenu(scope,key,data){registrations.push({scope,key,data})}},system:{id:'fast-nri-v14'},user:{isGM:false},i18n:{localize(key){return key;}}};
 let warnings=0,errors=0;
 globalThis.ui={notifications:{warn(){warnings++;},error(){errors++;}}};
@@ -43,6 +43,9 @@ installTemplateMock();
 await import(pathToFileURL(file('main.mjs')).href);
 assert.ok(hooks.has('init'));
 hooks.get('init')();
+assert.equal(Object.keys(CONFIG.statusEffects).filter(k=>k.startsWith('fnri7-')).length,16);
+assert.equal(CONFIG.statusEffects.dead.name,'Dead');
+assert.equal(CONFIG.statusEffects['fnri7-grabbed'].showIcon,2);
 assert.deepEqual(Object.keys(CONFIG.Actor.dataModels).sort(),['character','npc','thirdPartyActor']);
 assert.deepEqual(Object.keys(CONFIG.Item.dataModels).sort(),['ability','armor','gear','item','thirdPartyItem','weapon']);
 assert.equal(registrations.filter(x=>Array.isArray(x)).length,3);
@@ -54,12 +57,12 @@ for(const model of [CONFIG.Actor.dataModels.character.defineSchema(),CONFIG.Acto
   assert.equal(model.skills.args[0].constructor,Field,'skills value has schema');
   assert.equal(model.skills.args[1].required,false);
   const initial = model.skills.args[1].initial();
-  assert.equal(Object.keys(initial).length, 18, 'Rulebook 7.0 base catalogue is complete');
+  assert.equal(Object.keys(initial).length, 16, 'Rulebook 7.0 base catalogue is complete');
   assert.equal(initial.core_acrobatics.name,'Акробатика');
   assert.equal(initial.core_intimidation.name,'Запугивание');
   assert.equal(initial.core_athletics.dice,'', 'new skills begin without an assigned cube');
-  assert.equal(initial.starter_primary.dice, '1d6');
-  assert.equal(initial.starter_secondary.dice, '1d4');
+  assert.equal(initial.starter_primary, undefined);
+  assert.equal(initial.starter_secondary, undefined);
   assert.notEqual(initial, model.skills.args[1].initial(), 'new Actors receive independent skill dictionaries');
   const checkSchema=model.skills.args[0].args[0];
   for(const key of ['name','kind','dice','modifier','value'])assert.ok(checkSchema[key],key);
@@ -171,21 +174,21 @@ for(const Cls of [FastNRICharacterSheet,FastNRINPCSheet]){
 const actor=actorFactory();const sheet=new FastNRICharacterSheet({actor});
 let ctx=await sheet._prepareContext({});
 assert.equal(ctx.tabs.characteristics,true);
-assert.equal(ctx.skillRows.length,2);
+assert.equal(ctx.skillRows.length,1);
 assert.equal(ctx.resourceRows.length,1);
 assert.equal(ctx.attackHands[0].id,'i1');
 assert.equal(ctx.attackHands[1].id,'');
 assert.equal(ctx.unarmedAction.name,'Безоружная атака');
 assert.equal(ctx.inventoryItems.find(x=>x.id==='i1').isEquipped,true);
 assert.equal(ctx.skillRows[0].hasLegacyValue,true,'draft numeric values remain visible, not erased');
-assert.equal(ctx.skillRows[1].isSpecialization,true);
+assert.equal(ctx.ungroupedSpecializations[0].isSpecialization,true);
 
 assert.deepEqual(ctx.skillRows[0].skillDiceOptions.slice(1,6).map(option => option.value),
   ['1d4','1d6','1d8','1d10','1d12']);
-assert.deepEqual(ctx.skillRows[1].specializationDiceOptions.slice(1,3).map(option => option.value),
+assert.deepEqual(ctx.ungroupedSpecializations[0].specializationDiceOptions.slice(1,3).map(option => option.value),
   ['1d6','1d4']);
 assert.equal(ctx.skillRows[0].skillDiceOptions.find(option => option.selected).value,'1d8');
-assert.equal(ctx.skillRows[1].specializationDiceOptions.find(option => option.selected).value,'__stored__');
+assert.equal(ctx.ungroupedSpecializations[0].specializationDiceOptions.find(option => option.selected).value,'__stored__');
 assert.equal(ctx.skillRows[0].hasCustomDice,false);
 
 assert.equal(ctx.missingEquipment.leftHand,false);
@@ -260,14 +263,14 @@ assert.equal(actor.system.skills.beta.value,7);
 
 // Arbitrarily many entries; specialized rows use the same addressable collection.
 for(let i=0;i<12;i++)await actions.addSkill.call(sheet);
-for(let i=0;i<17;i++)await actions.addSpecialization.call(sheet);
+for(let i=0;i<17;i++)await actions.addSpecialization.call(sheet,null,{dataset:{group:"physical"}});
 assert.equal(Object.keys(actor.system.skills).length,31);
 assert.equal(Object.values(actor.system.skills).filter(x=>x.kind==='specialization').length,18);
 await actions.addSkill.call(sheet);
 const newSkill=Object.keys(actor.system.skills).find(id=>id.startsWith('testid'));
 assert.ok(newSkill);
 assert.deepEqual(actor.system.skills[newSkill],{name:'',kind:'skill',dice:'',modifier:null,value:null});
-await actions.addSpecialization.call(sheet);
+await actions.addSpecialization.call(sheet,null,{dataset:{group:"physical"}});
 const specialId=Object.keys(actor.system.skills).at(-1);
 assert.equal(actor.system.skills[specialId].kind,'specialization');
 const specialDice=makeControl({dataset:{rowCollection:'skills',rowId:specialId,rowField:'dice'},value:'3d12 + 1d4'});
@@ -408,7 +411,7 @@ for(const path of ['templates/character.hbs','templates/npc.hbs']){
  assert.ok(html.includes('data-action="rollAbility"'));
  assert.ok(html.includes(path.includes('character')?'data-fnri-hp-math':'data-fnri-quick-hp'));
  assert.ok(html.includes('data-fnri-save-state'));
- assert.ok(html.includes('data-fnri-skill-filter'));
+ assert.ok(!html.includes('data-fnri-skill-filter'));
  assert.equal((html.match(/data-fnri-section=/g)||[]).length,6);
  assert.ok(html.includes('data-action="createEffect"'));
  assert.ok(html.includes('data-row-field="dice"'));

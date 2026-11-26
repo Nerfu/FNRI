@@ -9,6 +9,7 @@ import {
 import {
   readEffectChangeRows, evaluateEffectFormula, calculateEffectChangePlan, CALC_SCOPE, CALC_KEY
 } from './effect-formulas.mjs';
+import {effectEndingMode,supportsEndingChoice} from './effect-ending.mjs';
 import { mayManageEffect } from './effects-panel-core.mjs';
 
 const t = key => game.i18n.localize(`FASTNRI.EffectPanel.${key}`);
@@ -103,6 +104,11 @@ export async function openEffectParametersEditor(actor, effect) {
   const state=readEffectState(effect);
   const duration=effect.duration ?? {};
   const rows=readEffectChangeRows(effect);
+  const ending=effectEndingMode(effect);
+  const endingField=supportsEndingChoice(effect)?
+    `<label class="fnri-ep-field"><span>${escapeHtml(t('EndingMode'))}</span><select name="endingMode">`+
+    ['', 'general','particular'].map(mode=>`<option value="${mode}" ${mode===ending?'selected':''}>${escapeHtml(t('EndingMode_'+(mode||'unset')))}</option>`).join('')+
+    `</select></label>`:'';
   const editField=(field,key,value,opts='') =>
     `<label class="fnri-ep-field"><span>${escapeHtml(t(key))}</span>`+
     `<input name="${field}" type="number" value="${escapeHtml(val(value))}" ${opts}></label>`;
@@ -122,7 +128,7 @@ export async function openEffectParametersEditor(actor, effect) {
     `<select name="durationUnits">`+
     (!DURATION_UNITS.includes(duration.units) ? `<option value="" selected>${escapeHtml(t('DurationUnchanged'))}</option>` : '')+
     DURATION_UNITS.map(unit=>`<option value="${unit}" ${duration.units===unit?'selected':''}>${escapeHtml(t('Unit_'+unit))}</option>`).join('')+
-    `</select></label></fieldset>`+
+    `</select></label>`+endingField+`</fieldset>`+
     `</section>`;
 
   const choice=await foundry.applications.api.DialogV2.wait({
@@ -193,6 +199,11 @@ export async function openEffectParametersEditor(actor, effect) {
     row.appliedValue!==rows[i].appliedValue || row.formula!==rows[i].formula || row.auto!==rows[i].auto))
     throw Error(t('ChangesChanged'));
   const patch={};
+  if(supportsEndingChoice(effect)&&['','general','particular'].includes(choice.fields.endingMode)&&choice.fields.endingMode!==ending){
+    if(effectEndingMode(effect)!==ending)throw Error(t('ParametersChanged'));
+    if(choice.fields.endingMode)patch['flags.fast-nri-v14.effectEnding']=choice.fields.endingMode;
+    else patch['flags.fast-nri-v14.-=effectEnding']=null;
+  }
   if (JSON.stringify(state)!==JSON.stringify(nextState))
     patch['flags.fast-nri-v14.effectState']=nextState;
   if (duration.value!==nextDuration.value || duration.units!==nextDuration.units)

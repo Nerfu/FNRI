@@ -377,3 +377,49 @@ const chosenRodAttack=await sendOtherItemAttack(wizardSpell,actor,{...rangeOptio
 assert.ok(attackFlag(chosenRodAttack).weaponTraitIds.includes('spellweapon'));assert.ok(!attackFlag(chosenRodAttack).weaponTraitIds.includes('guided'));
 actor.system=savedActorSystem;actor.items=savedActorItems;globalThis.canvas=savedCanvas;globalThis.ui=savedUi;
 console.log('PASS actual spell attack integration: chosen weapon range, focus, selected-only traits');
+
+// P.2.3: actual attack and directed check entry points calculate formation only
+// at confirmation; use a distant witness whose side is read only by formation.
+const {sendAttackSnapshot}=await import('../module/weapon/weapon-attack.mjs');
+const {postCheckRoll}=await import('../module/rolls/checks.mjs');
+const testScene={id:'formation-confirm'},testGrid={size:100,isSquare:true,measurePath:([a,b])=>({spaces:Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y))/100})};
+const combatantActor=id=>({uuid:`Actor.${id}`,type:'npc',hasPlayerOwner:true,system:{hp:{current:10},equipment:{},ac:{partial:10,success:15,great:20},defenses:{reflex:10}},effects:{contents:[]},items:{contents:[]}});
+const ft=(id,a,x,y,side)=>({name:id,actor:a,document:{uuid:`Scene.formation-confirm.Token.${id}`,parent:testScene,x:x*100,y:y*100,width:1,height:1,disposition:side}});
+const victim=ft('victim',combatantActor('victim'),0,0,1),enemy1=ft('enemy1',combatantActor('enemy1'),1,0,-1),enemy2=ft('enemy2',combatantActor('enemy2'),0,1,-1),witness=ft('witness',combatantActor('witness'),15,15,1);
+let scans=0;Object.defineProperty(witness.document,'disposition',{get(){scans++;return 1;}});
+globalThis.canvas={scene:testScene,grid:testGrid,tokens:{placeables:[victim,enemy1,enemy2,witness],controlled:[]}};
+globalThis.ui={notifications:{warn(){}}};
+const confirmOpts={actor,name:'Formation confirmation',profile:{A:'1d10',B:'1d4',C:4},expression:'1d20 + 1d10',targetTokens:[victim],spatialOrigin:{tokenUuid:enemy1.document.uuid}};
+foundry.applications.api.DialogV2.wait=async cfg=>{assert.equal(scans,0,'no formation scan in preroll');assert.doesNotMatch(cfg.content,/Угрозы:|Строй:|Цель окружена/);enemy2.document.y=100;return acceptPreroll(cfg);};
+enemy2.document.y=900;nextD20=12;nextTotal=14;
+const confirmedAttack=await sendAttackSnapshot(confirmOpts);
+assert.equal(scans,1);assert.equal(attackFlag(confirmedAttack).spatialConditions.surrounded,true);assert.equal(attackFlag(confirmedAttack).attackDegree,'success');
+scans=0;const confirmedArea=await sendAttackSnapshot({...confirmOpts,properties:'Область действия',skipPreroll:true});
+assert.equal(scans,1,'one target area scans only once');assert.equal(attackFlag(confirmedArea).areaAttack.targets[0].initialDegree,'success');
+scans=0;const multiArea=await sendAttackSnapshot({...confirmOpts,targetTokens:[victim,enemy1],properties:'Область действия',skipPreroll:true});assert.equal(scans,2,'one scan per area target');assert.equal(attackFlag(multiArea).areaAttack.targets.length,2);
+scans=0;const singleCheck=await postCheckRoll({actor,formula:'1d20',label:'Check',targetDefense:'reflex',targetTokens:[victim],compareEachTarget:true,skipPreroll:true});
+assert.equal(scans,1,'single directed comparison reuses snapshot');assert.equal(singleCheck.result.degree,singleCheck.targetResults[0].degree);
+scans=0;await postCheckRoll({actor,formula:'1d20',label:'Check',targetDefense:'reflex',targetTokens:[victim,enemy1],compareEachTarget:true,skipPreroll:true});assert.equal(scans,2);
+globalThis.canvas=savedCanvas;globalThis.ui=savedUi;
+console.log('PASS P.2.3 confirmation: single formation scan per target, no preroll scan, one and multiple area/check recipients');
+
+// The actual attack pipeline must use the invisible source only for its own attack.
+globalThis.canvas={scene:testScene,grid:testGrid,tokens:{placeables:[victim,enemy1,enemy2],controlled:[]}};
+globalThis.ui={notifications:{warn(){}}};
+enemy1.actor.effects.contents=[{statuses:new Set(['fnri7-invisible'])}];
+nextD20=12;nextTotal=14;
+const invisibleAttack=await sendAttackSnapshot({...confirmOpts,actor:enemy1.actor,skipPreroll:true});
+assert.equal(attackFlag(invisibleAttack).spatialConditions.threats,1);
+assert.equal(attackFlag(invisibleAttack).spatialConditions.surrounded,false);
+assert.equal(attackFlag(invisibleAttack).attackOffGuard,true);
+assert.equal(attackFlag(invisibleAttack).attackDegree,'success');
+nextD20=12;nextTotal=14;
+const visibleAttack=await sendAttackSnapshot({...confirmOpts,actor:enemy2.actor,spatialOrigin:{tokenUuid:enemy2.document.uuid},skipPreroll:true});
+assert.equal(attackFlag(visibleAttack).attackOffGuard,undefined);
+assert.equal(attackFlag(visibleAttack).attackDegree,'partial');
+nextD20=12;nextTotal=14;
+const invisibleArea=await sendAttackSnapshot({...confirmOpts,actor:enemy1.actor,properties:'Область действия',skipPreroll:true});
+assert.equal(attackFlag(invisibleArea).areaAttack.targets[0].attackOffGuard,true);
+assert.equal(victim.actor.effects.contents.length,0);
+globalThis.canvas=savedCanvas;globalThis.ui=savedUi;
+console.log('R104 actual attack pipeline: invisible source local consequence, visible source unaffected, area snapshot: PASS');

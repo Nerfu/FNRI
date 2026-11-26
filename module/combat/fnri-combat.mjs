@@ -1,5 +1,7 @@
 /** Native v14 Combat lifecycle, following the technical pattern used by PF2e
  * and dnd5e systems. Core invokes _onEndTurn on one designated active GM. */
+import {remindConditionsAtTurnStart,expireInformationalMarkers} from '../effects/condition-turn.mjs';
+import {settleGeneralEffectEndTurn} from '../effects/effect-ending-turn.mjs';
 import {settlePeriodicEndTurn} from '../damage/periodic-turn.mjs';
 import {settleTempHpTurnStart,settleTempHpTurnEnd} from '../damage/temporary-hp-layers.mjs';
 import {combatStartResourceUpdate} from '../data/classes.mjs';
@@ -39,12 +41,23 @@ export class FastNRICombat extends foundry.documents.Combat {
   }
   async _onStartTurn(combatant,context) {
     await super._onStartTurn(combatant,context);
-    await settleTempHpTurnStart(this,combatant,context);
+    try {await settleTempHpTurnStart(this,combatant,context);}
+    catch(error){console.error('Fast NRI | temporary HP start failed',error); }
+    try {await remindConditionsAtTurnStart(this,combatant,context);}
+    catch(error){console.warn('Fast NRI | condition reminder failed',error);}
   }
   async _onEndTurn(combatant,context) {
     await super._onEndTurn(combatant,context);
     if (context?.skipped || !this.started) return;
-    await settlePeriodicEndTurn(this,combatant,context);
-    await settleTempHpTurnEnd(this,combatant,context);
+    // A failed subsystem must not prevent the other independent end-turn work.
+    for (const [label,settle] of [
+      ['periodic damage',settlePeriodicEndTurn],
+      ['general effect ending',settleGeneralEffectEndTurn],
+      ['temporary HP',settleTempHpTurnEnd],
+      ['marker expiry',expireInformationalMarkers]
+    ]) {
+      try {await settle(this,combatant,context);}
+      catch(error){console.error(`Fast NRI | ${label} end-turn failed`,error);}
+    }
   }
 }

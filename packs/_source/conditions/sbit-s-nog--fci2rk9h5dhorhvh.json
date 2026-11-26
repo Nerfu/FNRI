@@ -19,7 +19,7 @@
     {
       "_id": "f7Status00000001",
       "name": "Сбит с ног",
-      "img": "icons/svg/aura.svg",
+      "img": "icons/magic/control/silhouette-fall-slip-prone.webp",
       "type": "base",
       "showIcon": 2,
       "statuses": [
@@ -47,5 +47,6 @@
       "source": "Fast NRI 7.0 rulebook.md / Состояния"
     }
   },
-  "_id": "fci2rk9h5dhorhvh"
+  "_id": "fci2rk9h5dhorhvh",
+  "img": "icons/magic/control/silhouette-fall-slip-prone.webp"
 }

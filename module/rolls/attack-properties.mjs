@@ -13,7 +13,7 @@ export function isAreaAttack(properties) {
   return /(?:^|[,;\s])(?:область действия|area)(?:$|[,;\s])/i.test(String(properties));
 }
 
-export function selectedTargetSnapshot(targets, defense='ac') {
+export function selectedTargetSnapshot(targets, defense='ac',{attackOffGuard=false}={}) {
   const tokens = [...(targets ?? [])];
   if (tokens.length !== 1) return {status:tokens.length ? 'multiple' : 'none',name:null};
   const [token] = tokens;
@@ -35,9 +35,9 @@ export function selectedTargetSnapshot(targets, defense='ac') {
   // Check once for this target; do not create/persist an ActiveEffect.
   const scene=globalThis.canvas?.scene,grid=globalThis.canvas?.grid;
   if(snapshot.status!=='one'||!scene||grid?.isSquare!==true ||
-    token?.document?.parent?.id!==scene.id)return snapshot;
+    token?.document?.parent?.id!==scene.id)return spatialDefenderSnapshot(snapshot,{attackOffGuard},token?.actor);
   const formation=formationForTarget(token,globalThis.canvas?.tokens?.placeables??[],{grid});
-  return spatialDefenderSnapshot(snapshot,{formation},token.actor);
+  return {...spatialDefenderSnapshot(snapshot,{formation,attackOffGuard},token.actor),formation};
 }
 export function normalizeAttackKind(kind) {
   const value=String(kind??'').trim().toLowerCase();

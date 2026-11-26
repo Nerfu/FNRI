@@ -19,7 +19,7 @@
     {
       "_id": "f7Status00000008",
       "name": "Не может действовать",
-      "img": "icons/svg/aura.svg",
+      "img": "icons/skills/social/wave-halt-stop.webp",
       "type": "base",
       "showIcon": 2,
       "statuses": [
@@ -47,5 +47,6 @@
       "source": "Fast NRI 7.0 rulebook.md / Состояния"
     }
   },
-  "_id": "fci1z8fppwflzs16"
+  "_id": "fci1z8fppwflzs16",
+  "img": "icons/skills/social/wave-halt-stop.webp"
 }

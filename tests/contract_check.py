@@ -69,7 +69,7 @@ for name in ('character','npc'):
         assert 'data-fnri-single-dice' in custom and 'data-fnri-dice-picker="{{this.diceKind}}"' in custom
         assert 'data-fnri-custom-dice' in custom
         assert 'this.diceOptions' in custom
-        assert 'data-row-field="kind"' in custom
+        assert 'data-row-field="kind"' not in custom
         assert 'data-action="addSpecialization"' in src
     else:
         assert 'data-action="openSkillEditor"' not in src and 'data-action="toggleCharacterEditor"' not in src
@@ -94,7 +94,7 @@ for name in ('character','npc'):
     assert ('data-action="toggleQuickHp"' in src) == (name=='npc')
     assert ('data-fnri-quick-hp' in src) == (name=='npc')
     assert 'data-fnri-save-state' in src
-    assert 'data-fnri-skill-filter' in src
+    assert 'data-fnri-skill-filter' not in src
     assert 'data-fnri-skill-group-content' in src and 'data-fnri-skill-entry' in custom
     assert 'data-action="rollAbility"' in src
     assert src.count('data-fnri-section=') == 6

@@ -1,3 +1,4 @@
+import {activeConditionEffect, effectHasStatus} from '../effects/active-effect.mjs';
 /** Explicit attack circumstances supplied by native ActiveEffects.
  * An effect represents an observed condition, NOT a second native stat change.
  * It is read on demand at attack declaration; no canvas lighting or walls.
@@ -19,15 +20,13 @@ function applicableEffects(actor){
     const result=typeof actor.allApplicableEffects==='function'
       ? [...actor.allApplicableEffects()]
       : [...(actor.effects?.contents??[])];
-    return result.filter(e=>e && e.disabled!==true && e.active!==false &&
-      e.isSuppressed!==true && e.duration?.expired!==true &&
-      e.flags?.[SCOPE]?.effectState?.strength!==0);
+    return result.filter(activeConditionEffect);
   } catch{return [];}
 }
 function conditionId(effect){
   const marked=String(effect?.flags?.[SCOPE]?.conditionId??'').trim();
   if(CONDITIONS.has(marked))return marked;
-  for(const key of CONDITIONS.keys())if(effect?.statuses?.has?.(`fnri7-${key}`))return key;
+  for(const key of CONDITIONS.keys())if(effectHasStatus(effect,key))return key;
   return null;
 }
 export function attackVision(actor){
@@ -47,8 +46,20 @@ function readableTarget(target){
   return typeof target.testUserPermission==='function' &&
     target.testUserPermission(game.user,'OBSERVER');
 }
+// Private circumstances are resolved manually using the existing generic
+// switches. Even a GM's public attack must not publish a private effect's
+// identity via fixed-roll component labels or flags.
+function privateCircumstance(effect){
+  const f=effect?.flags?.[SCOPE]??{};
+  const sourceId=f.abilityResultMessageId??f.periodicDamage?.sourceMessageId;
+  const source=sourceId?globalThis.game?.messages?.get?.(sourceId):null;
+  return effect.showIcon===0||effect.hidden===true||f.hidden===true||
+    f.privateToGm===true||f.attackOutcomeApplication===true||f.periodicDamage?.privateToGm===true||
+    !!(sourceId&&(!source||source.blind||source.whisper?.length));
+}
 export function targetHindranceEntries({attacker=null,target=null,targetToken=null,area=false}={}){
-  if(area || !target)return [];
+  if(area || !target || targetToken?.hidden===true ||
+    targetToken?.document?.hidden===true || targetToken?.visible===false)return [];
   const fullAccess=readableTarget(target);
   // Visible token-status icons are a legitimate source even without Observer
   // permission for the entire target Actor. Hide effects that have no public
@@ -57,7 +68,7 @@ export function targetHindranceEntries({attacker=null,target=null,targetToken=nu
   const vision=attackVision(attacker),found=[];
   const duplicateCounts=new Map();
   for(const effect of applicableEffects(target)){
-    if(!fullAccess && (!publicToken || effect.showIcon!==2))continue;
+    if(privateCircumstance(effect) || (!fullAccess && (!publicToken || effect.showIcon!==2)))continue;
     const id=conditionId(effect),rule=CONDITIONS.get(id);
     if(!rule)continue;
     if(rule.light==='dim' && vision!=='normal')continue;

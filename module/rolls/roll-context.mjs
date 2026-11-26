@@ -1,3 +1,6 @@
+import {activeConditionEffect} from '../effects/active-effect.mjs';
+import {defenseFormationForActor} from '../spatial/formation.mjs';
+import {isFrightened,isOffGuard} from '../effects/condition-calculations.mjs';
 import {specializationEntries,preparedSpecializationEntry} from '../data/specializations.mjs';
 import {cardContributionEntry,buildRollContributionCatalog,ruleComponents,nonStackingSelections,roleContributionEntry} from './roll-contributions.mjs';
 import {weaponTraitEntry,weaponTraitOptions} from '../equipment/weapon-traits.mjs';
@@ -5,6 +8,7 @@ import {abilityAccountingStatus,finishCardAccounting} from '../data/ability-acco
 import {attackAugmentEntries} from './attack-augmentations.mjs';
 import {attackSituationalEntries} from './attack-situational.mjs';
 import {targetHindranceEntries} from './attack-hindrance.mjs';
+import {isAreaAttack} from './attack-properties.mjs';
 /**
  * Per-roll ActiveEffect preparation. Native effects already present in prepared
  * Actor data are filtered on an ephemeral Actor clone, never by mutating a
@@ -81,8 +85,7 @@ function configuredRule(effect, {kind, skillId, defenseStat}) {
 /** Discover only effects whose influence on THIS kind of roll can be proven. */
 export function applicableRollEffects(actor, params = {}) {
   if (!actor || !KINDS.has(params.kind)) return [];
-  return effectsOf(actor).filter(effect => effect && effect.disabled !== true &&
-      effect.active !== false && effect.isSuppressed !== true && effect.duration?.expired !== true)
+  return effectsOf(actor).filter(activeConditionEffect)
     .map(effect => {
       const allNativeChanges = effect.system?.changes ?? [];
       const nativeChanges = Array.isArray(allNativeChanges) ? allNativeChanges
@@ -310,11 +313,8 @@ export function renderRollPreparation(effects, {label='',formula='',spatialInfo=
       `<div data-fnri-preview-breakdown></div></details>`+
     `<small data-fnri-preview-error role="status" aria-live="polite"></small>`+
     (label?`<p class="fnri-preroll-action">${safe(label)}</p>`:'')+
-    (spatialInfo?.formation||Number.isFinite(spatialInfo?.spellRange) ? `<div class="fnri-spatial-info">`+
-      `<small>Дистанция: ${safe(spatialInfo.distanceSpaces ?? '—')}${Number.isFinite(spatialInfo.spellRange)?` / ${safe(spatialInfo.spellRange)}`:''} клеток`+
-      (spatialInfo.formation?` · Угрозы: ${safe(spatialInfo.formation.threats)} · Строй: ${safe(spatialInfo.formation.formation)}`+
-      `${spatialInfo.formation.surrounded?' · Цель окружена':''}`+
-      `${spatialInfo.formation.uncertain?' · Стороны неизвестны':''}`:'')+`</small>`+
+    (Number.isFinite(spatialInfo?.distanceSpaces)||Number.isFinite(spatialInfo?.spellRange) ? `<div class="fnri-spatial-info">`+
+      `<small>Дистанция: ${safe(spatialInfo.distanceSpaces ?? '—')}${Number.isFinite(spatialInfo.spellRange)?` / ${safe(spatialInfo.spellRange)}`:''} клеток</small>`+
       (spatialInfo.spellRangeWarning?`<small class="fnri-spell-range-warning">${safe(spatialInfo.spellRangeWarning)}</small>`:'')+`</div>` : '')+
     `<div class="fnri-preroll-effects">${specializations.length?`<div class="fnri-preroll-entry fnri-preroll-group"><strong class="fnri-preroll-source">${safe(pr('specializations'))}</strong>${specializations.join('')}${specializations.length>1?`<small class="fnri-preroll-group-note">${safe(pr('multipleSpecializations'))}</small>`:''}</div>`:''}${penaltyGroup}${otherGroups}${rows}</div>`+
     `<div class="fnri-preroll-manual"><div class="fnri-preroll-manual-head">`+
@@ -346,7 +346,7 @@ export function sanitizeManualComponents(items=[]) {
 }
 
 export async function computeRollPreview({actor=null, available=[], selected=available,
-  formula='', formulaForActor=null, manual=[]} = {}) {
+  formula='', formulaForActor=null, manual=[],baseAdjustment=0} = {}) {
   const choices = new Map(selected.map(entry => [entry.uuid,entry]));
   const excluded = available.filter(entry => entry.effect && entry.native && !choices.has(entry.uuid));
   const partial = new Map();
@@ -357,7 +357,8 @@ export async function computeRollPreview({actor=null, available=[], selected=ava
     if (omitted.length) partial.set(entry.uuid, omitted);
   }
   const rollActor = await actorWithoutEffects(actor, excluded, partial);
-  const base = formulaForActor ? String(formulaForActor(rollActor) ?? '') : String(formula ?? '');
+  const rawBase = formulaForActor ? String(formulaForActor(rollActor) ?? '') : String(formula ?? '');
+  const base = baseAdjustment ? `${rawBase} + (${baseAdjustment})` : rawBase;
   selected=selected.flatMap(entry=>{
     if(entry.specializationId)return [preparedSpecializationEntry(entry,rollActor)].filter(row=>selectedRollParts(row).length);
     if(!entry.combatMasterItem)return [entry];
@@ -618,15 +619,41 @@ export function applyDirectRollModifiers(expression, selected) {
   return result;
 }
 
+/** A check has a d20 in its base expression, not just in an optional addition.
+ * Damage/healing amounts are not checks. Effect-ending callers identify their
+ * purpose explicitly; do not infer it from the label or a localized name.
+ * One synthetic contribution represents all currently active sources.
+ */
+export function frightenedCheckEntry(actor, {kind,formula='',formulaForActor=null,effectEnding=false}={}) {
+  if (effectEnding || !['skill','attack','ability','intervention','maneuver'].includes(kind) || !isFrightened(actor)) return null;
+  let expression=String((formulaForActor?formulaForActor(actor):formula) ?? '');
+  if (expression.includes('@') && typeof globalThis.Roll?.replaceFormulaData==='function')
+    expression=Roll.replaceFormulaData(expression,actor?.getRollData?.()??{});
+  if (!/(?<![\w.])(?:[1-9]\d*)?d20(?!\d)/i.test(expression)) return null;
+  const name=pr('frightened');
+  return {uuid:'condition:frightened',sourceUuid:null,sourceType:'condition',
+    id:'frightened',name,effect:null,native:false,nativeChanges:[],actorOwned:false,
+    onUse:'none',modifier:'-2',replacement:null,
+    parts:[{id:'check-modifier',kind:'modifier',label:name,value:'-2'}]};
+}
+
+/** Spatial off-guard changes the defensive characteristic at confirmation,
+ * not the list of selectable roll modifiers. Already prepared conditions do not stack. */
+export function surroundedDefenseAdjustment(actor,{defenseStat,defenseToken=null,usesDefenseStat=false,attackOffGuard=false}={}){
+  if(!usesDefenseStat||!['awareness','fortitude','reflex','will'].includes(defenseStat)||isOffGuard(actor))return 0;
+  return (attackOffGuard||defenseFormationForActor(actor,defenseToken)?.surrounded)?-2:0;
+}
+
 /** Shared roll preparation for skills, attacks, abilities and interventions. */
 export async function prepareRoll({actor = null, kind, skillId = null, defenseStat = null,
   formula = '', formulaForActor = null, skipDialog = false, label = '',sourceItem=null,weaponItem=null,attackKind=null,
-  extraEntries=[],prerollEntries=[],spatialInfo=null,targetActor=null,targetToken=null,attackProperties='',usesCombatDie=false,declaredTargets=[],declaredSpellWeapon=false } = {}) {
-  const area=String(attackProperties??'').toLowerCase().includes('область действия') ||
-    String(attackProperties??'').toLowerCase().includes('area');
+  extraEntries=[],prerollEntries=[],spatialInfo=null,targetActor=null,targetToken=null,attackProperties='',usesCombatDie=false,declaredTargets=[],declaredSpellWeapon=false,effectEnding=false,defenseToken=null,usesDefenseStat=false,attackOffGuard=false } = {}) {
+  const frightened=frightenedCheckEntry(actor,{kind,formula,formulaForActor,effectEnding});
+  const area=isAreaAttack(attackProperties);
   const isAttack=kind==='attack';
   const directed=isAttack && !area;
   const available = [...(kind==='skill' ? specializationEntries(actor,skillId) : []),
+    ...(frightened?[frightened]:[]),
     ...applicableRollContributions(actor,{kind,skillId,defenseStat,formula,sourceItem,weaponItem,attackKind,usesCombatDie,declaredTargets,declaredSpellWeapon}),
     ...(Array.isArray(prerollEntries) ? prerollEntries : []),
     ...(directed && Array.isArray(extraEntries) ? extraEntries : []),
@@ -637,11 +664,13 @@ export async function prepareRoll({actor = null, kind, skillId = null, defenseSt
     weaponItem,sourceItem,attackProperties});
   if (choice === null) return null;
   const {manual} = choice;
-  const {actor:rollActor,expression,selected} = await computeRollPreview({actor,available,selected:choice.selected,
-    formula,formulaForActor,manual});
-  return { actor: rollActor, expression, selected,
+  const baseAdjustment=kind==='intervention'&&!effectEnding?surroundedDefenseAdjustment(actor,{defenseStat,defenseToken,usesDefenseStat,attackOffGuard}):0;
+  const defenseOffGuard=kind==='intervention'&&!effectEnding&&usesDefenseStat&&['awareness','fortitude','reflex','will'].includes(defenseStat)&&(baseAdjustment===-2||isOffGuard(actor));
+  const {actor:rollActor,base,expression,selected} = await computeRollPreview({actor,available,selected:choice.selected,
+    formula,formulaForActor,manual,baseAdjustment});
+  return { actor: rollActor, expression, selected,defenseOffGuard,
     hindrance:hindranceSummary(selected),
-    manual,contributions:buildRollContributionCatalog({actor,sourceItem,formula,
+    manual,contributions:buildRollContributionCatalog({actor,sourceItem,formula:baseAdjustment?base:formula,
       available:available.map(entry=>entry.combatMasterItem||entry.specializationId?(selected.find(row=>row.uuid===entry.uuid)??entry):entry),selected,manual}),
     snapshot:[...selected.map(x=>({uuid:x.uuid,name:x.name,sourceType:x.sourceType??'effect',native:x.native,
       nativeChanges:selectedRollParts(x).filter(p=>p.kind==='native'),
@@ -657,6 +686,11 @@ export async function prepareRoll({actor = null, kind, skillId = null, defenseSt
       const enabled=new Set(selectedEntry?selectedRollParts(selectedEntry).map(p=>p.id):[]);
       return entry.parts.filter(p=>!enabled.has(p.id)).map(p=>({uuid:entry.uuid,partId:p.id}));
     }) };
+}
+
+/** Result-only label, never part of the selectable preroll contributions. */
+export function defenseConditionSummary(context){
+  return context?.defenseOffGuard ? ` · ${game.i18n.localize('FASTNRI.ModifierView.offGuard')} −2` : '';
 }
 
 /** ChatMessage flags are stored on the message, not under Actor permissions.
@@ -823,10 +857,18 @@ export function fixedRollComponents(context,{redact=false}={}) {
       label:redact?pr('fixedComponent'):label,
       source:redact?null:source,formula:String(value),excluded:false});
   };
+  const winners=nonStackingSelections(context?.selected??[]);
   for(const entry of context?.selected??[])
-    for(const part of selectedRollParts(entry))
-      if(part.kind==='modifier')add(part.value,`${entry.name}: ${part.label??pr('component')}`,
-        entry.sourceUuid??entry.uuid);
+    for(const part of selectedRollParts(entry)) {
+      if(part.kind!=='modifier')continue;
+      // The editor may change only a term actually included in the Roll.
+      // Other checked sources of hindrance remain in the preroll catalog.
+      if(part.nonStackingGroup){
+        const winner=winners.get(part.nonStackingGroup)?.winner;
+        if(winner?.entry!==entry.uuid||winner?.part!==part.id)continue;
+      }
+      add(part.value,`${entry.name}: ${part.label??pr('component')}`,entry.sourceUuid??entry.uuid);
+    }
   for(const [i,part] of (context?.manual??[]).entries())
     add(part.value,part.comment||`${pr('manual')} ${i+1}`,null);
   return result;
