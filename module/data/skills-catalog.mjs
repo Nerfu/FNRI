@@ -84,7 +84,7 @@ export const BASIC_SKILLS = Object.freeze(
   },
   {
     "id": "persuasion",
-    "name": "Убеждение",
+    "name": "Дипломатия",
     "group": "social",
     "description": "Честные доводы, переговоры, поиск компромисса, поддержка доверия и склонение собеседника к сотрудничеству."
   },

@@ -27,7 +27,7 @@ html = '''<section id="sheet">
          data-row-field="dice" value="1d8" hidden>
 </section>'''
 shim = '''
-window.game={i18n:{localize:key=>key}};
+window.game={i18n:{localize:key=>key},settings:{get:(_s,k)=>k==='skillAllocationMode'?'free':'public'}};
 window.ui={notifications:{warn:()=>{},error:()=>{}}};
 class FakeActorSheetV2 {
   constructor({actor}={}) {this.actor=actor;this.isEditable=true;this.element=document.getElementById('sheet');}
@@ -71,10 +71,10 @@ with sync_playwright() as p:
         page.wait_for_function("window.actor.system.skills.s1.dice === '1d4'")
         assert not page.locator(custom).is_visible()
         page.locator(special).select_option('__custom__')
-        page.wait_for_function("window.actor.system.skills.s1.dice === ''")
         assert page.locator(custom).is_visible()
-        assert page.locator(custom).input_value() == ''
-        # The empty formula already means a 1d20 check, with no old 1d4.
+        assert page.locator(custom).input_value() == '1d4'
+        assert page.evaluate("window.actor.system.skills.s1.dice") == '1d4'
+        # Opening the editor preserves the current formula until an explicit edit.
         assert page.evaluate("window.sheet._customDiceEditors.has('s1')")
         # Document re-render must not hide the blank custom editor.
         result = page.evaluate('''async () => {
@@ -96,11 +96,11 @@ with sync_playwright() as p:
         page.locator(skill).select_option('1d6')
         page.wait_for_function("window.actor.system.skills.s1.dice === '1d6'")
         assert not page.locator(custom).is_visible()
-        # The same clearing rule works for ordinary skills.
+        # Ordinary skills also preserve their value on opening.
         page.locator(skill).select_option('__custom__')
-        page.wait_for_function("window.actor.system.skills.s1.dice === ''")
         assert page.locator(custom).is_visible()
-        assert page.locator(custom).input_value() == ''
+        assert page.locator(custom).input_value() == '1d6'
+        assert page.evaluate("window.actor.system.skills.s1.dice") == '1d6'
         page.locator(skill).select_option('1d8')
         page.wait_for_function("window.actor.system.skills.s1.dice === '1d8'")
         assert not page.locator(custom).is_visible()
@@ -111,4 +111,4 @@ with sync_playwright() as p:
         page.close()
     finally:
         browser.close()
-print('PASS: Chromium presets, custom selection clears old dice immediately, editor survives rerender, no sentinel persistence')
+print('PASS: Chromium presets, custom selection preserves old dice until edited, editor survives rerender, no sentinel persistence')

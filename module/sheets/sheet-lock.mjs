@@ -12,7 +12,7 @@ export function hideWhenLocked(control) {
 const LIVE_FIELDS = new Set(['system.hp.current','system.hp.temp','system.potionsUsed','system.wealth','system.notes']);
 export function configurationControl(control) {
   const d=control?.dataset??{};
-  if (CONFIG_ACTIONS.has(d.action) || hideWhenLocked(control) || d.skillAction!==undefined || d.skillDie!==undefined || d.skillCustomDie!==undefined || d.skillUpgrade!==undefined || d.skillFormula!==undefined) return true;
+  if (CONFIG_ACTIONS.has(d.action) || hideWhenLocked(control) || d.skillAction!==undefined || d.skillRelease!==undefined || d.skillDie!==undefined || d.skillCustomDie!==undefined || d.skillUpgrade!==undefined || d.skillFormula!==undefined || d.skillUseAssigned!==undefined) return true;
   if (d.action==='createItem') return d.type==='ability';
   if (d.action==='deleteItem') return Boolean(control.closest?.('[data-fnri-panel="abilities"]'));
   if (d.fnriDicePicker!==undefined || d.fnriCustomDice!==undefined) return true;
@@ -45,4 +45,27 @@ export function applySheetLock(root, locked) {
     }
   }
   root.classList?.toggle('fnri-config-locked',locked);
+}
+
+const SCOPE='fast-nri-v14';
+const INITIAL='sheetInitiallyUnlocked';
+const lockKey=actor=>actor?.id&&`sheetLock_${actor.id}`;
+// The Actor flag is only an initial UI preference for newly created PC documents.
+// Each user stores their own explicit preference, including a locked new PC.
+export function initialSheetLock(actor,user=globalThis.game?.user){
+  if(actor?.type!=='character')return true;
+  const key=lockKey(actor);
+  const saved=key?user?.getFlag?.(SCOPE,key):undefined;
+  if(typeof saved==='boolean')return saved;
+  return actor.getFlag?.(SCOPE,INITIAL)!==true;
+}
+export async function saveSheetLock(actor,locked,user=globalThis.game?.user){
+  const key=lockKey(actor);
+  if(actor?.type==='character'&&key&&user?.setFlag)await user.setFlag(SCOPE,key,Boolean(locked));
+}
+export function registerInitialSheetLock(){
+  Hooks.on('preCreateActor',(actor,_data,_options,userId)=>{
+    if(actor.type==='character'&&userId===game.user?.id)
+      actor.updateSource({[`flags.${SCOPE}.${INITIAL}`]:true});
+  });
 }

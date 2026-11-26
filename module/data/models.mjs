@@ -1,5 +1,6 @@
+import {prepareHpLimit} from "../damage/hp-limit.mjs";
 import {initialSkillAllocation,prepareSkillAllocation} from "./skill-allocation.mjs";
-import {prepareClassBaseStats} from "./classes.mjs";
+import {prepareClassBaseStats,prepareSpellRangeBase} from "./classes.mjs";
 import {preparePermanentRacialStats} from "./character-contributions.mjs";
 import { prepareRoleDefenses } from "./roles.mjs";
 import { initialSkillEntries } from "./skills-catalog.mjs";
@@ -46,6 +47,7 @@ function actorSchema() {
     path: text(),
     hp: new F.SchemaField({ current: integer(), max: integer(), temp: integer() }),
     speed: number(),
+    spellRange: number(),
     combatDie: text(),
     ac: new F.SchemaField({ partial: number(), success: number(), great: number() }),
     defenses: new F.SchemaField({
@@ -82,6 +84,7 @@ export class CharacterModel extends T {
     preparePermanentRacialStats(this);
     prepareRoleDefenses(this);
     prepareConditionDefenses(this);
+    prepareHpLimit(this);
   }
 }
 
@@ -89,9 +92,14 @@ export class NPCModel extends T {
   static defineSchema() {
     return { ...actorSchema(), rank: text(), role: text(), weight: number(), attackModifier: number() };
   }
+  prepareBaseData() {
+    super.prepareBaseData();
+    prepareSpellRangeBase(this);
+  }
   prepareDerivedData() {
     super.prepareDerivedData();
     prepareConditionDefenses(this);
+    prepareHpLimit(this);
     const caster=projectionCaster(this.parent);
     const ac=caster?.system?.ac;
     if(ac && [ac.partial,ac.success,ac.great].every(Number.isFinite)){

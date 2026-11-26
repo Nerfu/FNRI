@@ -199,3 +199,186 @@ foundry.applications.api.DialogV2.wait=async cfg=>{medDialogs++;return acceptPre
 result=await useItem(checkItem);assert.equal(result.message.rolls[0].formula,'1d20');assert.equal(medDialogs,3);
 result=await useItem(checkItem,{skipPreroll:true});assert.equal(medDialogs,3);
 console.log('PASS Item preroll: d20, optional healing, cancellation and Shift');
+
+// D.2: first publication chooses an explicit weapon instance. No dialog may
+// replace that declaration, even when the selected compatible item is not held.
+const {abilityChatVariants}=await import('../module/abilities/ability-chat.mjs');
+const loadCard=(folder,prefix)=>{const dir=new URL(`../packs/_source/${folder}/`,import.meta.url);return JSON.parse(readFileSync(new URL(readdirSync(dir).find(n=>n.startsWith(prefix+'--')),dir),'utf8'));};
+const ownedFocus=(id,prefix)=>{const card=loadCard('weapons',prefix);const doc=item(id,card.system.mechanics,card.system);doc.type='weapon';doc.name=card.name;return doc;};
+const focusWand=ownedFocus('focusWand','volshebnaia-palochka'),focusRod=ownedFocus('focusRod','zhezl'),focusSymbol=ownedFocus('focusSymbol','bozhestvennyi-simvol');
+actor.system.className='Волшебник';actor.system.spellRange=4;actor.system.equipment={leftHand:focusWand.id};
+actor.system.resources.magic.current=4;
+const spellCard=loadCard('abilities','razrushenie-misticheskii-zariad');
+const wizardRule=structuredClone(spellCard.system.mechanics.executions[0]);wizardRule.attack.spellEnergy='wizard';wizardRule.accounting={resourceCosts:[{resourceId:'magic',kind:'class',amount:1}]};
+const wizardSpell=item('wizardSpell',{executions:[wizardRule]}, {tags:'Заклинание'});wizardSpell.type='ability';
+const spellRows=()=>abilityChatVariants(actor,wizardSpell);
+assert.deepEqual(spellRows().map(r=>r.spellWeaponId),[focusWand.id,focusRod.id,focusRod.id,null]);
+assert.deepEqual(spellRows()[1].warnings,['FASTNRI.AbilityChat.notHeld']);
+focusWand.system.proficiencyMode='no';assert.ok(spellRows()[0].warnings.includes('FASTNRI.AbilityChat.notProficient'));focusWand.system.proficiencyMode='auto';
+const spellPublication=await publishAbility(wizardSpell);assert.equal(actor.system.resources.magic.current,4);
+foundry.applications.api.DialogV2.input=async()=>{throw Error('extra weapon dialog after chat declaration');};
+foundry.applications.api.DialogV2.wait=async()=>null;
+assert.equal(await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusRod.id}),null);
+assert.equal(actor.system.resources.magic.current,4);
+failPublish=true;assert.equal(await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusRod.id,skipPreroll:true}),null);failPublish=false;
+assert.equal(actor.system.resources.magic.current,4);
+const notesBefore=warnings.length;
+const rodCast=await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusRod.id,skipPreroll:true});
+assert.equal(rodCast.getFlag(ID,'weaponAttack').weaponItemUuid,focusRod.uuid);
+assert.ok(rodCast.getFlag(ID,'weaponAttack').weaponTraitIds.includes('spellweapon'));
+assert.ok(!rodCast.getFlag(ID,'weaponAttack').weaponTraitIds.includes('guided'));
+assert.ok(warnings.slice(notesBefore).some(w=>w.includes('FASTNRI.AbilityChat.notHeld')));
+assert.equal(actor.system.resources.magic.current,3);
+assert.deepEqual(actor.system.equipment,{leftHand:focusWand.id});
+const noWeaponCast=await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:null,skipPreroll:true});
+assert.equal(noWeaponCast.getFlag(ID,'weaponAttack').weaponItemUuid,undefined);assert.equal(actor.system.resources.magic.current,2);
+assert.equal(await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusSymbol.id,skipPreroll:true}),null);
+assert.equal(actor.system.resources.magic.current,2);
+actor.isOwner=false;assert.equal(await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusWand.id,skipPreroll:true}),null);actor.isOwner=true;
+spellPublication.isContentVisible=false;assert.equal(await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusWand.id,skipPreroll:true}),null);spellPublication.isContentVisible=true;
+actor.system.equipment={leftHand:focusRod.id};assert.deepEqual(spellRows().map(r=>r.spellWeaponId),[focusRod.id,focusRod.id,focusWand.id,null]);
+console.log('PASS D.2 chat spell variant: inventory order, warnings, explicit source, no extra dialog, no equipment writes, costs only on success, privacy and stale choice');
+
+// Charged variants belong to each Item instance and use the existing Actor ledger.
+const {chargedWeaponRemaining,restActor,recordCardUse,retryCardAccounting}=await import('../module/data/ability-accounting.mjs');
+const secondRod=ownedFocus('secondRod','zhezl');
+const chargeRow=weapon=>spellRows().find(r=>r.spellWeaponId===weapon.id&&r.charged);
+actor.system.resources.magic.current=0;actor.system.resources.reaction.current=2;
+wizardRule.accounting.resourceCosts.push({resourceId:'reaction',kind:'intervention',amount:1});
+assert.ok(!chargeRow(focusRod).warnings.some(w=>w.includes('FASTNRI.AbilityChat.insufficient')));
+assert.equal(chargedWeaponRemaining(actor,focusRod),1);
+foundry.applications.api.DialogV2.wait=async cfg=>{assert.doesNotMatch(cfg.content,/trait-charged/);return null;};
+assert.equal(await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusRod.id,charged:true}),null);
+assert.equal(chargedWeaponRemaining(actor,focusRod),1);
+failPublish=true;assert.equal(await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusRod.id,charged:true,skipPreroll:true}),null);failPublish=false;
+assert.equal(chargedWeaponRemaining(actor,focusRod),1);assert.equal(actor.system.resources.reaction.current,2);
+const chargedCast=await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusRod.id,charged:true,skipPreroll:true});
+assert.equal(chargedCast.getFlag(ID,'abilityExecution').chargedWeaponUuid,focusRod.uuid);
+assert.ok(chargedCast.getFlag(ID,'weaponAttack').weaponTraitIds.includes('charged'));
+assert.equal(actor.system.resources.magic.current,0);assert.equal(actor.system.resources.reaction.current,1);
+assert.equal(chargedWeaponRemaining(actor,focusRod),0);assert.equal(chargedWeaponRemaining(actor,secondRod),1);
+assert.ok(chargeRow(focusRod).warnings.includes('FASTNRI.AbilityChat.chargedExhausted'));
+await recordCardUse({actor,item:wizardSpell,message:chargedCast,execution:wizardRule,chargedWeaponUuid:focusRod.uuid});
+assert.equal(actor.system.resources.reaction.current,1,'idempotent accounting');
+const repeat=await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusRod.id,charged:true,skipPreroll:true});assert.ok(repeat);assert.equal(actor.system.resources.reaction.current,0);
+assert.equal(chargedWeaponRemaining(actor,focusRod),0);assert.equal(chargedWeaponRemaining(actor,secondRod),1);
+assert.equal(await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:focusWand.id,charged:true,skipPreroll:true}),null);
+await restActor(actor);assert.equal(chargedWeaponRemaining(actor,focusRod),1);assert.equal(chargedWeaponRemaining(actor,secondRod),1);
+// Recovery uses the declared charged source from the already published result,
+// not the current inventory or a fresh resource-cost selection.
+const updateActor=actor.update;
+actor.update=async()=>{throw Error('simulated accounting write failure');};
+const pendingCharge=await executeAbilityFromChat(spellPublication,wizardRule.id,{spellWeaponId:secondRod.id,charged:true,skipPreroll:true});
+actor.update=updateActor;
+assert.ok(pendingCharge);assert.equal(chargedWeaponRemaining(actor,secondRod),1);
+assert.equal(actor.system.resources.magic.current,4);
+pendingCharge.isAuthor=true;
+await retryCardAccounting(pendingCharge,{actor,item:wizardSpell});
+assert.equal(actor.system.resources.magic.current,4);
+assert.equal(actor.system.resources.reaction.current,1);
+assert.equal(chargedWeaponRemaining(actor,secondRod),0);
+await retryCardAccounting(pendingCharge,{actor,item:wizardSpell});
+assert.equal(actor.system.resources.reaction.current,1);
+console.log('PASS Charged: separate instances, class costs only, intervention cost, cancellation, failed publication, repeated use warning, idempotency, Rest');
+
+// D.2-P4: shared spell declaration for non-attack execution types. These are
+// technical fixtures, not new rulebook cards. Test the existing owned-item
+// publication and execution entry points, including a manual fallback.
+const spellCosts={resourceCosts:[{resourceId:'magic',kind:'class',amount:1}]};
+const modes=[
+  {id:'check',label:'Check',type:'roll',formula:'1d20'},
+  {id:'fixed',label:'Fixed',type:'temporaryHp',amount:5,target:'self'},
+  {id:'rolled',label:'Rolled',type:'temporaryHp',formula:'1d6',target:'selected'},
+  {id:'effect',label:'Effect',type:'effect',effectId:'test-effect'},
+  {id:'projection',label:'Projection',type:'projection'}
+];
+const nonAttack=item('nonAttack',{spell:{spellEnergy:'wizard',spellRange:'current'},executions:modes,accounting:spellCosts},{tags:'Заклинание'});
+nonAttack.type='ability';nonAttack.effects=new Map([['test-effect',{id:'test-effect',name:'Test effect',transfer:false}]]);
+const manualSpell=item('manualSpell',{spell:{spellEnergy:'wizard'},accounting:spellCosts},{tags:'Заклинание'});manualSpell.type='ability';
+const unmarked=item('unmarked',{executions:[modes[0]],accounting:spellCosts},{tags:'Заклинание'});unmarked.type='ability';
+assert.equal(abilityChatVariants(actor,unmarked).length,1,'unknown non-attack energy is not inferred from the main class');
+const nonAttackPub=await publishAbility(nonAttack),manualPub=await publishAbility(manualSpell);
+assert.equal(abilityChatVariants(actor,nonAttack).filter(row=>row.executionId==='check').length,6);
+assert.equal(abilityChatVariants(actor,manualSpell).filter(row=>row.spellWeaponId===focusRod.id).length,2);
+assert.ok(!abilityChatVariants(actor,manualSpell).some(row=>row.details?.includes('spellDistance')),'no fictional range for an unmarked self/manual execution');
+const latestMessage=()=>[...messages.values()].at(-1);
+for(const mode of [...modes,{id:'manual-use'}]){
+ const source=mode.id==='manual-use'?manualSpell:nonAttack;
+ const pub=source===manualSpell?manualPub:nonAttackPub;
+ await restActor(actor);
+ const before=actor.system.resources.magic.current;
+ const hp=actor.system.hp.current;
+ const count=messages.size;
+ failPublish=true;
+ await executeAbilityFromChat(pub,mode.id,{spellWeaponId:focusRod.id,charged:true,skipPreroll:true});
+ failPublish=false;
+ assert.equal(messages.size,count);assert.equal(chargedWeaponRemaining(actor,focusRod),1);
+ assert.equal(actor.system.resources.magic.current,before);
+ await executeAbilityFromChat(pub,mode.id,{spellWeaponId:focusRod.id,charged:true,skipPreroll:true});
+ const result=latestMessage(),receipt=result.getFlag(ID,'abilityExecution');
+ assert.equal(receipt.executionId,mode.id);assert.equal(receipt.chargedWeaponUuid,focusRod.uuid);
+ assert.equal(receipt.spellWeaponUuid,focusRod.uuid);
+ assert.equal(chargedWeaponRemaining(actor,focusRod),0);assert.equal(actor.system.resources.magic.current,before);
+ assert.equal(actor.system.hp.current,hp,'execution must not automatically apply HP');
+ // Ordinary variant still spends the class resource, despite exhausted charge.
+ await executeAbilityFromChat(pub,mode.id,{spellWeaponId:focusRod.id,skipPreroll:true});
+ assert.equal(actor.system.resources.magic.current,before-1);
+}
+await restActor(actor);
+foundry.applications.api.DialogV2.wait=async cfg=>{assert.doesNotMatch(cfg.content,/trait-charged/);return null;};
+assert.equal(await executeAbilityFromChat(nonAttackPub,'check',{spellWeaponId:focusRod.id,charged:true}),null);
+assert.equal(chargedWeaponRemaining(actor,focusRod),1);
+// Non-attack recovery retains the price and explicit source on a failed write.
+actor.update=async()=>{throw Error('simulated non-attack write failure');};
+const failedEffect=await executeAbilityFromChat(nonAttackPub,'effect',{spellWeaponId:focusRod.id,charged:true,skipPreroll:true});
+actor.update=updateActor;failedEffect.isAuthor=true;
+const beforeRetry=actor.system.resources.magic.current;
+await retryCardAccounting(failedEffect,{actor,item:nonAttack});
+await retryCardAccounting(failedEffect,{actor,item:nonAttack});
+assert.equal(actor.system.resources.magic.current,beforeRetry);assert.equal(chargedWeaponRemaining(actor,focusRod),0);
+// A card with a tag and authored energy but no attack range uses current range.
+const implicitRule=structuredClone(wizardRule);delete implicitRule.attack.spellRange;
+const implicitSpell=item('implicitSpell',{executions:[implicitRule]},{tags:'Заклинание'});implicitSpell.type='ability';
+assert.ok(abilityChatVariants(actor,implicitSpell).some(row=>row.spellWeaponId===focusRod.id));
+const implicitPub=await publishAbility(implicitSpell);
+assert.ok(await executeAbilityFromChat(implicitPub,implicitRule.id,{spellWeaponId:focusRod.id,skipPreroll:true}));
+console.log('PASS shared spell variants: check, fixed/rolled temporary HP, effect, projection, manual, no energy inference, charge recovery and attack range default');
+
+// Hidden new weapon provenance stays on the original Actor, including after
+// a failed accounting write. The public message must not expose the weapon UUID.
+await restActor(actor);
+actor.hasPlayerOwner=false;game.user.isGM=true;game.actors={contents:[actor]};
+foundry.utils.randomID=()=>String(++n).padStart(16,'0');
+let failAccounting=true;
+actor.update=async changes=>{
+ if(failAccounting&&Object.keys(changes).some(key=>key.includes('accountingEvents')))throw Error('simulated hidden charge write failure');
+ return updateActor.call(actor,changes);
+};
+const hiddenResult=await executeAbilityFromChat(manualPub,'manual-use',{spellWeaponId:focusRod.id,charged:true,skipPreroll:true});
+assert.equal(hiddenResult.getFlag(ID,'spellCastRedacted'),true);
+assert.ok(!JSON.stringify(hiddenResult.flags).includes(focusRod.uuid));
+assert.equal(chargedWeaponRemaining(actor,focusRod),1);
+failAccounting=false;hiddenResult.isAuthor=true;
+const hiddenCost=actor.system.resources.magic.current;
+assert.ok(await retryCardAccounting(hiddenResult,{actor,item:manualSpell}));
+assert.equal(actor.system.resources.magic.current,hiddenCost);assert.equal(chargedWeaponRemaining(actor,focusRod),0);
+actor.update=updateActor;actor.hasPlayerOwner=true;game.user.isGM=false;
+console.log('PASS private non-attack spell receipt: no public weapon UUID, correct recovery');
+
+// Non-attack targeted spells share only the range advisory, not combat penalties.
+const rangeScene={id:'rangeScene'},rangeGrid={size:100,isSquare:true,measurePath:([a,b])=>({spaces:Math.abs(a.x-b.x)/100})};
+const rangeSource={actor,document:{uuid:'Token.source',parent:rangeScene,x:0,y:0,width:1,height:1}};
+const rangeTarget={actor:{system:{}},document:{uuid:'Token.target',parent:rangeScene,x:1300,y:0,width:1,height:1}};
+canvas={scene:rangeScene,grid:rangeGrid,tokens:{controlled:[rangeSource],placeables:[rangeSource,rangeTarget]}};
+game.user.targets=new Set([rangeTarget]);
+const warningCount=warnings.length;
+await executeAbilityFromChat(nonAttackPub,'rolled',{spellWeaponId:focusRod.id,skipPreroll:true});
+assert.ok(warnings.slice(warningCount).includes('Цель вне дистанции заклинания'));
+assert.equal(latestMessage().rolls[0].formula,'1d6');
+foundry.applications.api.DialogV2.wait=async cfg=>{assert.match(cfg.content,/13 \/ 6 клеток/);assert.doesNotMatch(cfg.content,/Угрозы:|Строй:/);return null;};
+assert.equal(await executeAbilityFromChat(nonAttackPub,'rolled',{spellWeaponId:focusRod.id}),null);
+const countBeforeSelf=warnings.filter(s=>s==='Цель вне дистанции заклинания').length;
+await executeAbilityFromChat(nonAttackPub,'fixed',{spellWeaponId:focusRod.id,skipPreroll:true});
+assert.equal(warnings.filter(s=>s==='Цель вне дистанции заклинания').length,countBeforeSelf);
+game.user.targets=new Set();canvas={tokens:{controlled:[]}};
+console.log('PASS targeted non-attack spell: range advisory in preroll/Shift, no attack penalty or self warning');

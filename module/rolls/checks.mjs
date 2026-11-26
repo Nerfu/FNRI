@@ -1,7 +1,8 @@
+import {createSpellResultMessage} from '../data/private-area-source.mjs';
 import {currentMessageMode, resolveMessageMode} from '../data/chat-visibility.mjs';
 import {finishCardAccounting,normalizedCardActionId} from '../data/ability-accounting.mjs';
 import {cardEffectLinks} from '../effects/chat-effect-links.mjs';
-import {prepareRoll,finalizeRollEffects,visibleRollInfluences,fixedRollComponents} from "./roll-context.mjs";
+import {prepareRoll,finalizeRollEffects,visibleRollInfluences,fixedRollComponents,redactActorSourceForAudience} from "./roll-context.mjs";
 import {weaponTraitOptions,selectedWeaponTraitIds} from '../equipment/weapon-traits.mjs';
 import {naturalAttackingD20,resolveCheckDegree} from './attack-core.mjs';
 import {CHECK_DEFENSES,selectedTargetSnapshot} from './attack-properties.mjs';
@@ -40,12 +41,12 @@ export async function postCheckRoll({ formula, label, actor = null, mode, isInte
   formulaForActor=null, skipPreroll=false, sourceItem=null, actionId=null, accountingItem=null,
   defenseStat=null,weaponItem=null,difficulty=null,execution=null,audienceMessage=null,
   resultKind=null,targetTokens=null,standardActionId=null,targetDifficultyModifier=null,
-  compareEachTarget=false,recordRecipient=false }) {
+  compareEachTarget=false,recordRecipient=false,spellCast=null,declaredSpellWeapon=false,spatialInfo=null }) {
   const usesTargetDefense = CHECK_DEFENSES.includes(targetDefense);
   const declaredTargets = usesTargetDefense || recordRecipient
     ? [...(targetTokens ?? game.user?.targets ?? [])] : null;
   const context = await prepareRoll({actor,kind,skillId,defenseStat,formula,
-    formulaForActor,skipDialog:skipPreroll,label,sourceItem,weaponItem});
+    formulaForActor,skipDialog:skipPreroll,label,sourceItem,weaponItem,declaredSpellWeapon,spatialInfo});
   if (context === null) return null; // Closing the preparation window changes nothing.
   const expression = context.expression.trim();
   if (!expression) throw new Error("empty-formula");
@@ -83,6 +84,7 @@ export async function postCheckRoll({ formula, label, actor = null, mode, isInte
     ? {...result,targetUuid:null} : result;
   const speaker = actor ? ChatMessage.getSpeaker({ actor }) : ChatMessage.getSpeaker();
   const audience=audienceMessage ? {whisper:[...(audienceMessage.whisper??[])],blind:!!audienceMessage.blind} : {};
+  const redactSpell=!!spellCast&&redactActorSourceForAudience(actor,audienceMessage);
   const messageData = {
     ...audience,
     speaker,
@@ -91,24 +93,25 @@ export async function postCheckRoll({ formula, label, actor = null, mode, isInte
       ...(execution?.id?{abilityExecution:{executionId:execution.id,sourceItemUuid:sourceItem?.uuid??null,actorUuid:actor?.uuid??null}}:{}),
       ...(resultKind==='temporaryHp' && execution?.id ? {abilityResult:{version:1,kind:'temporaryHp',
         executionId:execution.id,sourceItemUuid:sourceItem?.uuid??null,actorUuid:actor?.uuid??null}}:{}),
-      fixedRollComponents:fixedRollComponents(context,{redact:actor && !actor.hasPlayerOwner && ['public','ic'].includes(visibilityMode)}),
+      fixedRollComponents:fixedRollComponents(context,{redact:redactSpell || actor && !actor.hasPlayerOwner && ['public','ic'].includes(visibilityMode)}),
       checkRoll:{version:1,label:String(label),actorUuid:actor?.uuid??null,
       ...(standardActionId ? {standardActionId} : {}),
       ...(weaponTraitOptions(weaponItem).length?{
-        weaponItemUuid:actor && actor.hasPlayerOwner!==true && ['public','ic'].includes(visibilityMode)
-          ? null : weaponItem.uuid,
+        weaponItemUuid:(actor && actor.hasPlayerOwner!==true && ['public','ic'].includes(visibilityMode)) ||
+          redactSpell ? null : weaponItem.uuid,
         weaponTraitIds:selectedWeaponTraitIds(context,weaponItem)}:{}),
       isIntervention:!!isIntervention,attackKind,targetDefense,selfDefenseRule,
       ...(chatResult ? {result:chatResult} : {}),
-      rollInfluences:visibleRollInfluences(context,actor,visibilityMode)}}}
+      rollInfluences:visibleRollInfluences(context,actor,redactSpell?'public':visibilityMode)}}}
   };
   // toMessage(create:false) keeps native Roll serialization, while explicit
   // source audience is restored on creation instead of being overwritten by
   // the user's current roll-mode preference.
-  const message=audienceMessage ? await ChatMessage.create({
+  const message=audienceMessage ? await createSpellResultMessage({
     ...await roll.toMessage(messageData,{create:false,messageMode:'public'}),...audience
-  }) : await roll.toMessage(messageData,{messageMode:visibilityMode});
+  },actor,{spellCast,executionId:execution?.id,itemUuid:sourceItem?.uuid,
+    redacted:redactActorSourceForAudience(actor,audienceMessage)}) : await roll.toMessage(messageData,{messageMode:visibilityMode});
   await finalizeRollEffects(context,message);
-  await finishCardAccounting({actor,item:accountingItem??sourceItem,message,isIntervention,actionId:sharedActionId,execution});
+  await finishCardAccounting({actor,item:accountingItem??sourceItem,message,isIntervention,actionId:sharedActionId,execution,chargedWeaponUuid:spellCast?.chargedWeaponUuid??null});
   return {roll, message, result, targetResults};
 }

@@ -3,9 +3,10 @@ import {createPrivateAreaSourceMessage} from '../data/private-area-source.mjs';
 import {parseAreaDamageProfile} from '../damage/area-damage-profile.mjs';
 import {captureAreaOutcomeInstructions} from '../equipment/area-outcome-snapshot.mjs';
 import {finishCardAccounting,normalizedCardActionId} from '../data/ability-accounting.mjs';
-import {attackAugmentEntries,selectedAttackAugments,attackAugmentWarnings,attackAugmentDamageParts,readAttackAugmentDamageParts,postDefenseDamageOffers} from '../rolls/attack-augmentations.mjs';
+import {selectedAttackAugments,attackAugmentWarnings,attackAugmentDamageParts,readAttackAugmentDamageParts,postDefenseDamageOffers} from '../rolls/attack-augmentations.mjs';
 import {cardEffectLinks} from '../effects/chat-effect-links.mjs';
 import {projectionSpatialPreview,resolveSpellOrigin} from '../projection/projection.mjs';
+import {directedSpellRange,chooseSpellWeapon,spellWeaponOptions,spellExecutionRule} from '../spatial/spell-range.mjs';
 import {spatialAttackContext} from '../spatial/spatial-context.mjs';
 /**
  * Fast NRI 7.0: directed physical weapon attacks with optional native target.
@@ -21,7 +22,7 @@ import {parseMagicAttackProfile,magicAttackPartsForDegree,magicCombatAttackExpre
 import {prepareRoll,finalizeRollEffects,visibleRollInfluences,preparedDamageDefinitions,fixedRollComponents,redactActorSourceForAudience,selectedRollParts} from '../rolls/roll-context.mjs';
 import {CHECK_DEFENSES,selectedTargetSnapshot,normalizeAttackKind,effectiveWeaponProperties,explicitInterventionFromCard,messageIntervention,isAreaAttack} from '../rolls/attack-properties.mjs';
 import {itemAttackRules} from '../equipment/item-properties.mjs';
-import {itemSlot} from '../equipment/equipment.mjs';
+import {weaponProficiency} from '../equipment/equipment.mjs';
 import {inheritedAttackTraits} from '../data/racial-properties.mjs';
 import {combinedWeaponAttackRules,selectedWeaponTraitIds,
   selectedWeaponPropertyNames,resolveAbilityWeapon,weaponTraitOptions,autoRerollWeaponParts} from '../equipment/weapon-traits.mjs';
@@ -81,21 +82,14 @@ export function attackExpressionForWeapon(item, actor) {
   if (override) return { expression: override, source: 'card-formula', warning: null };
   const bestiary = bestiaryAttackExpression(actor);
   if (bestiary) return { expression: bestiary, source: 'standard', warning: null };
-  const mode = String(item?.system?.proficiencyMode ?? 'auto');
-  const owners = String(item?.system?.proficiencyClasses ?? '').split(',').map(s=>s.trim()).filter(Boolean);
-  const cls = String(actor?.system?.className ?? '').trim();
-  const weaponId=item?.flags?.[SYSTEM_ID]?.contentId ?? item?.getFlag?.(SYSTEM_ID,'contentId');
-  const granted=!!weaponId && (actor?.items?.contents??[]).some(card=>card.type==='ability' &&
-    Array.isArray(card.system?.mechanics?.weaponProficiency?.weaponContentIds) &&
-    card.system.mechanics.weaponProficiency.weaponContentIds.includes(weaponId));
-  const proficient = mode === 'yes' || (mode !== 'no' && (granted || cls !== '' && owners.includes(cls)));
+  const {proficient,unknown}=weaponProficiency(item,actor);
   const combatRaw = String(actor?.system?.combatDie ?? '').trim();
   const combatDie = /^d([1-9]\d*)$/i.test(combatRaw) ? '1' + combatRaw.toLowerCase() :
     (/^1d([1-9]\d*)$/i.test(combatRaw) ? combatRaw.toLowerCase() : '');
   return {
     expression: proficient && combatDie ? `1d20 + ${combatDie}` : '1d20',
     source: 'standard',
-    warning: mode === 'auto' && !cls && !granted ? 'unknownProficiency' : null
+    warning: unknown ? 'unknownProficiency' : null
   };
 }
 
@@ -108,7 +102,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   selfDefenseRule=null,isIntervention=false,gripWarning=false,skipPreroll=false,
   formulaForActor=null,usesCombatDie=false,sourceItem=null,weaponItem=null,actionId=null,accountingItem=null,execution=null,audienceMessage=null,targetTokens=null,spatialOrigin=null,
   defenseCheckModifier=0,defenseRemovalOrder='highest',
-  greatSelfDefenseModifier=0,rerollWeaponLowOnce=false,catalystDeclared=false} = {}) {
+  greatSelfDefenseModifier=0,rerollWeaponLowOnce=false,catalystDeclared=false,spellRange=null,declaredSpellWeapon=false,chargedWeaponUuid=null} = {}) {
   const validProfile=profileKind==='magic' ? parseMagicAttackProfile(profile).ok :
     profileKind==='physical' && parseStandardPhysicalProfile(profile).ok;
   if (!validProfile) throw new Error('Invalid typed attack profile');
@@ -117,11 +111,10 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   const sweepingIds=profileKind==='physical'?traitOptions.filter(o=>o.effect?.rerollWeaponLowOnce===true).map(o=>o.id):[];
   const sweepingAvailable=profileKind==='physical'&&(rerollWeaponLowOnce||sweepingIds.length>0);
   const directCatalyst=profileKind==='magic'&&catalystDeclared&&['магический','magical','magic'].includes(String(damageType).trim().toLowerCase());
-  const spellAugmentGates=profileKind==='physical'&&heldSpellCatalyst(actor)?attackAugmentEntries(actor,{kind:'attack',weaponItem:usedWeapon,attackKind:normalizeAttackKind(attackKind)})
-    .filter(entry=>attackAugmentDamageParts([entry.augment]).some(part=>part.spellDamage&&['магический','magical','magic'].includes(part.damageType.toLowerCase())))
-    .map(entry=>({entryUuid:entry.uuid,partId:entry.parts[0].id})):[];
+  // An attack enhancement is not a declaration through an unrelated held
+  // spellcasting weapon. Only a selected spellcasting source grants Catalyst.
   const prerollEntries=[...(sweepingAvailable&&!sweepingIds.length?[autoEntry('sweeping')]:[]),
-    ...(directCatalyst||spellAugmentGates.length?[autoEntry('catalyst',directCatalyst?[]:spellAugmentGates)]:[])];
+    ...(directCatalyst?[autoEntry('catalyst')]:[])];
   // A different target may be selected while the preroll stays open. Lock the
   // declaration's token selection here, independently for each attack.
   const allDeclaredTargets=targetTokens??[...(game.user?.targets??[])];
@@ -138,29 +131,30 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   // Snapshot geometry at declaration, just like the target and chosen origin.
   // Every calculated attack modifier appears as its own existing preroll checkbox.
   const space=spatialAttackContext({origin:spatialOrigin,targetTokens:declaredTargets,
-    weaponItem:usedWeapon,attackKind:normalizeAttackKind(attackKind),properties});
+    weaponItem:usedWeapon,attackKind:normalizeAttackKind(attackKind),properties,spellRange});
   const distanceSpaces=globalThis.canvas?.grid?.isHexagonal
     ? projectionSpatialPreview(spatialOrigin,declaredTargets).distanceSpaces
     : space.distanceSpaces;
   for(const note of space.warnings) ui.notifications?.warn(note);
+  if(skipPreroll&&space.spellRangeWarning)ui.notifications?.warn(space.spellRangeWarning);
   const context = await prepareRoll({actor,kind:'attack',formula:expression,formulaForActor,
     skipDialog:skipPreroll,label:name,sourceItem,weaponItem:usedWeapon,
     attackKind:normalizeAttackKind(attackKind),extraEntries:space.entries,prerollEntries,spatialInfo:space,
     targetActor:!areaDeclared&&declaredTargets.length===1?declaredTargets[0]?.actor:null,
     targetToken:!areaDeclared&&declaredTargets.length===1?declaredTargets[0]:null,
-    attackProperties:properties,usesCombatDie,declaredTargets});
+    attackProperties:properties,usesCombatDie,declaredTargets,declaredSpellWeapon});
   if (context === null) return null;
   expression = context.expression;
   // Checkbox choices are resolved BEFORE the attack, then reused by damage,
   // defensive checks and read-only outcome previews for this same attack.
   const hasTraitOptions=traitOptions.length>0;
   const chosenTraitIds=hasTraitOptions?selectedWeaponTraitIds(context,usedWeapon):[];
-  const catalystAvailable=directCatalyst||spellAugmentGates.some(gate=>context.selected.some(entry=>entry.uuid===gate.entryUuid&&selectedRollParts(entry).some(part=>part.id===gate.partId)));
+  const catalystAvailable=directCatalyst;
   const autoRerollTraits={sweeping:sweepingAvailable&&(sweepingIds.some(id=>chosenTraitIds.includes(id))||autoSelected(context,'sweeping')),
     catalyst:catalystAvailable&&autoSelected(context,'catalyst')};
   // An unchecked auto box leaves the actual weapon property and the manual
   // reroll menu available. Other trait switches retain their previous behavior.
-  const selectedTraitIds=hasTraitOptions?[...new Set([...chosenTraitIds,...sweepingIds])]:null;
+  const selectedTraitIds=hasTraitOptions?[...new Set([...chosenTraitIds,...sweepingIds,...(chargedWeaponUuid?['charged']:[])])]:null;
   const chosenRules=hasTraitOptions?combinedWeaponAttackRules(sourceItem,usedWeapon,selectedTraitIds):null;
   if(chosenRules) {defenseCheckModifier=chosenRules.defenseCheckModifier;
     defenseRemovalOrder=chosenRules.defenseRemovalOrder;
@@ -327,7 +321,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     // Preserve the original weaponAttack flag so old messages keep their buttons.
     flags:{[SYSTEM_ID]:{weaponAttack:data,
       ...(areaDamage?{weaponDamage:areaDamage.card}:{}),
-      ...(execution?.id&&!privateAreaSource?{abilityExecution:{executionId:execution.id,sourceItemUuid:sourceItem?.uuid??null,actorUuid:actor?.uuid??null}}:{}),
+      ...(execution?.id&&!privateAreaSource?{abilityExecution:{executionId:execution.id,sourceItemUuid:sourceItem?.uuid??null,actorUuid:actor?.uuid??null,...(chargedWeaponUuid?{chargedWeaponUuid}:{})}}:{}),
       ...(sharedActionId?{compositeActionId:sharedActionId}:{}),
       fixedRollComponents:fixedRollComponents(context,{redact:privateAreaSource ||
         actor && !actor.hasPlayerOwner && ['public','ic'].includes(mode)})}}
@@ -354,6 +348,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
         itemUuid:sourceUuid,weaponItemUuid:usedWeapon?.uuid??null,executionId:execution?.id??null,
         weaponTraitIds:selectedTraitIds,
         accountingItemUuid:(accountingItem??sourceItem)?.uuid??null,
+        ...(chargedWeaponUuid?{chargedWeaponUuid}:{}),
         augmentItemUuids:attackAugments.map(augment=>augment.item.uuid)
       }) : await ChatMessage.create(chatData);
   }else{
@@ -364,7 +359,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   }
   await finalizeRollEffects(context,message);
   if(areaDamage)await finalizeRollEffects(areaDamageContext,message);
-  await finishCardAccounting({actor,item:accountingItem??sourceItem,message,isIntervention,actionId:sharedActionId,execution});
+  await finishCardAccounting({actor,item:accountingItem??sourceItem,message,isIntervention,actionId:sharedActionId,execution,chargedWeaponUuid});
   // Charge an enhancement once for this attack, never for each degree, damage
   // calculation or HP application. The message id distinguishes two attacks
   // sharing an optional composite action and the same source Item.
@@ -405,16 +400,10 @@ export function isPhysicalOtherItemAttack(item,actor=item?.parent?.documentName=
     (!!String(expression).trim() || !!weapon);
 }
 
-/** Detect Catalyst from actual hand slots; no extra declaration dialog. */
-export function heldSpellCatalyst(actor){
-  return (actor?.items?.contents??[]).some(item=>itemSlot(item.id,actor.system)?.kind==='hand'&&
-    weaponTraitOptions(item).some(option=>option.id==='catalyst'));
-}
-
-export async function sendOtherItemAttack(item, actor, {skipPreroll=false,actionId=null,accountingItem=null,execution=null,audienceMessage=null,targetTokens=null,spatialOrigin=null,originTokens=null,isIntervention=false}={}) {
+export async function sendOtherItemAttack(item, actor, {skipPreroll=false,actionId=null,accountingItem=null,execution=null,audienceMessage=null,targetTokens=null,spatialOrigin=null,originTokens=null,isIntervention=false,spellWeaponId=undefined,charged=false}={}) {
   if (!execution && !isPhysicalOtherItemAttack(item,actor)) throw new Error('No applicable item attack');
   // The execution may specialize a card's attack; never rewrite the Item.
-  const rule = {...(item.system.mechanics?.attack??{}),...(execution?.attack??{})};
+  const rule = spellExecutionRule(item,execution?{...execution,type:'attack'}:null)??{...(item.system.mechanics?.attack??{}),...(execution?.attack??{})};
   if(!['physical','magic'].includes(rule.kind))throw new Error('Unknown attack profile kind');
   const magical=rule.kind==='magic';
   const weapon=magical?null:resolveAbilityWeapon(item,actor);
@@ -432,13 +421,25 @@ export async function sendOtherItemAttack(item, actor, {skipPreroll=false,action
   const allowProjection=String(rule.properties??item.system.tags??'').split(/[,;]+/)
     .some(property=>property.trim().toLowerCase()==='заклинание');
   spatialOrigin ??= actor ? resolveSpellOrigin(actor,{controlled:originTokens,allowProjection}) : null;
-  const catalystDeclared=magical&&allowProjection&&heldSpellCatalyst(actor);
+  // Only range-authored spell executions enter the new declaration path.
+  // Legacy/non-directed executions retain their existing handling for now.
+  const rangeDeclared=allowProjection&&directedSpellRange(actor,rule)!==null;
+  const explicit=spellWeaponId!==undefined;
+  const selected=explicit?{weapon:spellWeaponId===null?null:spellWeaponOptions(actor,rule).find(row=>row.weapon.id===spellWeaponId)?.weapon}:
+    rangeDeclared?await chooseSpellWeapon(actor,rule):{weapon:null};
+  if(explicit&&spellWeaponId!==null&&!selected.weapon)return null;
+  if(selected===null)return null;
+  const spellWeapon=selected.weapon;
+  if(charged&&(!explicit||!weaponTraitOptions(spellWeapon).some(t=>t.id==='charged')))return null;
+  const catalystDeclared=magical&&allowProjection&&weaponTraitOptions(spellWeapon).some(option=>option.id==='catalyst');
   return sendAttackSnapshot({actor,name:item.name,profile,profileKind:magical?'magic':'physical',
     damageType:rule.damageType || weapon?.system?.damageType || (magical?'магический':'физический'),
     properties,sourceUuid:item.uuid??null,expression,formulaForActor,catalystDeclared,
+    spellRange:directedSpellRange(actor,rule,spellWeapon,{advisory:explicit}),
+    declaredSpellWeapon:explicit,chargedWeaponUuid:charged?spellWeapon.uuid:null,
     usesCombatDie:!explicitFormula && actor?.type!=='npc' && (magical || !String(weapon?.system?.rollFormula??'').trim()),
     warning:magical&&!explicitFormula?magicCombatAttackExpression(actor).warning:null,
-    skipPreroll,sourceItem:item,weaponItem:weapon,actionId,accountingItem,execution,audienceMessage,targetTokens,spatialOrigin,
+    skipPreroll,sourceItem:item,weaponItem:spellWeapon??weapon,actionId,accountingItem,execution,audienceMessage,targetTokens,spatialOrigin,
     sourceKind:item.type==='ability'?'ability':'other',attackKind:rule.attackKind ?? weapon?.system?.attackKind ?? (magical?'ranged':'melee'),
     targetDefense:rule.targetDefense ?? 'ac',selfDefenseRule:rule.selfDefense ?? null,
     isIntervention:isIntervention || (execution?.isIntervention ?? explicitInterventionFromCard(item)),

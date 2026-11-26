@@ -13,7 +13,7 @@ assert.deepEqual(BASIC_SKILLS.map(x=>x.group).reduce((a,b)=>(a[b]=(a[b]??0)+1,a)
 });
 assert.deepEqual(BASIC_SKILLS.map(x=>x.name), [
   'Акробатика','Атлетика','Скрытность','Ловкость рук','Ремесло','Медицина',
-  'Выживание','Восприятие','Природа','Аркана','Мистицизм','Религия','Общество','Убеждение','Обман','Запугивание'
+  'Выживание','Восприятие','Природа','Аркана','Мистицизм','Религия','Общество','Дипломатия','Обман','Запугивание'
 ]);
 const mockID=()=>`testCustom${Math.random().toString(16).slice(2,10)}`;
 class Sheet {
@@ -23,7 +23,7 @@ class Sheet {
 }
 globalThis.foundry={utils:{randomID:mockID},applications:{api:{HandlebarsApplicationMixin:Base=>Base,DialogV2:{}},
   sheets:{ActorSheetV2:Sheet,ItemSheetV2:Sheet}}};
-globalThis.game={i18n:{localize:k=>k},settings:{get:()=>"public"}};
+globalThis.game={i18n:{localize:k=>k},settings:{get:(_scope,key)=>key==='skillAllocationMode'?'free':'public'}};
 globalThis.ui={notifications:{error(msg){throw new Error(msg)},warn(msg){throw new Error(msg)}}};
 globalThis._del=Symbol('DELETE');
 installTemplateMock();

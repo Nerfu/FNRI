@@ -5,19 +5,21 @@ Runs against a lightweight Foundry shim; not a live v14 integration test.
 from pathlib import Path
 from browser_test_helpers import expand_actor_template
 from playwright.sync_api import sync_playwright
-import re,base64
+import re,base64,json
 
 ROOT=Path(__file__).resolve().parents[1]
-TABS=['characteristics','actions','skills','abilities','inventory','description']
+TABS=['characteristics','actions','skills','abilities','inventory']
+def actor_tabs(kind):return TABS+(['role'] if kind=='character' else [])+['effects','description']+(['journal'] if kind=='character' else [])
 
-def html_from_template(path):
+def html_from_template(path,language):
     src=expand_actor_template(ROOT,f'{path}.hbs')
     nav=re.findall(r'<button type="button" data-action="([^\"]+)" data-fnri-target="([^\"]+)"',src)
     panels=re.findall(r'<div class="fnri-tab-content" data-fnri-panel="([^\"]+)"',src)
-    expected=TABS+(['journal'] if path=='character' else [])
+    expected=actor_tabs(path)
     assert [t[1] for t in nav]==expected and panels==expected
-    html='<main id="actor-root"><nav class="fnri-tabs">'
-    html+=''.join(f'<button data-action="{action}" data-fnri-target="{tab}">{tab}</button>' for action,tab in nav)
+    labels=json.loads((ROOT/'lang'/f'{language}.json').read_text())['FASTNRI']['Tabs']
+    html='<main id="actor-root" class="fast-nri-v14 fast-nri-sheet"><nav class="fnri-tabs">'
+    html+=''.join(f'<button data-action="{action}" data-fnri-target="{tab}" class="fnri-tab">{labels[tab]}</button>' for action,tab in nav)
     html+='</nav>'
     html+=''.join(f'<div class="fnri-tab-content" data-fnri-panel="{tab}" '+('hidden' if i else '')+f'><input id="input-{tab}" value="{tab}"></div>' for i,tab in enumerate(panels))
     return html+'</main>'
@@ -28,7 +30,7 @@ start=src.index('  static changeTab(_event, button) {')
 end=src.index('\n  static toggleQuickHp',start)
 method=src[start:end]
 js='''({method}) => {
-const fn=new Function('_event','button','const TAB_IDS=new Set(["characteristics","actions","skills","abilities","inventory","description","journal"]);const SYSTEM_ID="fast-nri-v14";'+method.slice(method.indexOf('{')+1,method.lastIndexOf('}')));
+const fn=new Function('_event','button','const validActorTab=()=>true;const SYSTEM_ID="fast-nri-v14";'+method.slice(method.indexOf('{')+1,method.lastIndexOf('}')));
 const flags={}; window.game={user:{setFlag(_system,key,tab){flags[key]=tab;return Promise.resolve();}, getFlag(_system,key){return flags[key];}}};
 const sheet={element:document.querySelector('#actor-root'),actor:{id:'a1'},_selectedTab:'characteristics',_tabFlagQueue:Promise.resolve(),_failedFields:new Set(['system.wealth'])};window.savedFlags=flags;
 for (const button of document.querySelectorAll('.fnri-tabs button')) button.addEventListener('click',e=>fn.call(sheet,e,button));
@@ -39,9 +41,20 @@ with sync_playwright() as p:
     try:
         for actor in ['character','npc']:
             page=browser.new_page()
-            page.set_content(html_from_template(actor))
+            page.set_content(html_from_template(actor,'ru'))
+            page.add_style_tag(content=(ROOT/'styles/fast-nri.css').read_text())
+            for language in ('ru','en'):
+                labels=json.loads((ROOT/'lang'/f'{language}.json').read_text())['FASTNRI']['Tabs']
+                page.evaluate('(labels)=>document.querySelectorAll(".fnri-tab").forEach(b=>b.textContent=labels[b.dataset.fnriTarget])',labels)
+                for theme in ('theme-light','theme-dark'):
+                    page.evaluate('(theme)=>document.body.className=theme',theme)
+                    for width in (280,360,470,760):
+                        page.locator('#actor-root').evaluate('(e,w)=>e.style.width=w+"px"',width)
+                        assert page.locator('.fnri-tabs').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
+                        assert page.locator('.fnri-tabs button').evaluate_all('buttons=>buttons.every(b=>b.clientWidth>0&&b.scrollWidth<=b.clientWidth+1&&b.scrollHeight<=b.clientHeight+1&&getComputedStyle(b).fontSize!=="0px")'),(actor,language,theme,width)
+            page.locator('#actor-root').evaluate('e=>e.style.width="760px"')
             page.evaluate(js,{'method':method})
-            for tab in (TABS+(['journal'] if actor=='character' else []))[1:]:
+            for tab in actor_tabs(actor)[1:]:
                 page.locator(f'.fnri-tabs [data-fnri-target="{tab}"]').click()
                 assert page.locator(f'[data-fnri-panel="{tab}"]').is_visible()
                 assert page.locator('[data-fnri-panel]:visible').count()==1

@@ -12,7 +12,7 @@ css=(r/'styles/fast-nri.css').read_text()
 for actor_type in ('character','npc'):
   t=expand_actor_template(r,f'{actor_type}.hbs')
   parsed=BeautifulSoup(t,'html.parser')
-  assert len(parsed.select('[data-fnri-section]'))==7
+  assert len(parsed.select('[data-fnri-section]'))==6
   assert len(parsed.select('[data-fnri-quick-hp]'))==(0 if actor_type=='character' else 1)
   assert len(parsed.select('[data-fnri-hp-math]'))==(2 if actor_type=='character' else 0)
   assert len(parsed.select('[data-fnri-save-state]'))==1
@@ -21,7 +21,7 @@ for actor_type in ('character','npc'):
   assert not parsed.select('[data-action="openSkillEditor"], [data-action="toggleCharacterEditor"]')
   assert len(parsed.select('[data-action="rollAbility"]'))==1
   assert [x.get('data-fnri-section') for x in parsed.select('details[data-fnri-section]')]==[
-    'identity','parameters','ac','defenses','effects','resources','wealth']
+    'identity','parameters','ac','defenses','resources','wealth']
   assert parsed.select('[data-fnri-panel="characteristics"]')[0].find('details')
   for kind in ('potions','row'):
     buttons=parsed.select(f'button[data-action="adjustResource"][data-resource="{kind}"]')
@@ -34,7 +34,7 @@ html='''<div class="application fast-nri-v14 fast-nri-sheet" style="width:760px;
 <div class="fnri-persistent"><header class="fnri-summary-heading"><img class="fnri-portrait" src="" alt=""><b>Hero</b><span data-fnri-save-state data-state="saved"></span></header><div class="fnri-summary-stats">
 <div class="fnri-summary-stat"><button type="button" data-action="toggleQuickHp" aria-expanded="false">HP 11 / 15</button></div>
 <div class="fnri-summary-stat">AC 10/15/20</div><div class="fnri-summary-stat">d10</div><div class="fnri-summary-stat">7</div></div>
-<button data-action="toggleSheetLock">Lock</button><div class="fnri-hp-inputs"><label>Current HP<input name="system.hp.current" data-dtype="Number" data-integer="true" data-fnri-hp-math value="11"></label><label>Temp HP<input name="system.hp.temp" data-dtype="Number" data-integer="true" data-fnri-hp-math value="0"></label></div></div>
+<button data-action="toggleSheetLock">Lock</button><button data-action="chooseActorSide"><i></i></button><div class="fnri-hp-inputs"><label>Current HP<input name="system.hp.current" data-dtype="Number" data-integer="true" data-fnri-hp-math value="11"></label><label>Temp HP<input name="system.hp.temp" data-dtype="Number" data-integer="true" data-fnri-hp-math value="0"></label></div></div>
 <nav class="fnri-tabs"><button data-fnri-target="characteristics">Characteristics</button><button data-fnri-target="skills">Skills</button><button data-fnri-target="abilities">Abilities</button></nav>
 <div data-fnri-panel="characteristics"><details data-fnri-section="resources" open><summary>Resources</summary><input name="system.wealth" value="10"><div class="fnri-entry fnri-resource-row" data-fnri-resource="potions"><span>Potions</span><button data-action="adjustResource" data-resource="potions" data-delta="-1">−</button><input name="system.potionsUsed" data-dtype="Number" data-integer="true" value="3" class="fnri-number"><span>/</span><span>3</span><button data-action="adjustResource" data-resource="potions" data-delta="1">+</button><span></span></div><div class="fnri-entry fnri-resource-row" data-fnri-resource="mana"><input data-row-collection="resources" data-row-id="mana" data-row-field="name" value="Mana"><button data-action="adjustResource" data-resource="row" data-id="mana" data-delta="-1">−</button><input data-row-collection="resources" data-row-id="mana" data-row-field="current" value="2" class="fnri-number"><span>/</span><input data-row-collection="resources" data-row-id="mana" data-row-field="max" value="4" class="fnri-number"><button data-action="adjustResource" data-resource="row" data-id="mana" data-delta="1">+</button><button>Delete</button></div></details></div>
 <div data-fnri-panel="skills"><select data-fnri-skill-filter><option value="all">All</option><option value="assigned">With dice</option></select>
@@ -57,7 +57,7 @@ const itemFormula=i=>i.system.rollFormula;
 window.Roll=class {static validate(){return true;}constructor(formula){this.formula=formula;this.total=7;this.dice=[];}async evaluate(){return this;}async toMessage(data,options){rolls.push({formula:this.formula,mode:options.messageMode});return {id:'msg1',...data};}};
 window.ChatMessage={getSpeaker:()=>({actor:'actorA'})};
 foundry.applications.api.DialogV2.wait=async cfg=>cfg.buttons[0].callback({}, {form:{elements:{namedItem:()=>null},querySelectorAll:()=>[]}});
-window.actor={isOwner:true,hasPlayerOwner:true,id:'actorA',name:'Hero',type:'character',system:{
+window.actor={isOwner:true,hasPlayerOwner:true,id:'actorA',name:'Hero',type:'character',prototypeToken:{disposition:1},canUserModify:()=>true,system:{
  hp:{current:11,max:15,temp:0},skills:{},potionsUsed:3,resources:{mana:{name:"Mana",current:2,max:4}},equipment:{},equipmentSlots:{},
  ac:{partial:10,success:15,great:20},defenses:{awareness:8,reflex:8,fortitude:8,will:8}},
  _source:{system:{hp:{current:11,max:15,temp:0},skills:{},resources:{},equipment:{},equipmentSlots:{}}},
@@ -76,10 +76,35 @@ with sync_playwright() as p:
   load_real_sheet(page,r,html,shim,after="""
 for(const button of document.querySelectorAll('.fnri-tabs [data-fnri-target]'))button.addEventListener('click',e=>
  sheetActions.fnriSwitchTab.call(window.sheet,e,button));
-for(const action of ['toggleSkillGroup','toggleQuickHp','rollAbility','adjustResource','toggleSheetLock'])
+for(const action of ['toggleSkillGroup','toggleQuickHp','rollAbility','adjustResource','toggleSheetLock','chooseActorSide'])
  for(const button of document.querySelectorAll(`[data-action="${action}"]`))button.addEventListener('click',e=>sheetActions[action].call(window.sheet,e,button));
 """)
   page.add_style_tag(content=css)
+  assert page.locator('[data-action="chooseActorSide"]').get_attribute('data-fnri-side')=='friendly'
+  page.evaluate("actor.prototypeToken.disposition=-1;sheet._applyActorSide()")
+  assert page.locator('[data-action="chooseActorSide"]').get_attribute('data-fnri-side')=='hostile'
+  page.evaluate("actor.canUserModify=()=>false;sheet._applyActorSide()")
+  assert page.locator('[data-action="chooseActorSide"]').is_disabled()
+  page.evaluate("actor.canUserModify=()=>true;sheet._applyActorSide()")
+  page.evaluate("""()=>{
+    const update=actor.update;window.sideWrites=0;actor.update=async patch=>{if('prototypeToken.disposition' in patch){window.sideWrites++;actor.prototypeToken.disposition=patch['prototypeToken.disposition'];}else await update.call(actor,patch);};
+    foundry.applications.api.DialogV2.input=()=>{throw Error('unexpected dialog')};
+  }""")
+  side=page.locator('[data-action="chooseActorSide"]')
+  menu=page.locator('[data-fnri-side-menu]')
+  side.click(); assert menu.is_visible()
+  assert menu.locator('button').count()==4
+  assert menu.locator('[aria-pressed="true"]').get_attribute('data-fnri-side')=='hostile'
+  page.keyboard.press('Escape');assert menu.is_hidden();assert page.evaluate('sideWrites')==0
+  side.click();assert menu.is_visible()
+  side.click();assert menu.is_hidden()
+  side.click();assert menu.is_visible()
+  page.locator('[data-fnri-target="characteristics"]').click();assert menu.is_hidden();assert page.evaluate('sideWrites')==0
+  side.click();assert menu.is_visible()
+  menu.locator('[data-fnri-side="neutral"]').click()
+  assert menu.is_hidden();page.wait_for_function('sideWrites===1')
+  assert page.locator('[data-action="chooseActorSide"]').get_attribute('data-fnri-side')=='neutral'
+  assert page.evaluate('actor.prototypeToken.disposition')==0
   page.evaluate("sheet._configurationLocked=true;sheet._applyConfigurationLock()")
   inp=page.locator('[name="system.hp.current"]')
   temp=page.locator('[name="system.hp.temp"]')
@@ -96,9 +121,9 @@ for(const action of ['toggleSkillGroup','toggleQuickHp','rollAbility','adjustRes
     page.wait_for_function('sheet.configurationLocked===false')
    assert inp.is_visible() and temp.is_visible()
    assert inp.is_enabled() and temp.is_enabled()
-   edit(inp,'+5','current',17,True)
-   edit(inp,'- 3 + 1','current',15)
-   edit(inp,'18-4+2','current',16)
+   edit(inp,'+5','current',15,True)
+   edit(inp,'- 3 + 1','current',13)
+   edit(inp,'18-4+2','current',15)
    edit(inp,'12','current',12)
    edit(temp,'+5','temp',5)
    edit(temp,'-2','temp',3)
@@ -150,6 +175,7 @@ for(const action of ['toggleSkillGroup','toggleQuickHp','rollAbility','adjustRes
   page.locator('[data-fnri-target="skills"]').click()
   page.wait_for_function("window.savedFlags.sheetTab_actorA==='skills'")
   assert page.evaluate("(new FastNRICharacterSheet({actor:window.actor}))._selectedTab")=='skills'
+  assert page.evaluate("(new FastNRICharacterSheet({actor:window.actor})).configurationLocked") == page.evaluate('sheet.configurationLocked')
   # Ability roll uses Item's own formula and native message visibility.
   page.locator('[data-fnri-target="abilities"]').click()
   page.locator('[data-action="rollAbility"]').click()

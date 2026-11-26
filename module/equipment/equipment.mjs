@@ -114,3 +114,14 @@ export function needsSecondHandWarning(system, item, slot = itemSlot(item?.id, s
   return itemGrip(item) === '1+' && item?.type === 'weapon' &&
     slot?.kind === 'hand' && !hasFreeSecondHand(system, slot.positions[0]);
 }
+
+/** Shared ordinary weapon proficiency, independent of roll-formula overrides. */
+export function weaponProficiency(item,actor){
+  const mode=String(item?.system?.proficiencyMode??'auto');
+  const owners=String(item?.system?.proficiencyClasses??'').split(',').map(s=>s.trim()).filter(Boolean);
+  const cls=String(actor?.system?.className??'').trim();
+  const id=item?.flags?.['fast-nri-v14']?.contentId??item?.getFlag?.('fast-nri-v14','contentId');
+  const granted=!!id&&(actor?.items?.contents??[]).some(card=>card.type==='ability'&&
+    Array.isArray(card.system?.mechanics?.weaponProficiency?.weaponContentIds)&&card.system.mechanics.weaponProficiency.weaponContentIds.includes(id));
+  return {proficient:mode==='yes'||(mode!=='no'&&(granted||!!cls&&owners.includes(cls))),unknown:mode==='auto'&&!cls&&!granted};
+}

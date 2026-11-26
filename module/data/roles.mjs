@@ -3,7 +3,7 @@
  * Permanent contributions are derived from the selected role, not embedded effects.
  */
 const ROLES = Object.freeze({
-  heir: {name:'Наследник', defenses:{fortitude:2,will:2}, racialChoices:1,
+  heir: {name:'Наследник', startingWealth:5, defenses:{fortitude:2,will:2}, racialChoices:1,
     rollContributions:['society','persuasion','deception','intimidation'].map(id=>({
       label:'Наследник',kind:'modifier',value:'1d10',kinds:['skill'],skillId:`core_${id}`,defaultEnabled:false
     }))}

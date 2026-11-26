@@ -27,7 +27,7 @@ const deletes=Symbol('Foundry v14 _del');
 globalThis._del=deletes;
 globalThis.Hooks={once(name,fn){hooks.set(name,fn)},on(name,fn){hooks.set(name,fn)}};
 globalThis.CONFIG={Combat:{initiative:{}},Token:{},TextEditor:{enrichers:[]},Actor:{dataModels:{thirdPartyActor:class{}}},Item:{dataModels:{thirdPartyItem:class{}}}};
-globalThis.game={settings:{register(){},registerMenu(scope,key,data){registrations.push({scope,key,data})}},system:{id:'fast-nri-v14'},user:{isGM:false},i18n:{localize(key){return key;}}};
+globalThis.game={settings:{get:(_scope,key)=>key==='skillAllocationMode'?'free':'public',register(){},registerMenu(scope,key,data){registrations.push({scope,key,data})}},system:{id:'fast-nri-v14'},user:{isGM:false},i18n:{localize(key){return key;}}};
 let warnings=0,errors=0;
 globalThis.ui={notifications:{warn(){warnings++;},error(){errors++;}}};
 globalThis.foundry={
@@ -84,8 +84,8 @@ assert.equal(typeof actions.createItem,'function');
 for(const a of ['fnriSwitchTab','toggleQuickHp','toggleSkillGroup','rollAbility','rollSkill','createEffect','editEffect','toggleEffect','deleteEffect','openItem','createItem','deleteItem','addSkill','addSpecialization','removeSkill','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'])assert.equal(typeof actions[a],'function',a);
 
 function actorFactory(){
- const items=[];let itemCounter=2;
- function createItem(id,name,type){return {id,name,type,system:{},getFlag(){return undefined;},sort:0,img:'a.png',sheet:{async render(){}}};}
+ const items=[];let itemCounter=2;let openedItems=[];
+ function createItem(id,name,type){return {id,name,type,system:{},getFlag(){return undefined;},sort:0,img:'a.png',sheet:{async render(){openedItems.push(id);}}};}
  items.push(createItem('i1','Sword','weapon'),createItem('i2','Ability','ability'));
  const actor={
   name:'Actor',system:{
@@ -96,7 +96,7 @@ function actorFactory(){
    resources:{mana:{name:'Mana',current:4,max:8}},
    equipment:{leftHand:'i1',rightHand:'',armor:''},equipmentSlots:{},wealth:''
   },
-  items:{contents:items,has(id){return items.some(x=>x.id===id);},get(id){return items.find(x=>x.id===id)}},updates:[],lastItemRecord:null,
+  items:{contents:items,has(id){return items.some(x=>x.id===id);},get(id){return items.find(x=>x.id===id)}},updates:[],lastItemRecord:null,openedItems,
   async update(change){
    // Simulates a delayed server round-trip while applying independent dot-path
    // updates, as supported by the v14 Document API. Arrays are never merged.
@@ -185,7 +185,7 @@ assert.deepEqual(ctx.skillRows[0].skillDiceOptions.slice(1,6).map(option => opti
 assert.deepEqual(ctx.skillRows[1].specializationDiceOptions.slice(1,3).map(option => option.value),
   ['1d6','1d4']);
 assert.equal(ctx.skillRows[0].skillDiceOptions.find(option => option.selected).value,'1d8');
-assert.equal(ctx.skillRows[1].specializationDiceOptions.find(option => option.selected).value,'__custom__');
+assert.equal(ctx.skillRows[1].specializationDiceOptions.find(option => option.selected).value,'__stored__');
 assert.equal(ctx.skillRows[0].hasCustomDice,false);
 
 assert.equal(ctx.missingEquipment.leftHand,false);
@@ -301,6 +301,7 @@ await actions.removeEquipmentSlot.call(sheet,null,{dataset:{id:slotIds[1]}});
 assert.equal(Object.hasOwn(actor.system.equipmentSlots,slotIds[1]),false);
 await actions.createItem.call(sheet,null,{dataset:{type:'gear'}});
 assert.equal(actor.items.contents.length,3);
+assert.deepEqual(actor.openedItems,[],'creating a gear item must not open its sheet');
 // Actual sheet button action: gear enters dynamic other slot, then unequips.
 const gearId=actor.items.contents.at(-1).id;
 const gearButton={closest(){return {dataset:{itemId:gearId}}}};
@@ -314,6 +315,10 @@ await actions.createItem.call(sheet,null,{dataset:{type:'weapon'}});
 assert.equal(actor.items.contents.length,4);
 assert.equal(actor.lastItemRecord.type,'weapon');
 assert.equal(actor.lastItemRecord.system,undefined,'no hidden test weapon defaults');
+assert.deepEqual(actor.openedItems,[],'creating a weapon must not open its sheet');
+const newWeaponId=actor.items.contents.at(-1).id;
+await actions.openItem.call(sheet,null,{closest:()=>({dataset:{itemId:newWeaponId}})});
+assert.deepEqual(actor.openedItems,[newWeaponId],'opening a sheet is a separate action');
 await actor.deleteEmbeddedDocuments('Item',[actor.items.contents.at(-1).id]);
 assert.equal(actor.items.contents.length,3);
 await actions.deleteItem.call(sheet,null,{closest(){return {dataset:{itemId:'i1'}}}});
@@ -353,7 +358,7 @@ const succeedingInput=makeControl({name:'system.hp.current',dataset:{dtype:'Numb
 await attachControls(sheet,[],[failingInput,succeedingInput]);
 succeedingInput.fireChange();
 await sheet._flushWrites();
-assert.equal(actor.system.hp.current,27);
+assert.equal(actor.system.hp.current,20); // effective maximum
 assert.ok(sheet._failedFields.has('system.wealth'));
 await actions.fnriSwitchTab.call(sheet,null,{dataset:{fnriTarget:'inventory'}});
 assert.equal(sheet._selectedTab,'inventory','failed save must NOT block tab navigation');
@@ -385,7 +390,7 @@ assert.equal(errors,0);
 
 // Confirm compact summary is persistent and editable fields live in Characteristics, once.
 for(const path of ['templates/character.hbs','templates/npc.hbs']){
- const html=readFileSync(file(path),'utf8').replace('{{> fnri-actor-actions}}',readFileSync(file('templates/actor-actions.hbs'),'utf8')).replace('{{> fnri-actor-custom-skill}}',readFileSync(file('templates/actor-custom-skill.hbs'),'utf8'));
+ const html=readFileSync(file(path),'utf8').replace('{{> fnri-actor-actions}}',readFileSync(file('templates/actor-actions.hbs'),'utf8')).replace('{{> fnri-actor-abilities}}',readFileSync(file('templates/actor-abilities.hbs'),'utf8')).replace('{{> fnri-actor-custom-skill}}',readFileSync(file('templates/actor-custom-skill.hbs'),'utf8'));
  assert.ok(html.indexOf('fnri-persistent')<html.indexOf('fnri-tabs'));
  assert.equal(html.lastIndexOf('name="system.hp.current"')>html.indexOf('fnri-tabs'),!path.includes('character'));
  assert.ok(html.indexOf('name="system.defenses.awareness"')>html.indexOf('fnri-tabs'));
@@ -393,9 +398,9 @@ for(const path of ['templates/character.hbs','templates/npc.hbs']){
  assert.ok(html.includes('fnri-summary-stats'));
  assert.ok(html.includes('data-fnri-target="characteristics"'));
  assert.ok(!html.includes('data-fnri-message-mode'));
- assert.equal(html.match(/data-action="fnriSwitchTab"/g).length,path.includes("character")?7:6);
- assert.equal(html.match(/data-fnri-panel=/g).length,path.includes("character")?7:6);
- assert.equal(html.match(/fnri-tab-content"/g).length,path.includes("character")?7:6);
+ assert.equal(html.match(/data-action="fnriSwitchTab"/g).length,path.includes("character")?9:7);
+ assert.equal(html.match(/data-fnri-panel=/g).length,path.includes("character")?9:7);
+ assert.equal(html.match(/fnri-tab-content"/g).length,path.includes("character")?9:7);
  assert.ok(html.includes('data-action="toggleEquipment"'));
  assert.ok(html.includes('name="system.wealth"'));
  assert.ok(html.includes('data-action="addSpecialization"') && !html.includes('data-action="openSkillEditor"'));
@@ -404,7 +409,7 @@ for(const path of ['templates/character.hbs','templates/npc.hbs']){
  assert.ok(html.includes(path.includes('character')?'data-fnri-hp-math':'data-fnri-quick-hp'));
  assert.ok(html.includes('data-fnri-save-state'));
  assert.ok(html.includes('data-fnri-skill-filter'));
- assert.equal((html.match(/data-fnri-section=/g)||[]).length,7);
+ assert.equal((html.match(/data-fnri-section=/g)||[]).length,6);
  assert.ok(html.includes('data-action="createEffect"'));
  assert.ok(html.includes('data-row-field="dice"'));
  assert.ok(html.includes('data-action="attackUnarmed"'));

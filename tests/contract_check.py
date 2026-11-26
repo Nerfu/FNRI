@@ -39,11 +39,12 @@ for hbs in (root/'templates').glob('*.hbs'):
     elif hbs.name == 'effects-panel.hbs':
         assert 'data-effect-uuid' in src
     else:
-        assert hbs.name in {'actor-actions.hbs','actor-standard-action.hbs','actor-core-skill.hbs','actor-custom-skill.hbs','actor-short-rest.hbs','actor-resource.hbs','token-ruler-label.hbs'}, f'Unclassified template: {hbs.name}'
+        assert hbs.name in {'actor-actions.hbs','actor-standard-action.hbs','actor-core-skill.hbs','actor-custom-skill.hbs','actor-short-rest.hbs','actor-resource.hbs','actor-abilities.hbs','token-ruler-label.hbs'}, f'Unclassified template: {hbs.name}'
 for name in ('character','npc'):
     src=(root/'templates'/f'{name}.hbs').read_text()
     src=src.replace('{{> fnri-actor-actions}}',(root/'templates'/'actor-actions.hbs').read_text())
-    tabs=['characteristics','actions','skills','abilities','inventory','description']
+    src=src.replace('{{> fnri-actor-abilities}}',(root/'templates'/'actor-abilities.hbs').read_text())
+    tabs=['characteristics','actions','skills','abilities','inventory']+(['role'] if name=='character' else [])+['effects','description']
     if name=='character':
         tabs.append('journal')
     assert re.findall(r'data-action="fnriSwitchTab" data-fnri-target="([^"]+)"',src)==tabs
@@ -96,7 +97,7 @@ for name in ('character','npc'):
     assert 'data-fnri-skill-filter' in src
     assert 'data-fnri-skill-group-content' in src and 'data-fnri-skill-entry' in custom
     assert 'data-action="rollAbility"' in src
-    assert src.count('data-fnri-section=') == 7
+    assert src.count('data-fnri-section=') == 6
     assert 'name="system.wealth"' in src
     assert 'fnri-item-equipped' in src and 'fnri-inventory-name' in src
     assert '{{#unless editable}}disabled{{/unless}}' in src

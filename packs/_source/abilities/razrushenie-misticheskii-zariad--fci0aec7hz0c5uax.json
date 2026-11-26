@@ -18,6 +18,7 @@
             "kind": "magic",
             "targetDefense": "ac",
             "attackKind": "ranged",
+            "spellRange": "current",
             "damageType": "магический",
             "properties": "Заклинание, Разрушение, Атака, Дистанционная атака",
             "damageProfile": {
@@ -25,7 +26,8 @@
               "partial": "1d6",
               "success": "2d6",
               "great": "3d6"
-            }
+            },
+            "spellEnergy": null
           },
           "accounting": {
             "resourceCosts": [

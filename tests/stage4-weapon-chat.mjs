@@ -159,10 +159,10 @@ assert.equal(autoDamage.rolls[0].total,3,'original native roll remains intact');
 assert.match(autoDamage.flavor,/1 → 1/);
 assert.ok(!rerollOptions(autoDamage,actor).some(o=>o.rule==='sweeping'),'automatic and manual routes cannot reroll the same die twice');
 assert.equal(autoRows,1);
-// A held Catalyst is discovered automatically, with no extra DialogV2 input.
-const focus={id:'focus',type:'weapon',uuid:'Actor.abc.Item.focus',name:'Staff',system:{mechanics:{attack:{traitOptions:[{id:'catalyst',label:'Катализатор'}]}}}};
+// A compatible chosen Catalyst grants the existing reroll, not an unrelated held item.
+const focus={id:'focus',type:'weapon',uuid:'Actor.abc.Item.focus',name:'Staff',system:{distance:'6',proficiencyMode:'yes',mechanics:{weapon:{isSpellcastingFocus:true,conducts:['wizard']},attack:{traitOptions:[{id:'catalyst',label:'Катализатор'}]}}}};
 actor.items={contents:[focus]}; actor.system.equipment={leftHand:'focus'};
-const spell={type:'ability',name:'Spell',uuid:'Actor.abc.Item.spell',system:{tags:'Заклинание',mechanics:{attack:{kind:'magic',properties:'Заклинание',damageProfile:{failure:'0',partial:'1d6',success:'2d6',great:'3d6'}}}}};
+const spell={type:'ability',name:'Spell',uuid:'Actor.abc.Item.spell',system:{tags:'Заклинание',mechanics:{attack:{kind:'magic',spellRange:'current',spellEnergy:'wizard',properties:'Заклинание',damageProfile:{failure:'0',partial:'1d6',success:'2d6',great:'3d6'}}}}};
 foundry.applications.api.DialogV2.input=async()=>{throw Error('unexpected separate Catalyst dialog');};
 foundry.applications.api.DialogV2.wait=acceptPreroll;
 const magicAttack=await sendOtherItemAttack(spell,actor,{execution:{attack:{}}});
@@ -172,6 +172,15 @@ queuedRolls.push({formula:'1d6 + 1d6',values:[1,3]});
 const magicDamage=await sendWeaponDamage(magicAttack,'success');
 assert.equal(damageFlag(magicDamage).gameRerollTraits.catalyst,true);
 assert.equal(rerollOptions(magicDamage,actor).find(o=>o.rule==='catalyst').parts[0].part.id,'M1');
+// Same inventory: no weapon and incompatible energy cannot inherit Catalyst.
+const explicitNone=await sendOtherItemAttack(spell,actor,{execution:{attack:{}},spellWeaponId:null,skipPreroll:true});
+assert.equal(attackFlag(explicitNone).gameRerollTraits.catalyst,false);
+for(const spellEnergy of [null,'divine']){
+ const incompatible=await sendOtherItemAttack(spell,actor,{execution:{attack:{spellEnergy}},skipPreroll:true});
+ assert.equal(attackFlag(incompatible).gameRerollTraits.catalyst,false);
+}
+const oldUnmarked=await sendOtherItemAttack(spell,actor,{execution:{attack:{spellRange:null}},skipPreroll:true});
+assert.equal(attackFlag(oldUnmarked).gameRerollTraits.catalyst,false);
 // Moving the same focus to the other hand does not change detection.
 actor.system.equipment={rightHand:'focus'};
 foundry.applications.api.DialogV2.wait=chooseAuto;
@@ -229,7 +238,7 @@ const extras=[{id:'A',kind:'die',faces:6,value:1,original:1},{id:'bonus',kind:'d
 queuedRolls.push({formula:'1d6',values:[5]});
 const h=await autoRerollWeaponParts(extras,{sweeping:true},'physical');
 assert.deepEqual(extras.map(p=>p.value),[5,1,1,2]);assert.equal(h.length,1);assert.equal(queuedRolls.length,0);
-console.log('PASS weapon rerolls: actual preroll checkbox, held Catalyst, no extra dialog, Shift, directed and area dice, history and duplicate prevention');
+console.log('PASS weapon rerolls: actual preroll checkbox, compatible selected Catalyst, no extra dialog, Shift, directed and area dice, history and duplicate prevention');
 
 // Catalyst applies only to the spell profile, not extra damage.
 const spellExtras=[{id:'M1',kind:'die',faces:6,value:1,original:1},{id:'extra',kind:'die',faces:6,value:1,original:1,damageType:'magical'},{id:'added',profilePart:'M2',added:true,kind:'die',faces:6,value:1,original:1},{id:'fixed',kind:'fixed',value:1,original:1},{id:'pending',kind:'die',faces:6,value:1,pending:true}];
@@ -239,7 +248,7 @@ assert.deepEqual(spellExtras.map(p=>p.value),[4,1,1,1,1]);
 assert.equal(spellHistory.length,1);assert.equal(queuedRolls.length,0);
 console.log('PASS Catalyst excludes additional damage dice, fixed/pending');
 
-// Blade: choose its actual card contribution and Catalyst in the same preroll.
+// Blade: selecting its actual card contribution does not inherit an unrelated held Catalyst.
 const {readFileSync}=await import('node:fs');
 const bladeCard=JSON.parse(readFileSync(new URL('../packs/_source/abilities/razrushenie-lezvie--fci31o4779fdagct.json',import.meta.url),'utf8'));
 const blade={...bladeCard,id:'blade',uuid:'Actor.abc.Item.blade'};
@@ -249,19 +258,20 @@ actor.items={contents:[item,focus,blade]};actor.system.equipment={leftHand:item.
 actor.system.resources={magic:{name:'Магическая сила',kind:'class',resourceKey:'class_magic',current:4,max:4}};
 foundry.applications.api.DialogV2.wait=async cfg=>chooseAuto({...cfg,content:cfg.content.replace(/<label\b[^>]*>[\s\S]*?<\/label>/g,row=>row.includes('Лезвие — +1d8')?row.replace(/<input\b/,'<input checked'):row)});
 const bladeAttack=await sendWeaponAttack(item,actor);
-assert.equal(attackFlag(bladeAttack).autoRerollTraits.catalyst,true);
+assert.equal(attackFlag(bladeAttack).gameRerollTraits.catalyst,false);
+assert.equal(attackFlag(bladeAttack).autoRerollTraits.catalyst,false);
 assert.equal(attackFlag(bladeAttack).damageAdditions[0].spellDamage,true);
-queuedRolls.push({formula:'1d10 + 1d4 + 1d8',values:[1,1,1]},{formula:'1d8',values:[7]});
+queuedRolls.push({formula:'1d10 + 1d4 + 1d8',values:[1,1,1]});
 const bladeDamage=await sendWeaponDamage(bladeAttack,'success');
-assert.deepEqual(damageFlag(bladeDamage).parts.map(p=>p.value),[1,1,7]);
-assert.equal(damageFlag(bladeDamage).history[0].rule,'catalyst');
+assert.deepEqual(damageFlag(bladeDamage).parts.map(p=>p.value),[1,1,1]);
+assert.ok(!damageFlag(bladeDamage).history.some(h=>h.rule==='catalyst'));
 assert.equal(queuedRolls.length,0);
 const physicalSpell=[{id:'M1',kind:'die',faces:6,value:1,damageType:'физический'}];
 assert.deepEqual(await autoRerollWeaponParts(physicalSpell,{catalyst:true},'magic'),[]);
-console.log('PASS Blade actual attack + Catalyst; physical spell damage excluded');
+console.log('PASS Blade damage unchanged; unrelated Catalyst excluded; physical spell damage excluded');
 // A hidden Catalyst checkbox cannot enable reroll when Blade is not selected.
 foundry.applications.api.DialogV2.wait=async cfg=>{
-  assert.match(cfg.content,/data-fnri-dependent-entry="\d+" style="display:none"/);
+  assert.doesNotMatch(cfg.content,/data-fnri-dependent-entry="\d+" style="display:none"/);
   return chooseAuto(cfg);
 };
 const plainAttack=await sendWeaponAttack(item,actor);
@@ -301,6 +311,21 @@ for(const [degree,count] of [['partial',1],['success',2],['great',3]]){
  const damage=await sendWeaponDamage(blastAttack,degree);const parts=damageFlag(damage).parts;
  assert.equal(parts.length,count);assert.ok(parts.every(p=>p.faces===6&&p.damageType==='магический'));
 }
+// Real directed spell entry point: range warning, no change to formula or roll.
+const rangeScene={id:'range-scene'},rangeGrid={size:100,isSquare:true,measurePath:([a,b])=>({spaces:Math.abs(a.x-b.x)/100})};
+const rangeOrigin={actor,document:{uuid:'Token.caster',parent:rangeScene,x:0,y:0,width:1,height:1}};
+const rangeTarget={...guard,document:{uuid:'Token.target',parent:rangeScene,x:1300,y:0,width:1,height:1}};
+const rangeNotes=[];const previousCanvas=globalThis.canvas,previousUi=globalThis.ui;
+const previousClass=actor.system.className;actor.system.className='Колдун';
+globalThis.canvas={scene:rangeScene,grid:rangeGrid,tokens:{placeables:[rangeOrigin,rangeTarget],controlled:[rangeOrigin]}};
+globalThis.ui={notifications:{warn:message=>rangeNotes.push(message)}};
+const rangeOptions={execution:blastExecution,targetTokens:[rangeTarget],spatialOrigin:{tokenUuid:rangeOrigin.document.uuid}};
+foundry.applications.api.DialogV2.wait=async cfg=>{assert.match(cfg.content,/13 \/ 8 клеток/);assert.match(cfg.content,/Цель вне дистанции заклинания/);return acceptPreroll(cfg);};
+const farBlast=await sendOtherItemAttack(blast,actor,rangeOptions);assert.equal(farBlast.formula,'1d20 + 1d10');
+assert.ok(!rangeNotes.includes('Цель вне дистанции заклинания'));
+const fastBlast=await sendOtherItemAttack(blast,actor,{...rangeOptions,skipPreroll:true});assert.equal(fastBlast.formula,farBlast.formula);
+assert.ok(rangeNotes.includes('Цель вне дистанции заклинания'));
+foundry.applications.api.DialogV2.wait=acceptPreroll;actor.system.className=previousClass;globalThis.canvas=previousCanvas;globalThis.ui=previousUi;
 const needles=loadSpell('sotvorenie-chernye-igly--fci7blackneedles.json');
 const needlesExecution=needles.system.mechanics.executions[0];assert.equal(needlesExecution.accounting.resourceCosts[0].amount,3);
 queuedRolls.push({formula:'1d6 + 1d6',values:[2,5]});
@@ -329,3 +354,26 @@ item.system.mechanics=oldMechanics;
 const directDamage=await sendWeaponDamage(damageEntryAttack,'partial');
 assert.equal(directDamage.formula,'1d10');assert.equal(damageDialogs,1);
 console.log('PASS damage preroll gate and Shift defaults');
+
+// A future range-authored Wizard execution uses the actually chosen weapon,
+// with a real weapon card and actual common spell attack pipeline.
+const savedActorSystem=structuredClone(actor.system),savedActorItems=actor.items,savedCanvas=globalThis.canvas,savedUi=globalThis.ui;
+const loadHeld=(folder,file,id)=>{const doc=JSON.parse(readFileSync(new URL(`../packs/_source/${folder}/${file}`,import.meta.url),'utf8'));return {...doc,id,uuid:'Actor.abc.Item.'+id};};
+const rangeWand=loadHeld('weapons','volshebnaia-palochka--fci3fy1zmyodahjv.json','rangeWand');
+const rangeRod=loadHeld('weapons','zhezl--fci36yfrup4yhkux.json','rangeRod');
+const rangeFocus=loadHeld('equipment','fokusirovka--fci372bro0dkzzbs.json','rangeFocus');
+actor.system.className='Волшебник';actor.system.spellRange=4;actor.system.equipment={leftHand:rangeWand.id,rightHand:rangeFocus.id};actor.items={contents:[rangeWand,rangeRod,rangeFocus]};
+globalThis.canvas={scene:rangeScene,grid:rangeGrid,tokens:{placeables:[rangeOrigin,rangeTarget],controlled:[rangeOrigin]}};
+globalThis.ui={notifications:{warn:message=>rangeNotes.push(message)}};
+const wizardSpell=structuredClone(blast);wizardSpell.name='Test Wizard spell';
+const wizardExecution=structuredClone(blastExecution);wizardExecution.attack.spellEnergy='wizard';wizardSpell.system.mechanics.executions=[wizardExecution];
+foundry.applications.api.DialogV2.wait=async cfg=>{assert.match(cfg.content,/13 \/ 10 клеток/);return acceptPreroll(cfg);};
+const chosenFocusAttack=await sendOtherItemAttack(wizardSpell,actor,{...rangeOptions,execution:wizardExecution});
+assert.equal(chosenFocusAttack.formula,'1d20 + 1d10');assert.ok(attackFlag(chosenFocusAttack).weaponTraitIds.includes('guided'));
+actor.system.equipment={leftHand:rangeWand.id,rightHand:rangeRod.id};
+foundry.applications.api.DialogV2.input=async()=>({choice:'1'});
+foundry.applications.api.DialogV2.wait=async cfg=>{assert.match(cfg.content,/13 \/ 6 клеток/);return acceptPreroll(cfg);};
+const chosenRodAttack=await sendOtherItemAttack(wizardSpell,actor,{...rangeOptions,execution:wizardExecution});
+assert.ok(attackFlag(chosenRodAttack).weaponTraitIds.includes('spellweapon'));assert.ok(!attackFlag(chosenRodAttack).weaponTraitIds.includes('guided'));
+actor.system=savedActorSystem;actor.items=savedActorItems;globalThis.canvas=savedCanvas;globalThis.ui=savedUi;
+console.log('PASS actual spell attack integration: chosen weapon range, focus, selected-only traits');

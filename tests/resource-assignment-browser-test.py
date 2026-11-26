@@ -2,12 +2,12 @@
 """Actual resource partial and sheet handlers in Chromium; local Foundry shim."""
 from pathlib import Path
 from ast import parse, literal_eval
-from browser_test_helpers import load_real_sheet
+from browser_test_helpers import load_real_sheet, renderer
 from playwright.sync_api import expect,sync_playwright
 root=Path(__file__).resolve().parents[1]
 # Reuse the existing restricted Handlebars renderer and document mock, not a live server.
 source=parse((root/'tests/skill-allocation-browser-test.py').read_text())
-values={node.targets[0].id:literal_eval(node.value) for node in source.body if isinstance(node,__import__('ast').Assign) and len(node.targets)==1 and isinstance(node.targets[0],__import__('ast').Name) and node.targets[0].id in ('shim','renderer','html')}
+values={node.targets[0].id:literal_eval(node.value) for node in source.body if isinstance(node,__import__('ast').Assign) and len(node.targets)==1 and isinstance(node.targets[0],__import__('ast').Name) and node.targets[0].id in ('shim','html')}
 partial=(root/'templates/actor-resource.hbs').read_text()
 for actor_type in ('character','npc'):
  assert '{{> fnri-actor-resource}}' in (root/'templates'/f'{actor_type}.hbs').read_text()
@@ -16,7 +16,7 @@ with sync_playwright() as p:
  try:
   page=browser.new_page(viewport={'width':440,'height':730})
   load_real_sheet(page,root,values['html'],values['shim'])
-  page.add_script_tag(content=values['renderer'])
+  page.add_script_tag(content=renderer)
   page.add_style_tag(content=(root/'styles/fast-nri.css').read_text())
   page.evaluate('(partial)=>window.partial=partial',partial)
   page.evaluate('''async()=>{

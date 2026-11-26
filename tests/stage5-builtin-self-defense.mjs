@@ -67,7 +67,7 @@ for (const [type,Sheet] of [['character',FastNRICharacterSheet],['npc',FastNRINP
   assert.match(row,/data-action="openInterventionSource"/);
   assert.match(row,/data-action="openSheetAction"/);
   assert.doesNotMatch(row,/data-action="deleteItem"|data-item-id=/);
-  assert.match(html,/\{\{#each abilityItems\}\}/,'owned abilities are still displayed');
+  assert.match(readFileSync(new URL('../templates/actor-abilities.hbs',import.meta.url),'utf8'),/\{\{#each abilityItems\}\}/,'owned abilities are still displayed');
 }
 for(const [code,locale] of [['ru',ru],['en',en]]){
   for(const key of ['selfDefenseCost','selfDefenseTraits','selfDefenseTarget',

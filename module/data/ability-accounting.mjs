@@ -119,8 +119,9 @@ function resolveCosts(actor,rule,isIntervention){
 }
 /** One plan for preview, live commit and saved area receipt. The receipt fixes
  * resource identity and price; numeric availability is checked at settlement. */
-export function resourceCostPlan(actor,item,execution=null,{resolved=null,isIntervention=execution?.isIntervention===true}={}){
-  const costs=resolved??resolveCosts(actor,accountingRule(item,execution),isIntervention);
+export function resourceCostPlan(actor,item,execution=null,{resolved=null,isIntervention=execution?.isIntervention===true,chargedWeaponUuid=null}={}){
+  const costs=(resolved??resolveCosts(actor,accountingRule(item,execution),isIntervention))
+    .filter(cost=>!chargedWeaponUuid||cost.kind!=='class');
   const resources=actor?.system?.resources??{},raw=actor?.toObject?.(true)?.system?.resources??resources,combined=new Map(),result=[];
   for(const cost of costs){
     if(cost.reason||!cost.resourceId){result.push({...cost,reason:cost.reason??'missing',current:resources[cost.resourceId]?.current??null});continue;}
@@ -162,13 +163,18 @@ export function classResourceIds(actor, resources, confirmedChanges = []) {
  * It does not reserve, decrement, lock, or refuse an action. When more than one
  * intervention resource exists, no one is silently selected.
  */
-export function abilityCostPreview(actor,item,execution=null) {
-  return resourceCostPlan(actor,item,execution).filter(cost=>cost.reason);
+export function abilityCostPreview(actor,item,execution=null,options={}) {
+  return resourceCostPlan(actor,item,execution,options).filter(cost=>cost.reason);
 }
 function eventsAfterRest(actor) {
   const all=Object.values(historyOf(actor)).filter(e=>e && (e.type==='rest' || e.type==='use'));
   const lastRest=all.findLastIndex(e=>e.type==='rest');
   return all.slice(lastRest+1);
+}
+/** Each embedded weapon has its own daily use; Rest is the existing reset.
+ * Repeated out-of-rule uses are recorded, never a negative charge balance. */
+export function chargedWeaponRemaining(actor,weapon){
+  return eventsAfterRest(actor).some(e=>e.chargedWeaponUuid===weapon?.uuid)?0:1;
 }
 /** Only a use in the Actor's current active combat can start a round cooldown.
  * Rest clears the usage baseline for both kinds of frequency.
@@ -216,11 +222,11 @@ export function queueActorWrite(actors, operation) {
 /** A completed ChatMessage is the default usage key. Explicit composite
  * actions can share one key across several successful primary messages.
  * This is opt-in only: unrelated clicks never merge by proximity or name. */
-export async function recordCardUse({actor,item=null,message,actionId=null,execution=null,isIntervention=execution?.isIntervention===true}={}) {
+export async function recordCardUse({actor,item=null,message,actionId=null,execution=null,isIntervention=execution?.isIntervention===true,chargedWeaponUuid=null}={}) {
   if (!actorCanWrite(actor) || !message?.id || !ROW_ID.test(String(message.id))) return null;
   const rule=accountingRule(item,execution);
-  if (!rule && !isIntervention) return null;
-  return queueActorWrite(actor,()=>commitCardUse({actor,item,message,isIntervention,actionId,execution}));
+  if (!rule && !isIntervention && !chargedWeaponUuid) return null;
+  return queueActorWrite(actor,()=>commitCardUse({actor,item,message,isIntervention,actionId,execution,chargedWeaponUuid}));
 }
 export async function finishCardAccounting(args) {
   try {return await recordCardUse(args);}
@@ -275,7 +281,10 @@ export async function retryCardAccounting(message, {actor,item=null,isInterventi
   const attack = current.getFlag(SCOPE,'weaponAttack');
   const sourceActor = defense?.initiatorActorUuid ?? check?.actorUuid ?? attack?.actorUuid ??
     current.getFlag(SCOPE,'abilityExecution')?.actorUuid;
-  const privateSource=sourceActor ? null : privateAreaSourceFor(current);
+  const redactedSpell=current.getFlag(SCOPE,'spellCastRedacted')===true;
+  const privateSource=sourceActor&&!redactedSpell ? null : privateAreaSourceFor(current);
+  // Never recover a charged use at the ordinary price if its private receipt is missing.
+  if(redactedSpell&&!privateSource)return null;
   if ((sourceActor??privateSource?.actor.uuid) !== actor.uuid) return null;
   if (item?.parent?.documentName === 'Actor' && item.parent.uuid !== actor.uuid) return null;
   const executionId=current.getFlag(SCOPE,'abilityExecution')?.executionId??privateSource?.executionId;
@@ -290,19 +299,21 @@ export async function retryCardAccounting(message, {actor,item=null,isInterventi
   const isAugment=augmentSources.some(entry=>entry?.sourceUuid===item?.uuid) ||
     privateSource?.augmentItemUuids?.includes(item?.uuid)===true;
   if (privateSource && item && !isAugment && item.uuid!==privateSource.accountingItemUuid) return null;
-  return recordCardUse({actor,item,message:current,isIntervention,execution,
+  const charge=(!isAugment && item?.uuid===(privateSource?.accountingItemUuid??current.getFlag(SCOPE,'abilityExecution')?.sourceItemUuid))
+    ? (privateSource?.chargedWeaponUuid??current.getFlag(SCOPE,'abilityExecution')?.chargedWeaponUuid??null):null;
+  return recordCardUse({actor,item,message:current,isIntervention:isIntervention||execution?.isIntervention===true||current.getFlag(SCOPE,'manualAction')?.isIntervention===true,execution,chargedWeaponUuid:charge,
     actionId:isAugment?current.id:current.getFlag(SCOPE,'compositeActionId')});
 }
 
-async function commitCardUse({actor,item,message,isIntervention,actionId,execution,areaUse=null}) {
+async function commitCardUse({actor,item,message,isIntervention,actionId,execution,areaUse=null,chargedWeaponUuid=null}) {
   const key=eventKeyFor(message,item,actionId);
   if (historyOf(actor)[key]) return historyOf(actor)[key];
   const rule=areaUse ? areaUse.rule : accountingRule(item,execution);
   // Old pending receipts carry their resolved explicit costs and implicit counter.
   const resolved=areaUse ? (areaUse.resourceCosts??[...(rule?.resourceCosts??[]).map(cost=>({...cost,explicitId:true})),
     ...(areaUse.implicitCounter?[{resourceId:areaUse.implicitCounter,kind:'intervention',amount:1,scope:'common'}]:[])]) : null;
-  const plan=resourceCostPlan(actor,item,execution,{resolved,isIntervention});
-  if(!rule&&!areaUse&&!plan.some(cost=>cost.resourceId&&[null,'insufficient','unavailable'].includes(cost.reason)))return null;
+  const plan=resourceCostPlan(actor,item,execution,{resolved,isIntervention,chargedWeaponUuid});
+  if(!rule&&!areaUse&&!chargedWeaponUuid&&!plan.some(cost=>cost.resourceId&&[null,'insufficient','unavailable'].includes(cost.reason)))return null;
   const updates={},resourceChanges=[],skippedCosts=[];
   for (const cost of plan) {
     if(cost.reason){skippedCosts.push(cost);continue;}
@@ -311,10 +322,11 @@ async function commitCardUse({actor,item,message,isIntervention,actionId,executi
     resourceChanges.push({resourceId:cost.resourceId,kind:cost.kind,before,after,delta:-cost.amount});
   }
   const combat=item?.type==='ability' && rule?.cooldownRounds ? combatForActor(actor):null;
-  const trackedFrequency=Boolean(rule?.frequency || combat);
+  const trackedFrequency=Boolean(rule?.frequency || combat || chargedWeaponUuid);
   const event={type:'use',at:serverTimestamp(),by:game.user?.id??null,
     ...(areaUse?{areaPerformerUuid:areaUse.actorUuid}:{}),
     sourceItemUuid:item?.uuid??null,
+    ...(chargedWeaponUuid?{chargedWeaponUuid}:{}),
     sourceName:message.blind || message.whisper?.length ? null : item?.name??null,
     chatMessageUuid:message.blind || message.whisper?.length ? null : message.uuid??null,
     actionId:key!==message.id ? normalizedCardActionId(actionId) : null,trackedFrequency,
@@ -363,7 +375,7 @@ export async function restActor(actor) {
     const marker = foundry.utils.randomID();
     try {
       if (actorEffects.length) {
-        await actor.deleteEmbeddedDocuments('ActiveEffect', actorEffects.map(effect => effect.id),{fnriShieldSync:true});
+        await actor.deleteEmbeddedDocuments('ActiveEffect', actorEffects.map(effect => effect.id),{fnriShieldSync:true,fnriHpMaximumManaged:true});
       }
 
       // Read prepared Actor data after removing Actor effects, so the restored
@@ -371,9 +383,12 @@ export async function restActor(actor) {
       const updates = {};
       const hpChanges = [];
       const hp = actor.system?.hp ?? {};
-      if (typeof hp.max === 'number' && Number.isFinite(hp.max) && hp.current !== hp.max) {
-        updates['system.hp.current'] = hp.max;
-        hpChanges.push({field:'current', before:hp.current ?? null, after:hp.max});
+      if (typeof hp.max === 'number' && Number.isFinite(hp.max)) {
+        // Rest owns the final HP value after removing maximum-changing effects.
+        // Store it even when preparation already capped the visible pool.
+        const rawCurrent=actor._source?.system?.hp?.current??actor.toObject?.(true)?.system?.hp?.current??hp.current;
+        if (hp.current!==hp.max||rawCurrent!==hp.max) updates['system.hp.current']=hp.max;
+        if (hp.current!==hp.max) hpChanges.push({field:'current', before:hp.current??null, after:hp.max});
       }
       const layers=readTempHpState(actor);
       if (hp.temp !== 0) {
@@ -417,7 +432,7 @@ export async function restActor(actor) {
         const missing = previousEffects.filter(effect => !actor.effects?.get(effect._id));
         if (missing.length) {
           try {
-            await actor.createEmbeddedDocuments('ActiveEffect',missing,{keepId:true});
+            await actor.createEmbeddedDocuments('ActiveEffect',missing,{keepId:true,fnriHpMaximumManaged:true});
           } catch (recoveryError) {
             error.cause = recoveryError;
             console.error('Fast NRI | Rest effect recovery failed',recoveryError);

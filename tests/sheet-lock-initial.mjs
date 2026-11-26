@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {initialSheetLock,saveSheetLock,registerInitialSheetLock} from '../module/sheets/sheet-lock.mjs';
+const makeUser=id=>({id,flags:{},getFlag(_scope,key){return this.flags[key]},async setFlag(_scope,key,v){this.flags[key]=v;}});
+const player=makeUser('player'),other=makeUser('other');
+const actor=(type,id)=>({type,id,flags:{},getFlag(_scope,key){return this.flags[key]},updateSource(patch){for(const [key,value] of Object.entries(patch))this.flags[key.split('.').at(-1)]=value;}});
+const hooks={};globalThis.Hooks={on:(name,fn)=>hooks[name]=fn};globalThis.game={user:player};registerInitialSheetLock();
+const old=actor('character','old'),fresh=actor('character','new'),npc=actor('npc','npc');
+assert.equal(initialSheetLock(old,player),true);assert.equal(initialSheetLock(npc,player),true);
+hooks.preCreateActor(fresh,{}, {},'player');hooks.preCreateActor(npc,{}, {},'player');
+assert.equal(initialSheetLock(fresh,player),false);assert.equal(initialSheetLock(fresh,other),false);assert.equal(initialSheetLock(npc,player),true);
+await saveSheetLock(fresh,true,player);assert.equal(initialSheetLock(fresh,player),true);assert.equal(initialSheetLock(fresh,other),false);
+await saveSheetLock(old,false,player);assert.equal(initialSheetLock(old,player),false);assert.equal(initialSheetLock(old,other),true);
+await saveSheetLock(fresh,false,player);assert.equal(initialSheetLock(fresh,player),false);
+await saveSheetLock(npc,false,player);assert.equal(initialSheetLock(npc,player),true);
+const remote=actor('character','remote');hooks.preCreateActor(remote,{}, {},'remote');assert.equal(initialSheetLock(remote,player),true);
+console.log('PASS new PC unlocked, existing PC and NPC unchanged, explicit per-user preference and reopen');

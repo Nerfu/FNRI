@@ -28,4 +28,7 @@ const reach=token(enemy,2,0,-1);enemy.system.equipment.leftHand='w';enemy.items.
 const n=token(enemy,1,1,0);assert.equal(calc(n).uncertain,true);n.document.disposition=-2;assert.equal(calc(n).uncertain,true);
 const hostileTarget=token(enemy,0,0,-1);assert.equal(formationForTarget(hostileTarget,[token(p,1,0,-1)],{grid}).formation,2);
 const origin=resolveSpellOrigin(caster,{controlled:[token(p,1,0,1)],scene});assert.equal(origin.kind,'projection');
+caster.tokens=[token(caster,0,0,1)];
+grid.measurePath=([a,b])=>({spaces:Math.abs(a.x-b.x)/100});
+const far=resolveSpellOrigin(caster,{controlled:[token(p,13,0,1)],scene});assert.equal(far.kind,'projection');assert.equal(far.warning,null);
 console.log('projection-formation: OK');

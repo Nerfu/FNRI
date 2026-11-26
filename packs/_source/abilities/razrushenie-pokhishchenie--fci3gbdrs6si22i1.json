@@ -18,6 +18,7 @@
             "kind": "magic",
             "targetDefense": "ac",
             "attackKind": "ranged",
+            "spellRange": "current",
             "damageType": "магический",
             "properties": "Заклинание, Разрушение, Атака, Дистанционная атака",
             "damageProfile": {
@@ -29,7 +30,8 @@
             "damageRules": {
               "ignoreResistance": true,
               "ignoreTempHp": true
-            }
+            },
+            "spellEnergy": null
           },
           "onDamageApplied": {
             "kind": "drain",
@@ -62,6 +64,7 @@
             "kind": "magic",
             "targetDefense": "ac",
             "attackKind": "ranged",
+            "spellRange": "current",
             "damageType": "магический",
             "properties": "Заклинание, Разрушение, Атака, Дистанционная атака",
             "damageProfile": {
@@ -73,7 +76,8 @@
             "damageRules": {
               "ignoreResistance": true,
               "ignoreTempHp": true
-            }
+            },
+            "spellEnergy": null
           },
           "onDamageApplied": {
             "kind": "drain",

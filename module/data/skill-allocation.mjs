@@ -223,3 +223,60 @@ export function resetSkillDicePatch(system){
   }
   return patch;
 }
+
+/** World configuration only; never consulted while preparing or rolling a skill. */
+export const SKILL_MODES = Object.freeze(['strict','warning','free']);
+export function skillAllocationMode(actor=null){
+  if(actor?.type==='npc')return 'free';
+  const mode=globalThis.game?.settings?.get?.('fast-nri-v14','skillAllocationMode');
+  return SKILL_MODES.includes(mode)?mode:'strict';
+}
+export function registerSkillAllocationSettings(){
+  game.settings.register('fast-nri-v14','skillAllocationMode',{
+    name:'FASTNRI.SkillAllocation.mode',hint:'FASTNRI.SkillAllocation.modeHint',
+    scope:'world',config:true,type:String,default:'strict',
+    choices:Object.fromEntries(SKILL_MODES.map(mode=>[mode,`FASTNRI.SkillAllocation.mode_${mode}`])),
+    onChange:()=>{for(const actor of game.actors??[])if(['character','npc'].includes(actor.type)&&actor.sheet?.rendered)actor.sheet.render();}
+  });
+}
+export function skillDieAllows(die,skill){return !die.allowed||die.allowed.includes(skill);}
+/** Deterministic choice among actually free grants. Never steals an assigned die. */
+export function skillNominalChoices(allocation,skill,mode){
+  const row=allocation.rows[skill];
+  if(!row)return [];
+  const current=allocation.dice.find(d=>d.id===row.die);
+  if(current&&!canMoveSkillDie(current)&&mode!=='free')return [];
+  const free=allocation.free.filter(canMoveSkillDie).sort((a,b)=>
+    Number(skillDieAllows(b,skill))-Number(skillDieAllows(a,skill))||
+    (a.allowed?.length??ids.size)-(b.allowed?.length??ids.size)||a.id.localeCompare(b.id));
+  return ranks.flatMap(size=>{
+    const die=free.find(d=>d.face===size&&(mode!=='strict'||skillDieAllows(d,skill)));
+    if(die&&(!current||canMoveSkillDie(current)))return [{size,dieId:die.id,warning:mode==='warning'&&!skillDieAllows(die,skill)}];
+    return mode==='free'?[{size,dieId:null,warning:false}]:[];
+  });
+}
+/** Resolve again inside the existing write queue, so a stale UI cannot duplicate a grant. */
+export function skillNominalEditPatch(system,items,skill,command,mode,previous){
+  const allocation=resolveSkillAllocation(system,items),row=allocation.rows[skill];
+  if(!row||row.die!==previous)return null;
+  const current=allocation.dice.find(d=>d.id===row.die);
+  if(command==='release'){
+    if(current&&!canMoveSkillDie(current)){
+      return mode==='free'?skillFormulaOverridePatch(system,skill,''):null;
+    }
+    const patch=skillPoolEditPatch(system,items,skill,{dieId:null,from:null,previous});
+    if(!patch)return null;
+    // A mode change never writes. An explicit removal clears the old formula.
+    return {...patch,...skillFormulaOverridePatch(system,skill,null)};
+  }
+  const choice=skillNominalChoices(allocation,skill,mode).find(d=>d.size===Number(command));
+  if(!choice)return null;
+  if(!choice.dieId){
+    const released=current&&canMoveSkillDie(current)?skillPoolEditPatch(system,items,skill,{dieId:null,from:null,previous}):{};
+    if(!released)return null;
+    return {...released,...skillFormulaOverridePatch(system,skill,formula(choice.size))};
+  }
+  const patch=skillPoolEditPatch(system,items,skill,{dieId:choice.dieId,from:null,previous});
+  if(!patch)return null;
+  return {...patch,...skillFormulaOverridePatch(system,skill,null)};
+}

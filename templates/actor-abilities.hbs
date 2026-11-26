@@ -1,0 +1,32 @@
+<section class="fnri-panel fnri-abilities"><h3>{{localize "FASTNRI.Sections.abilities"}}</h3>
+{{#if editable}}<p class="fnri-muted" data-fnri-ability-editor hidden>{{localize "FASTNRI.Hints.dropItems"}}</p>{{/if}}
+<ul class="fnri-item-list">
+{{#if invocation}}
+<li class="fnri-item-row" data-fnri-ability-play>
+  <span>{{invocation.name}}</span>
+  {{#if editable}}<button type="button" data-action="invokeFromSheet" data-id="invocation" title="{{invocation.name}}" aria-label="{{invocation.name}}"><i class="fa-solid fa-play" aria-hidden="true"></i></button>{{/if}}
+</li>
+{{/if}}
+{{#each abilityItems}}
+  <li {{#unless this.compendiumOnly}}data-item-id="{{this.id}}"{{/unless}} {{#if this.classContentId}}data-class-content-id="{{this.classContentId}}"{{/if}} class="fnri-item-row">
+    <img src="{{this.img}}" alt="">
+    <div class="fnri-ability-identity"><button type="button" class="fnri-ability-name" data-action="openItem" title="{{localize 'FASTNRI.Actions.openItem'}}">{{this.name}}</button>{{#if this.abilitySource.label}}<small>{{this.abilitySource.label}}</small>{{/if}}</div>
+    <div class="fnri-ability-actions" data-fnri-ability-play>
+    {{#if @root.editable}}
+    <button type="button" data-action="publishAbility" title="{{localize 'FASTNRI.AbilityChat.toChat'}}" aria-label="{{localize 'FASTNRI.AbilityChat.toChat'}}"><i class="fa-solid fa-comment"></i></button>
+    {{/if}}
+    {{#if this.hasRollFormula}}<button type="button" data-action="rollAbility" title="{{localize 'FASTNRI.Actions.rollAbility'}}" aria-label="{{localize 'FASTNRI.Actions.rollAbility'}}"><i class="fa-solid fa-dice-d20"></i></button>{{/if}}
+    {{#if @root.editable}}
+    {{#if this.doubleInvocation}}<button type="button" data-action="invokeFromSheet" data-id="doubleInvocation" title="{{this.name}}" aria-label="{{this.name}}"><i class="fa-solid fa-play" aria-hidden="true"></i></button>{{/if}}
+    {{#if this.grantedAction}}<button type="button" data-action="openGrantedAction" data-id="{{this.grantedAction}}" title="{{localize 'FASTNRI.Tabs.actions'}}" aria-label="{{localize 'FASTNRI.Tabs.actions'}}"><i class="fa-solid fa-share-from-square" aria-hidden="true"></i></button>{{/if}}
+    {{/if}}
+    </div>
+    {{#if @root.editable}}{{#unless this.compendiumOnly}}{{#unless this.isRacialProperty}}<button type="button" data-fnri-ability-editor hidden data-action="deleteItem" title="{{localize 'FASTNRI.Actions.deleteItem'}}" aria-label="{{localize 'FASTNRI.Actions.deleteItem'}}"><i class="fa-solid fa-trash"></i></button>{{/unless}}{{/unless}}{{/if}}
+  </li>
+{{/each}}
+</ul>
+{{#if editable}}
+<button type="button" data-action="toggleAbilityList" class="fnri-ability-edit" data-fnri-ability-play data-fnri-lock-section>{{localize "FASTNRI.AbilitySource.editList"}}</button>
+<div data-fnri-ability-editor hidden class="fnri-row-head fnri-ability-editor-buttons"><button type="button" data-action="createItem" data-type="ability">{{localize "FASTNRI.Actions.createAbility"}}</button><button type="button" data-action="toggleAbilityList">{{localize "FASTNRI.AbilitySource.done"}}</button></div>
+{{/if}}
+</section>

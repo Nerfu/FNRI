@@ -310,12 +310,12 @@ export function renderRollPreparation(effects, {label='',formula='',spatialInfo=
       `<div data-fnri-preview-breakdown></div></details>`+
     `<small data-fnri-preview-error role="status" aria-live="polite"></small>`+
     (label?`<p class="fnri-preroll-action">${safe(label)}</p>`:'')+
-    (spatialInfo?.formation ? `<div class="fnri-spatial-info">`+
-      `<small>Дистанция: ${safe(spatialInfo.distanceSpaces ?? '—')} клеток · `+
-      `Угрозы: ${safe(spatialInfo.formation.threats)} · `+
-      `Строй: ${safe(spatialInfo.formation.formation)}`+
+    (spatialInfo?.formation||Number.isFinite(spatialInfo?.spellRange) ? `<div class="fnri-spatial-info">`+
+      `<small>Дистанция: ${safe(spatialInfo.distanceSpaces ?? '—')}${Number.isFinite(spatialInfo.spellRange)?` / ${safe(spatialInfo.spellRange)}`:''} клеток`+
+      (spatialInfo.formation?` · Угрозы: ${safe(spatialInfo.formation.threats)} · Строй: ${safe(spatialInfo.formation.formation)}`+
       `${spatialInfo.formation.surrounded?' · Цель окружена':''}`+
-      `${spatialInfo.formation.uncertain?' · Стороны неизвестны':''}</small></div>` : '')+
+      `${spatialInfo.formation.uncertain?' · Стороны неизвестны':''}`:'')+`</small>`+
+      (spatialInfo.spellRangeWarning?`<small class="fnri-spell-range-warning">${safe(spatialInfo.spellRangeWarning)}</small>`:'')+`</div>` : '')+
     `<div class="fnri-preroll-effects">${specializations.length?`<div class="fnri-preroll-entry fnri-preroll-group"><strong class="fnri-preroll-source">${safe(pr('specializations'))}</strong>${specializations.join('')}${specializations.length>1?`<small class="fnri-preroll-group-note">${safe(pr('multipleSpecializations'))}</small>`:''}</div>`:''}${penaltyGroup}${otherGroups}${rows}</div>`+
     `<div class="fnri-preroll-manual"><div class="fnri-preroll-manual-head">`+
       `<strong>${safe(pr('extra'))}</strong>`+
@@ -621,13 +621,13 @@ export function applyDirectRollModifiers(expression, selected) {
 /** Shared roll preparation for skills, attacks, abilities and interventions. */
 export async function prepareRoll({actor = null, kind, skillId = null, defenseStat = null,
   formula = '', formulaForActor = null, skipDialog = false, label = '',sourceItem=null,weaponItem=null,attackKind=null,
-  extraEntries=[],prerollEntries=[],spatialInfo=null,targetActor=null,targetToken=null,attackProperties='',usesCombatDie=false,declaredTargets=[] } = {}) {
+  extraEntries=[],prerollEntries=[],spatialInfo=null,targetActor=null,targetToken=null,attackProperties='',usesCombatDie=false,declaredTargets=[],declaredSpellWeapon=false } = {}) {
   const area=String(attackProperties??'').toLowerCase().includes('область действия') ||
     String(attackProperties??'').toLowerCase().includes('area');
   const isAttack=kind==='attack';
   const directed=isAttack && !area;
   const available = [...(kind==='skill' ? specializationEntries(actor,skillId) : []),
-    ...applicableRollContributions(actor,{kind,skillId,defenseStat,formula,sourceItem,weaponItem,attackKind,usesCombatDie,declaredTargets}),
+    ...applicableRollContributions(actor,{kind,skillId,defenseStat,formula,sourceItem,weaponItem,attackKind,usesCombatDie,declaredTargets,declaredSpellWeapon}),
     ...(Array.isArray(prerollEntries) ? prerollEntries : []),
     ...(directed && Array.isArray(extraEntries) ? extraEntries : []),
     ...(directed ? targetHindranceEntries({attacker:actor,target:targetActor,targetToken,area}) : []),

@@ -1,3 +1,5 @@
+import {registerHpLimit} from "./module/damage/hp-limit.mjs";
+import {registerInitialSheetLock} from './module/sheets/sheet-lock.mjs';
 import {registerActorSides} from './module/data/actor-side.mjs';
 import {registerGameReroll} from './module/rolls/game-reroll.mjs';
 import {registerAbilityChat,publishAbility,abilityExecutions,abilityExecution,executeAbilityFromChat} from './module/abilities/ability-chat.mjs';
@@ -32,6 +34,7 @@ import {registerDamageChatControls} from './module/damage/damage-chat.mjs';
 import {registerDamageRecovery,ensureDamageRecovery} from './module/abilities/damage-recovery.mjs';
 import {registerWeaponChatControls} from "./module/weapon/weapon-attack.mjs";
 import {registerClassLifecycle} from './module/data/class-lifecycle.mjs';
+import {registerSkillAllocationSettings} from "./module/data/skill-allocation.mjs";
 import {registerRacialSettings} from "./module/data/racial-properties.mjs";
 import {registerRacialPropertyLifecycle,racialItemDocumentClass} from "./module/sheets/racial-property-lifecycle.mjs";
 /**
@@ -53,10 +56,12 @@ const SYSTEM_ID = "fast-nri-v14";
 Hooks.once("init", () => {
   registerCheckLinks();
   registerRacialSettings();
+  registerSkillAllocationSettings();
   registerRacialPropertyLifecycle();
   CONFIG.Item.documentClass = racialItemDocumentClass(CONFIG.Item.documentClass ?? foundry.documents.Item);
   registerClassLifecycle();
   registerActorSides();
+  registerInitialSheetLock();
   // Foundry native _onEndTurn executes only on designated GM.
   CONFIG.Combat.documentClass = FastNRICombat;
   CONFIG.Combat.initiative.formula = "1d20";
@@ -102,6 +107,7 @@ Hooks.once("init", () => {
   registerDamageRecovery();
   registerEffectsPanel();
   registerChatEffectDrag();
+  registerHpLimit();
   registerActorJournal();
   registerPrivateAreaSourceCleanup();
   registerAreaFollowUpButtons();

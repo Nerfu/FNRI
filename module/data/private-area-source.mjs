@@ -7,7 +7,8 @@ const messageId = /^[A-Za-z0-9]{16}$/;
 
 function isRedacted(message) {
   return message?.getFlag?.(SCOPE,'abilityPublication')?.areaSourceRedacted === true ||
-    message?.getFlag?.(SCOPE,'weaponDamage')?.areaOutcomeRedacted === true;
+    message?.getFlag?.(SCOPE,'weaponDamage')?.areaOutcomeRedacted === true ||
+    message?.getFlag?.(SCOPE,'spellCastRedacted') === true;
 }
 
 function* sourceActors() {
@@ -76,6 +77,21 @@ export async function createAreaUseMessage(actor,use,publish,id=foundry.utils.ra
 
 export async function createPrivateAreaSourceMessage(data, actor, source) {
   return publishWithAreaSource(actor,source,id=>ChatMessage.create({...data,_id:id},{keepId:true}));
+}
+
+/** Reuse the private Actor/message link for a hidden spell's charge receipt.
+ * Public non-area results keep their prior visibility; never add hidden weapon UUIDs. */
+export async function createSpellResultMessage(data,actor,{spellCast=null,executionId=null,itemUuid=null,redacted=false}={}) {
+  if(!spellCast)return ChatMessage.create(data);
+  const flags=data.flags[SCOPE];
+  if(!redacted){
+    if(flags.abilityExecution)Object.assign(flags.abilityExecution,spellCast);
+    return ChatMessage.create(data);
+  }
+  if(!spellCast.chargedWeaponUuid)return ChatMessage.create(data);
+  flags.spellCastRedacted=true;
+  return createPrivateAreaSourceMessage(data,actor,{actorUuid:actor.uuid,accountingItemUuid:itemUuid,
+    executionId,chargedWeaponUuid:spellCast.chargedWeaponUuid});
 }
 
 export async function publishWithAreaSource(actor,source,publish,id=foundry.utils.randomID()) {

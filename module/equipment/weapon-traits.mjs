@@ -22,9 +22,9 @@ export function weaponTraitOptions(weapon) {
   });
 }
 
-export function weaponTraitEntry(weapon,{kind='attack'}={}) {
+export function weaponTraitEntry(weapon,{kind='attack',declaredSpellWeapon=false}={}) {
   if (!['attack','ability'].includes(kind) || !weapon?.uuid) return null;
-  const options=weaponTraitOptions(weapon);
+  const options=weaponTraitOptions(weapon).filter(option=>!declaredSpellWeapon||option.id!=='charged');
   if (!options.length) return null;
   return {uuid:`weapon-traits:${weapon.uuid}`,sourceUuid:weapon.uuid,sourceType:'weapon',
     id:weapon.id??null,name:`${weapon.name} · ${game.i18n.localize('FASTNRI.Preroll.weaponTraits')}`,

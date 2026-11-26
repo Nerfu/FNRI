@@ -253,17 +253,17 @@ export function counteractionOutcome({card, defenseTotal, naturalD20} = {}) {
 
 export function planHpChange(hp,amount,kind='damage',layerOptions={}) {
   const current=nonNegative(hp?.current);
-  const max=Math.max(current,nonNegative(hp?.max));
+  const max=finite(hp?.max)?nonNegative(hp.max):current;
   const temp=nonNegative(hp?.temp);
   // Actor HP fields are integers; never let fractional damage make the
   // layer ledger disagree with the scalar data model.
   const n=Math.trunc(nonNegative(amount));
-  let after={current,temp};
+  let after={current:Math.min(max,current),temp};
   let damageThroughTemp=0;
   if (kind==='damage') {
     const absorbed=layerOptions.ignoreTempHp===true?0:Math.min(temp,n);
     damageThroughTemp=n-absorbed;
-    after={temp:temp-absorbed,current:Math.max(0,current-damageThroughTemp)};
+    after={temp:temp-absorbed,current:Math.min(max,Math.max(0,current-damageThroughTemp))};
   } else if (kind==='heal') after.current=Math.min(max,current+n);
   else if (kind==='temp') after.temp=Math.max(temp,n);
   else throw new Error('Invalid HP change kind');
@@ -285,7 +285,7 @@ export function planHpChange(hp,amount,kind='damage',layerOptions={}) {
 
 export function reverseHpChange(now, report) {
   const current=nonNegative(now?.current),temp=nonNegative(now?.temp);
-  const max=Math.max(current,nonNegative(now?.max));
+  const max=finite(now?.max)?nonNegative(now.max):current;
   const d=report?.delta;
   if (!finite(d?.current) || !finite(d?.temp)) throw new Error('Missing saved HP delta');
   return {changedSince:current!==report.after.current || temp!==report.after.temp,

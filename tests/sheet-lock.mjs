@@ -31,4 +31,23 @@ assert.equal(configurationControl({dataset:{rowCollection:'resources',rowField:'
 assert.equal(configurationControl({name:'system.hp.temp'}),false);
 assert.equal(configurationControl({dataset:{action:'createItem',type:'ability'}}),true);
 assert.equal(configurationControl({dataset:{action:'createItem',type:'gear'}}),false);
+// Final B audit: classify configuration vs gameplay for both actor sheets.
+const configFields=['name','system.level','system.rank','system.role','system.weight','system.hp.max','system.speed','system.combatDie','system.attackModifier','system.ac.partial','system.ac.success','system.ac.great','system.defenses.awareness','system.defenses.reflex','system.defenses.fortitude','system.defenses.will','system.description','system.potionsBaseMax'];
+const liveFields=['system.hp.current','system.hp.temp','system.potionsUsed','system.wealth','system.notes'];
+const configActions=['chooseIdentity','chooseTradition','editRacialProperties','changeRacialSubproperty','addResource','removeResource','addEquipmentSlot','removeEquipmentSlot'];
+const liveActions=['rollSkill','rollAbility','declareSheetAction','restActor','toggleEquipment','useInventoryItem','openItem','createEffect','editEffect','toggleEffect','deleteEffect','chooseActorSide','openProjectionOwner','toggleProjectionFull'];
+const inventoryCreate={dataset:{action:'createItem',type:'weapon'},disabled:false};
+const inventoryDelete={...action('deleteItem'),closest:()=>null};
+const abilityDelete={...action('deleteItem'),closest:()=>({})};
+const slotField=key=>({dataset:{rowCollection:'equipmentSlots',rowField:key},disabled:false});
+const config=[...configFields.map(field),...configActions.map(action),abilityDelete,slotField('name')];
+const live=[...liveFields.map(field),...liveActions.map(action),inventoryCreate,inventoryDelete,slotField('itemId')];
+for(const c of config) assert.equal(configurationControl(c),true,JSON.stringify(c));
+for(const c of live) assert.equal(configurationControl(c),false,JSON.stringify(c));
+const auditRoot={querySelectorAll:()=>[...config,...live],classList:{toggle(){}}};
+for(const locked of [true,false,true,false]) {
+  applySheetLock(auditRoot,locked);
+  for(const c of config) assert.equal(c.disabled,locked,JSON.stringify(c));
+  for(const c of live) assert.equal(c.disabled,false,JSON.stringify(c));
+}
 console.log('PASS: sheet lock preserves gameplay and native disabled controls');

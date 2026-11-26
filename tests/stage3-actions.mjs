@@ -15,7 +15,7 @@ class RollMock {
 globalThis.Roll=RollMock;
 globalThis.ChatMessage={getSpeaker({actor}={}){return actor?{actor:actor.id}:{alias:'No actor'};}};
 let currentMode='gm';
-globalThis.game={i18n:{localize},settings:{get(scope,key){assert.equal(scope,'core');assert.equal(key,'messageMode');return currentMode;}}};
+globalThis.game={i18n:{localize},settings:{get(scope,key){if(scope==='fast-nri-v14'&&key==='skillAllocationMode')return 'strict';assert.equal(scope,'core');assert.equal(key,'messageMode');return currentMode;}}};
 let warnings=0,errors=0;
 globalThis.ui={notifications:{warn(){warnings++;},error(){errors++;}}};
 const DialogV2={confirm:async()=>true,wait:acceptPreroll};
@@ -61,6 +61,12 @@ assert.equal(effectRows[0].disabled,true);
 await actions.editEffect.call(sheet,null,{dataset:{id:'e1'}});
 await actions.deleteEffect.call(sheet,null,{dataset:{id:'e1'}});
 assert.equal(effectRows.length,0);
+const originalEffectQuery=sheet.element.querySelector;
+sheet.element.querySelector=sel=>sel==='[data-fnri-effect-key]'?{value:'system.spellRange'}:originalEffectQuery(sel);
+await actions.createEffect.call(sheet,null,{});
+assert.deepEqual(effectRows[0].changes,[{key:'system.spellRange',type:'add',value:'2',phase:'initial'}]);
+await actions.deleteEffect.call(sheet,null,{dataset:{id:'e1'}});
+sheet.element.querySelector=originalEffectQuery;
 // No AE double-applying in the roll handler. It reads just the prepared modifier.
 entry.modifier=4;currentMode='blind';
 await actions.rollSkill.call(sheet,null,{dataset:{id:'sample'}});

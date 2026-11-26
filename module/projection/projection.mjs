@@ -160,22 +160,6 @@ export function resolveSpellOrigin(caster,{controlled=null,scene=null,allowProje
       warning=warning??'У Колдуна несколько токенов: источник неоднозначен';
   }
   const chosenProjection=chosen && projectionToken(chosen);
-  if(chosenProjection){
-    // Token remains only a spatial origin. Range is advisory.
-    const ownTokens=[...(caster?.getActiveTokens?.()??[])].filter(t=>
-      !currentScene || t?.document?.parent?.id===currentScene.id);
-    if(ownTokens.length===1){
-      const range=Number(projectionLink(chosen.actor)?.rangeSpaces);
-      if(Number.isFinite(range) && range>0){
-        const grid=globalThis.canvas?.grid;
-        const distance=grid?.isSquare
-          ? tokenDistance(ownTokens[0],chosen,grid)
-          : projectionSpatialPreview({point:ownTokens[0].center},[chosen],{grid}).distanceSpaces;
-        if(Number.isFinite(distance) && distance>range)
-          warning=`Проекция дальше ${range} клеток от Колдуна (${distance}); по Рулбуку она исчезает`;
-      }
-    }
-  }
   const doc=chosen?.document;
   const center=chosen?.center ?? (doc && globalThis.canvas?.grid?.size ? {
     x:doc.x+(doc.width??1)*globalThis.canvas.grid.size/2,

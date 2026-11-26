@@ -8,20 +8,23 @@
  * Passive abilities have NO executions; their descriptions are still shareable.
  * No special casing by ability name, class, hand count or action type.
  */
-import {abilityAccountingStatus,abilityCostPreview,finishCardAccounting,queueActorWrite} from '../data/ability-accounting.mjs';
+import {abilityAccountingStatus,abilityCostPreview,finishCardAccounting,queueActorWrite,chargedWeaponRemaining} from '../data/ability-accounting.mjs';
 import {applyHp} from '../damage/hp-actions.mjs';
 import {abilityTempHpExpiry} from './temporary-hp-cast.mjs';
 import {canReadChatContent} from '../data/chat-visibility.mjs';
-import {createPrivateAreaSourceMessage,privateAreaSourceFor} from '../data/private-area-source.mjs';
+import {createPrivateAreaSourceMessage,privateAreaSourceFor,createSpellResultMessage} from '../data/private-area-source.mjs';
 import {declareAction,actionText,actionAudience} from '../rolls/action-declaration.mjs';
 import {cardRollKind} from '../rolls/roll-contributions.mjs';
 import {postRoll,itemFormula} from '../rolls/checks.mjs';
 import {redactActorSourceForAudience} from '../rolls/roll-context.mjs';
-import {isAreaAttack,effectiveWeaponProperties} from '../rolls/attack-properties.mjs';
+import {isAreaAttack,effectiveWeaponProperties,CHECK_DEFENSES} from '../rolls/attack-properties.mjs';
 import {resolveAbilityWeapon} from '../equipment/weapon-traits.mjs';
-import {projectionActorsForAbility} from '../projection/projection.mjs';
+import {projectionActorsForAbility,resolveSpellOrigin} from '../projection/projection.mjs';
 import {sendOtherItemAttack} from '../weapon/weapon-attack.mjs';
 import {resolveCardEffectTarget,applyCardEffect} from '../effects/apply-card-effect.mjs';
+import {directedSpellSpatialContext} from '../spatial/spatial-context.mjs';
+import {spellWeaponOptions,directedSpellRange,spellExecutionRule} from '../spatial/spell-range.mjs';
+import {weaponTraitOptions} from '../equipment/weapon-traits.mjs';
 
 const ID='fast-nri-v14';
 const TYPES=new Set(['roll','attack','temporaryHp','effect','projection']);
@@ -58,8 +61,8 @@ export function abilityExecution(item,id){return abilityExecutions(item).find(e=
 
 function inheritingAudience(message){return {whisper:[...(message.whisper??[])],blind:!!message.blind};}
 
-function costMessages(actor,item,execution){
-  return abilityCostPreview(actor,item,execution).map(warning=>{
+function costMessages(actor,item,execution,options={}){
+  return abilityCostPreview(actor,item,execution,options).map(warning=>{
     const name=actor.system?.resources?.[warning.resourceId]?.name || warning.resourceName || warning.resourceId;
     const resource=name ? ` (${name})` : '';
     return (warning.reason==='insufficient'?text('insufficient'):
@@ -68,6 +71,47 @@ function costMessages(actor,item,execution){
   });
 }
 
+function executionWarnings(actor,item,execution,options={}){
+  const warnings=costMessages(actor,item,execution,options);
+  const status=abilityAccountingStatus(actor,item);
+  if(status?.remaining===0)warnings.push(text('noDailyUses'));
+  if(status?.cooldownRemainingRounds>0)warnings.push(game.i18n.format('FASTNRI.AbilityChat.roundCooldown',{rounds:status.cooldownRemainingRounds}));
+  return [...new Set(warnings)];
+}
+export function abilityChatVariants(actor,item){
+  const rows=[];
+  for(const execution of abilityExecutions(item)){
+    const rule=spellExecutionRule(item,execution);
+    const warnings=executionWarnings(actor,item,execution);
+    const weapons=rule?spellWeaponOptions(actor,rule):[];
+    if(!weapons.length){rows.push({executionId:execution.id,label:execution.label,
+      ...(rule?{spellWeaponId:null}:{}),warnings:rule?warnings:[]});continue;}
+    const distanceDetails=weapon=>{const distance=directedSpellRange(actor,rule,weapon,{advisory:true});return distance===null?[]:[game.i18n.format('FASTNRI.AbilityChat.spellDistance',{distance})];};
+    for(const option of weapons){
+      const weapon=option.weapon;
+      const details=[...distanceDetails(weapon),
+        ...weaponTraitOptions(weapon).filter(t=>!['spellweapon','charged'].includes(t.id)).map(t=>t.label)];
+      rows.push({executionId:execution.id,spellWeaponId:weapon.id,held:option.held,
+        label:`${execution.label} · ${weapon.name}`,details:details.join(' · '),
+        warnings:[...warnings,...option.warnings.map(key=>text(key))]});
+      if(weaponTraitOptions(weapon).some(t=>t.id==='charged')){
+        const chargeWarnings=executionWarnings(actor,item,execution,{chargedWeaponUuid:weapon.uuid});
+        if(chargedWeaponRemaining(actor,weapon)===0)chargeWarnings.push(text('chargedExhausted'));
+        rows.push({executionId:execution.id,spellWeaponId:weapon.id,charged:true,held:option.held,
+          label:`${execution.label} · ${weapon.name} — ${text('chargedOption')}`,
+          details:[...details,text('chargedNoClassCost')].join(' · '),
+          warnings:[...chargeWarnings,...option.warnings.map(key=>text(key))]});
+      }
+    }
+    rows.push({executionId:execution.id,spellWeaponId:null,label:`${execution.label} · ${text('noSpellWeapon')}`,
+      details:distanceDetails(null).join(' · '),warnings});
+  }
+  // Readiness order across authored executions, not only inside each group.
+  // Stable sort preserves authored order within equal readiness.
+  const group=row=>row.held===true?0:row.held===false?1:2;
+  return rows.sort((a,b)=>group(a)-group(b)||
+    (a.held===b.held&&a.held!==undefined?a.warnings.length-b.warnings.length:0));
+}
 function warnAtPublication(actor,item,executions) {
   const warnings=new Set(executions.flatMap(execution=>costMessages(actor,item,execution)));
   if (item.system?.mechanics?.attackAugment && !executions.length) {
@@ -132,7 +176,7 @@ async function documentsForPublication(message){
 /** A button's execution is the cost event. Selecting the button cannot spend
  * resources if preroll is dismissed or the result message fails to post.
  */
-export async function executeAbilityFromChat(message,executionId,{skipPreroll=false}={}){
+export async function executeAbilityFromChat(message,executionId,{skipPreroll=false,spellWeaponId=undefined,charged=false}={}){
   // Capture target IDENTITIES at click time, before UUID lookups/preroll.
   // Current target defense values are resolved at roll time against these
   // same tokens (so changing target selection cannot redirect the attack).
@@ -151,19 +195,49 @@ export async function executeAbilityFromChat(message,executionId,{skipPreroll=fa
   }
   // Source data is reread after publication; costs and active effects are never
   // copied into the ChatMessage. A warning does not prohibit the action.
+  const rule=spellExecutionRule(item,execution);
+  let spellCast=null,chosenWeapon=null;
+  if(rule){
+    const rows=abilityChatVariants(actor,item).filter(row=>row.executionId===executionId);
+    // A stale/deleted or now incompatible source is not silently replaced.
+    // Refresh the options; the independent no-weapon path stays available.
+    const variant=rows.find(row=>row.spellWeaponId===(spellWeaponId??null)&&Boolean(row.charged)===charged);
+    if(!variant){ui.notifications?.warn(text('spellWeaponChanged'));return null;}
+    spellWeaponId=variant.spellWeaponId;
+    const weapon=chosenWeapon=spellWeaponId===null?null:spellWeaponOptions(actor,rule).find(row=>row.weapon.id===spellWeaponId)?.weapon;
+    spellCast={spellWeaponUuid:weapon?.uuid??null,spellRange:directedSpellRange(actor,rule,weapon,{advisory:true}),
+      ...(charged?{chargedWeaponUuid:weapon.uuid}:{})};
+    if(variant.warnings.length)ui.notifications?.warn(variant.warnings.join(' · '));
+  } else if(spellWeaponId!==undefined||charged)return null;
+  const chargedWeaponUuid=spellCast?.chargedWeaponUuid??null;
+  // Keep the same accounting identity on every result, including manual
+  // and effect executions, so recovery cannot charge the wrong price.
+  const executionFlag={executionId:execution.id,actorUuid:actor.uuid,sourceItemUuid:item.uuid};
+  const publishResult=data=>createSpellResultMessage(data,actor,{spellCast,executionId:execution.id,itemUuid:item.uuid,
+    redacted:redactActorSourceForAudience(actor,source)});
+  const spellLabel=chosenWeapon?`${execution.label} · ${chosenWeapon.name}${charged?` — ${text('chargedOption')}`:''}`:execution.label;
+  // Non-attack range applies only to an authored directed recipient. Area,
+  // self and manual-placement cases keep their existing independent handling.
+  const directed=execution.target==='selected'||rule?.target==='selected'||CHECK_DEFENSES.includes(execution.targetDefense);
+  const spatialInfo=execution.type!=='attack'&&directed&&execution.target!=='self'&&rule?.target!=='self'&&Number.isFinite(spellCast?.spellRange)?
+    directedSpellSpatialContext({origin:resolveSpellOrigin(actor,{controlled:clickControlled}),targetTokens:clickTargets,
+      spellRange:spellCast.spellRange,properties:rule.properties??item.system.tags}):null;
+  const rolled=execution.type==='roll'||execution.type==='temporaryHp'&&!(Number.isSafeInteger(execution.amount)&&execution.amount>0)||execution.type==='manual'&&!!itemFormula(item);
+  if(spatialInfo?.spellRangeWarning&&(!rolled||skipPreroll))ui.notifications?.warn(spatialInfo.spellRangeWarning);
+  const rollSpellOptions=spellCast?{spellCast,weaponItem:chosenWeapon,declaredSpellWeapon:true,spatialInfo}:{};
   switch(execution.type){
     case 'manual': {
-      const label=item.name,formula=itemFormula(item);
+      const label=chosenWeapon?`${item.name} · ${spellLabel}`:item.name,formula=itemFormula(item);
       if(formula)return postRoll({formula,label,actor,kind:cardRollKind(item,execution),sourceItem:item,execution,
-        isIntervention:execution.isIntervention,skipPreroll,audienceMessage:source,targetTokens:[]});
+        isIntervention:execution.isIntervention,skipPreroll,audienceMessage:source,targetTokens:[],...rollSpellOptions});
       return declareAction({actor,item,label,description:item.system?.description??'',source,execution,
-        isIntervention:execution.isIntervention});
+        isIntervention:execution.isIntervention,spellCast});
     }
     case 'attack': {
       // A selected Projection changes ONLY the spatial origin of this attack;
       // the Actor used to roll and spend resources remains the caster.
       return sendOtherItemAttack(item,actor,{execution,skipPreroll,audienceMessage:source,
-        targetTokens:clickTargets,originTokens:clickControlled});
+        targetTokens:clickTargets,originTokens:clickControlled,spellWeaponId,charged});
     }
     case 'projection': {
       // Execution is a normal resource/accounting event. Actor creation and
@@ -172,25 +246,24 @@ export async function executeAbilityFromChat(message,executionId,{skipPreroll=fa
       const description = linked.length ?
         `${esc(text('projectionActorsLabel'))}: ${linked.map(a => esc(a.name)).join(', ')}` :
         esc(text('projectionActorMissing'));
-      const result = await ChatMessage.create({
+      const result = await publishResult({
         speaker: ChatMessage.getSpeaker({actor}), ...inheritingAudience(source),
-        content: `<strong>${esc(item.name)}</strong> · ${esc(execution.label)}`+
+        content: `<strong>${esc(item.name)}</strong> · ${esc(spellLabel)}`+
           `<p>${description}</p>`,
-        flags: {[ID]: {abilityExecution: {executionId: execution.id,
-          actorUuid: actor.uuid, sourceItemUuid: item.uuid},
+        flags: {[ID]: {abilityExecution: executionFlag,
           projectionResult: {version: 2, actorUuids: linked.map(a => a.uuid)}}}
       });
-      if (result) await finishCardAccounting({actor,item,message:result,execution});
+      if (result) await finishCardAccounting({actor,item,message:result,execution,chargedWeaponUuid});
       return result;
     }
     case 'roll': {
       const formula=String(execution.formula??itemFormula(item)).trim();
       if(!formula)throw Error(text('missingFormula'));
-      return postRoll({formula,label:`${item.name} · ${execution.label}`,actor,
+      return postRoll({formula,label:`${item.name} · ${spellLabel}`,actor,
         kind:cardRollKind(item,execution),sourceItem:item,execution,isIntervention:execution.isIntervention,
         skipPreroll,audienceMessage:source,
         targetDefense:execution.targetDefense??item.system?.mechanics?.attack?.targetDefense,
-        targetTokens:clickTargets});
+        targetTokens:clickTargets,...rollSpellOptions});
     }
     case 'temporaryHp': {
       // A fixed-value effect is not a fake Roll('5'). It publishes its own
@@ -198,42 +271,42 @@ export async function executeAbilityFromChat(message,executionId,{skipPreroll=fa
       if(Number.isSafeInteger(execution.amount) && execution.amount>0){
         const expiry=abilityTempHpExpiry(actor,execution,{combat:game.combat,
           worldTime:game.time?.worldTime});
-        const result=await ChatMessage.create({
+        const result=await publishResult({
           speaker:ChatMessage.getSpeaker({actor}),...inheritingAudience(source),
-          content:`<strong>${esc(item.name)}</strong> · ${esc(execution.label)}`+
+          content:`<strong>${esc(item.name)}</strong> · ${esc(spellLabel)}`+
             `<p>${esc(text('temporaryHpResult'))}: <strong>${execution.amount}</strong></p>`,
           flags:{[ID]:{
-            abilityExecution:{executionId:execution.id,actorUuid:actor.uuid,sourceItemUuid:item.uuid},
+            abilityExecution:executionFlag,
             abilityResult:{version:1,kind:'temporaryHp',sourceItemUuid:item.uuid,
               actorUuid:actor.uuid,executionId:execution.id,amount:execution.amount,
               target:execution.target==='self'?'self':'selected',expiry}
           }}
         });
         if(result)await finishCardAccounting({actor,item,message:result,
-          execution,isIntervention:execution.isIntervention});
+          execution,isIntervention:execution.isIntervention,chargedWeaponUuid});
         return result;
       }
       const formula=String(execution.formula??itemFormula(item)).trim();
       if(!formula)throw Error(text('missingFormula'));
       // Share the complete native preroll/finalize/accounting pipeline with
       // ordinary checks; application of the evaluated total remains separate.
-      return postRoll({formula,label:`${item.name} · ${execution.label}`,actor,
+      return postRoll({formula,label:`${item.name} · ${spellLabel}`,actor,
         kind:cardRollKind(item,execution),sourceItem:item,execution,isIntervention:execution.isIntervention,
-        skipPreroll,audienceMessage:source,resultKind:'temporaryHp'});
+        skipPreroll,audienceMessage:source,resultKind:'temporaryHp',...rollSpellOptions});
     }
     case 'effect': {
       const effect=item.effects?.get(execution.effectId);
       if(!effect || effect.transfer===true)throw Error(text('missingEffect'));
-      const result=await ChatMessage.create({
+      const result=await publishResult({
         speaker:ChatMessage.getSpeaker({actor}),...inheritingAudience(source),
-        content:`<strong>${esc(item.name)}</strong> · ${esc(execution.label)}<p>${esc(effect.name)}</p>`,
+        content:`<strong>${esc(item.name)}</strong> · ${esc(spellLabel)}<p>${esc(effect.name)}</p>`,
         flags:{[ID]:{
-          abilityExecution:{executionId:execution.id,actorUuid:actor.uuid,sourceItemUuid:item.uuid},
+          abilityExecution:executionFlag,
           abilityResult:{version:1,kind:'effect',sourceItemUuid:item.uuid,actorUuid:actor.uuid,
             executionId:execution.id,effectId:effect.id}
         }}
       });
-      if(result)await finishCardAccounting({actor,item,message:result,execution,isIntervention:execution.isIntervention});
+      if(result)await finishCardAccounting({actor,item,message:result,execution,isIntervention:execution.isIntervention,chargedWeaponUuid});
       return result;
     }
   }
@@ -298,36 +371,75 @@ function refreshDailyRemaining(actor) {
   }
 }
 
+// Rendering is local to readers who may execute the source. An older async
+// UUID lookup must not replace a newer option list after an equipment update.
+const publicationRender=new WeakMap();
+export async function renderAbilityPublication(message,html){
+  if(!html?.querySelector)return;
+  const request={};publicationRender.set(html,request);
+  if(!canReadChatContent(message)){
+    html.querySelector('[data-fnri-ability-options]')?.remove();return;
+  }
+  const docs=await documentsForPublication(message);
+  if(publicationRender.get(html)!==request)return;
+  html.querySelector('[data-fnri-ability-options]')?.remove();
+  if(!docs || !canReadChatContent(message) || !isActorOwner(docs.actor))return;
+  const options=document.createElement('section');
+  options.dataset.fnriAbilityOptions='';options.dataset.actorUuid=docs.actor.uuid;options.className='fnri-ability-chat-options';
+  const remaining=abilityAccountingStatus(docs.actor,docs.item)?.remaining;
+  if (remaining!=null) {
+    const daily=document.createElement('small');
+    daily.dataset.fnriAbilityRemaining=docs.item.id;
+    daily.dataset.actorUuid=docs.actor.uuid;
+    showDailyRemaining(daily,remaining);
+    options.append(daily);
+  }
+  for(const variant of abilityChatVariants(docs.actor,docs.item)){
+    const row=document.createElement('div');row.className='fnri-ability-chat-option';
+    const button=addButton(row,variant.label,async event=>{
+      try{return await executeAbilityFromChat(message,variant.executionId,
+        {skipPreroll:!!event?.shiftKey,spellWeaponId:variant.spellWeaponId,charged:variant.charged===true});}
+      finally{await renderAbilityPublication(game.messages?.get(message.id)??message,html);}
+    });
+    // Readiness is advisory. Never disable a button for an unmet rule.
+    if(variant.details){const detail=document.createElement('small');detail.textContent=variant.details;button.append(detail);}
+    if(variant.warnings.length){const warning=document.createElement('small');warning.className='fnri-spell-option-warning';
+      warning.textContent=`⚠ ${variant.warnings.join(' · ')}`;button.append(warning);}
+    options.append(row);
+  }
+  if(options.childElementCount) (html.querySelector('.message-content')??html).append(options);
+}
+function refreshPublicationOptions(actor){
+  if(!actor?.uuid||typeof document==='undefined')return;
+  for(const node of document.querySelectorAll('[data-fnri-ability-options]')){
+    if(node.dataset.actorUuid!==actor.uuid)continue;
+    const html=node.closest('.chat-message');
+    const message=game.messages?.get(html?.dataset?.messageId);
+    if(message)void renderAbilityPublication(message,html).catch(error=>console.warn('Fast NRI | ability message refresh failed',error));
+  }
+}
+
 export function registerAbilityChat(){
+  Hooks.on('updateActor',refreshPublicationOptions);
+  Hooks.on('updateActorDelta',delta=>refreshPublicationOptions(delta.parent?.actor));
+  Hooks.on('updateToken',token=>refreshPublicationOptions(token.actor));
+  for(const hook of ['createItem','updateItem','deleteItem'])Hooks.on(hook,item=>refreshPublicationOptions(item.parent));
   Hooks.on('updateActor',refreshDailyRemaining);
   Hooks.on('updateActorDelta',delta=>refreshDailyRemaining(delta.parent?.actor));
   Hooks.on('updateToken',token=>refreshDailyRemaining(token.actor));
   Hooks.on('renderChatMessageHTML',(message,html)=>{
-    if(!html?.querySelector || !canReadChatContent(message))return;
+    if(!html?.querySelector)return;
+    if(!canReadChatContent(message)){
+      // Invalidate pending owner-only renders if native visibility changed.
+      publicationRender.set(html,{});
+      html.querySelector('[data-fnri-ability-options]')?.remove();
+      html.querySelector('[data-fnri-ability-apply]')?.remove();
+      return;
+    }
     const publication=message.getFlag?.(ID,'abilityPublication');
     const result=message.getFlag?.(ID,'abilityResult');
     if(publication?.version===1){
-      void (async()=>{
-        const docs=await documentsForPublication(message);
-        if(!docs || !isActorOwner(docs.actor))return;
-        html.querySelector('[data-fnri-ability-options]')?.remove();
-        const options=document.createElement('section');
-        options.dataset.fnriAbilityOptions='';options.className='fnri-ability-chat-options';
-        const remaining=abilityAccountingStatus(docs.actor,docs.item)?.remaining;
-        if (remaining!=null) {
-          const daily=document.createElement('small');
-          daily.dataset.fnriAbilityRemaining=docs.item.id;
-          daily.dataset.actorUuid=docs.actor.uuid;
-          showDailyRemaining(daily,remaining);
-          options.append(daily);
-        }
-        for(const execution of abilityExecutions(docs.item)){
-          const row=document.createElement('div');row.className='fnri-ability-chat-option';
-          addButton(row,execution.label,event=>executeAbilityFromChat(message,execution.id,{skipPreroll:!!event?.shiftKey}));
-          options.append(row);
-        }
-        if(options.childElementCount) (html.querySelector('.message-content')??html).append(options);
-      })().catch(error=>console.warn('Fast NRI | ability message display failed',error));
+      void renderAbilityPublication(message,html).catch(error=>console.warn('Fast NRI | ability message display failed',error));
     }
     if(result?.version===1 && ['temporaryHp','effect'].includes(result.kind)){
       // All readers may see the result, but Actor ownership is checked on apply.

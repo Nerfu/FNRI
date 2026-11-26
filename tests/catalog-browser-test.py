@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
 for name in ('character','npc'):
     template=expand_actor_template(root,f'{name}.hbs')
-    for required in ('{{#each catalogGroups}}','{{#each this.rows}}','fnri-core-skill-name','data-fnri-dice-picker="skill"','data-row-field="modifier"','{{#each skillRows}}','data-action="addSpecialization"'):
+    for required in ('{{#each catalogGroups}}','{{#each this.rows}}','fnri-core-skill-name','data-fnri-dice-picker="{{this.diceKind}}"','data-row-field="modifier"','{{#each skillRows}}','data-action="addSpecialization"'):
         assert required in template, (name,required)
 
 html='''<div id="sheet"><div id="skills">
@@ -18,7 +18,7 @@ html='''<div id="sheet"><div id="skills">
 <input data-fnri-custom-dice data-row-collection="skills" data-row-id="core_arcana" data-row-field="dice" value="" hidden>
 <input data-row-collection="skills" data-row-id="core_arcana" data-row-field="modifier" value="" />
 </div></div>'''
-shim='''window.game={i18n:{localize:key=>key},settings:{get:()=>"public"}};
+shim='''window.game={i18n:{localize:key=>key},settings:{get:(_scope,key)=>key==='skillAllocationMode'?'free':'public'}};
 window.ui={notifications:{warn:()=>{},error:()=>{}}};
 window.foundry={applications:{api:{HandlebarsApplicationMixin:Parent=>Parent,DialogV2:{}},sheets:{ActorSheetV2:class {
  constructor({actor}){this.actor=actor;this.element=document.getElementById('sheet');this.isEditable=true;}

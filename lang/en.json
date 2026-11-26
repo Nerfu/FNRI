@@ -13,8 +13,23 @@
     }
   },
   "FASTNRI": {
-    "AbilitySource": {"racial": "Racial property"},
-    "ActorSide": {"syncIncomplete": "Some token sides could not be updated. The character remains the authoritative side.", "actorPermission": "Changing the side requires permission to update the character."},
+    "AbilitySource": {
+      "editList": "Edit list",
+      "done": "Done",
+      "racial": "Racial property"
+    },
+    "ActorSide": {
+      "syncIncomplete": "Some token sides could not be updated. The character remains the authoritative side.",
+      "actorPermission": "Changing the side requires permission to update the character.",
+      "actor": "Character side",
+      "token": "Token side",
+      "prototype": "Prototype side",
+      "friendly": "Friendly",
+      "hostile": "Hostile",
+      "neutral": "Neutral",
+      "secret": "Secret",
+      "unknown": "Unknown"
+    },
     "SheetLock": {
       "lock": "Lock configuration",
       "unlock": "Unlock configuration"
@@ -63,6 +78,7 @@
       "hpCurrent": "Current HP",
       "hpMax": "Maximum HP",
       "hpTemp": "Temporary HP",
+      "spellRange": "Spell range",
       "speed": "Speed",
       "combatDie": "Combat Die",
       "partial": "Partial Success",
@@ -113,7 +129,8 @@
       "acShort": "AC",
       "skillFilter": "Show",
       "skillAll": "All",
-      "skillAssigned": "With dice"
+      "skillAssigned": "With dice",
+      "contextual": "Situational modifiers"
     },
     "Sections": {
       "parameters": "Statistics",
@@ -386,7 +403,9 @@
       "inventory": "Inventory",
       "description": "Description",
       "characteristics": "Characteristics",
-      "journal": "Journal"
+      "journal": "Journal",
+      "role": "Role",
+      "effects": "Effects"
     },
     "SkillGroups": {
       "physical": "Physical",
@@ -799,6 +818,14 @@
       "effective": "Effective value"
     },
     "AbilityChat": {
+      "spellDistance": "Range: {distance} spaces",
+      "noSpellWeapon": "Without spellcasting weapon",
+      "notHeld": "Not held",
+      "notProficient": "Not proficient",
+      "chargedOption": "Charged",
+      "chargedExhausted": "Charge expended",
+      "chargedNoClassCost": "No class resource cost",
+      "spellWeaponChanged": "The chosen weapon is no longer available. Choose another option.",
       "rollAction": "Roll",
       "manualApply": "Apply",
       "toChat": "Post to chat",
@@ -899,7 +926,24 @@
       "alreadyReceived": "This potion was already recorded for this character",
       "receiptFailed": "Potion receipt failed; use the receipt button or correct the resource manually."
     },
+    "SkillDisplay": {
+      "base": "Skill die",
+      "manual": "Manual modifier",
+      "step": "Die size change",
+      "prepared": "Prepared dice",
+      "total": "Total",
+      "defaultRoll": "Enabled by default in roll",
+      "checkChange": "Check die change in preroll",
+      "prerollOnly": "Additional components are resolved in roll preparation"
+    },
     "SkillAllocation": {
+      "invalidFormula": "Invalid dice formula.",
+      "mode": "Skill die allocation mode",
+      "modeHint": "PC configuration only; does not restrict rolls. NPCs always use free mode.",
+      "mode_strict": "Rules only",
+      "mode_warning": "Warnings",
+      "mode_free": "Free allocation",
+      "unrestrictedRules": "Any available basic skill except combat training and mandatory class skills.",
       "distributionDeviations": "Allocation deviations",
       "applyUpgrade": "Upgrade",
       "removeUpgrade": "Remove upgrade",
@@ -921,7 +965,7 @@
       "reset": "Reset assignments",
       "transfer": "Assigned dice",
       "move": "move",
-      "release": "Return to pool",
+      "release": "Remove die",
       "manualLabel": "manual",
       "useAssigned": "Clear custom formula",
       "emptyPool": "No free dice",
@@ -933,12 +977,36 @@
       "freeDie": "Unassigned die"
     },
     "CharacterEditor": {
-      "edit": "Edit character",
-      "exit": "Exit editor",
-      "base": "Base value",
       "potionBase": "Base potion limit",
-      "sources": "Dice sources",
       "custom": "Custom formula"
+    },
+    "RoleView": {
+      "empty": "No role selected",
+      "noRules": "No rules for this role are defined in the system.",
+      "wealth": "Starting wealth (manual)",
+      "racial": "Additional selectable racial property",
+      "situational": "When the role advantage applies, as decided by participants."
+    },
+    "ModifierView": {
+      "title": "Modifier sources",
+      "empty": "No known modifier sources.",
+      "permanent": "Permanent",
+      "inactive": "Inactive",
+      "active": "Active",
+      "manual": "Manual modifier",
+      "situational": "In preroll / situational",
+      "unknown": "Prepared data total; source not identified",
+      "nonstack": "Non-stacking; greatest applies",
+      "classBase": "Class baseline",
+      "base": "Base value",
+      "notSelected": "Not the highest bonus",
+      "once": "Applied once",
+      "projection": "Projection caster AC",
+      "replacement": "Value replacement",
+      "heldShield": "When holding a shield",
+      "focus": "With selected compatible weapon; non-stacking",
+      "rollKinds": {"skill": "Skill", "ability": "Ability", "attack": "Attack", "intervention": "Intervention", "damage": "Damage", "maneuver": "Maneuver", "heal": "Healing"},
+      "offGuard": "Off guard"
     }
   }
 }

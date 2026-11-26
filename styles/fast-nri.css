@@ -59,8 +59,8 @@
 .fast-nri-v14.fast-nri-sheet .fnri-grid-4 { display:grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 9px; }
 .fast-nri-v14.fast-nri-sheet .fnri-muted, .fast-nri-v14.fast-nri-sheet .fnri-type { opacity: .7; font-size: .8rem; }
 .fast-nri-v14.fast-nri-sheet .fnri-deprecated { color: var(--color-text-warning, #c28b3d); font-weight: 600; }
-.fast-nri-v14.fast-nri-sheet .fnri-tabs { display: flex; flex-wrap: wrap; gap: 5px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border-light-tertiary, #8886); }
-.fast-nri-v14.fast-nri-sheet .fnri-tabs .fnri-tab { padding: 6px 10px; min-width: 0; width: auto; flex: 0 1 auto; font-size: .88rem; border-radius: 4px; }
+.fast-nri-v14.fast-nri-sheet .fnri-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr)); min-width: 0; flex-shrink: 0; gap: 5px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border-light-tertiary, #8886); }
+.fast-nri-v14.fast-nri-sheet .fnri-tabs .fnri-tab { padding: 5px 9px; min-width: 0; max-width: 100%; width: 100%; font-size: .88rem; border-radius: 4px; height: auto; min-height: 30px; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; text-align: center; }
 .fast-nri-v14.fast-nri-sheet .fnri-tabs .fnri-tab.active { font-weight: 700; border-color: var(--color-border-highlight, #be9d61); }
 .fast-nri-v14.fast-nri-sheet .fnri-tab-content[hidden] { display: none !important; }
 .fast-nri-v14.fast-nri-sheet .fnri-tab-content { width: 100%; }
@@ -708,8 +708,7 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 .fnri-button-choices > button { width: 100%; height: auto; min-height: 30px; white-space: normal; text-align: left; justify-content: flex-start; }
 .fnri-button-choices > button[aria-pressed="true"] { outline: 2px solid var(--color-warm-2, #b98538); outline-offset: -2px; font-weight: bold; }
 
-/* PC editor: persistent quick controls. */
-.fast-nri-v14.fast-nri-sheet .fnri-character-edit { width:auto; flex:0 0 auto; font-size:.78rem; }
+/* Persistent quick HP controls. */
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs label { display:flex; flex-direction:row; align-items:center; gap:5px; justify-content:center; }
 .fast-nri-v14.fast-nri-sheet .fnri-hp-inputs input { width:72px; min-width:0; text-align:center; }
@@ -770,3 +769,75 @@ body > #fnri-effects-panel.fnri-effects-panel { position:fixed; top:105px; right
 
 .fnri-button-choices > button:has(.fnri-intervention-option-warning) {display:block;text-align:left;}
 [data-fnri-area-roll-label] {display:block;text-align:center;}
+
+/* S.1: nominal selection and informative grant groups. */
+.fnri-skill-nominal {display:flex;align-items:center;gap:3px;min-width:0;white-space:nowrap;}
+.fnri-skill-nominal select {flex:1;min-width:0;}
+.fnri-skill-nominal button {flex:0 0 20px;width:20px;height:26px;padding:0;}
+.fnri-skill-edit-pool:has(.fnri-skill-pool-group) {display:grid;grid-template-columns:minmax(0,1fr);width:100%;gap:5px;}
+.fnri-skill-pool-group {padding:6px;border:1px solid var(--color-border-light-tertiary,#8886);border-radius:4px;min-width:0;}
+.fnri-skill-pool-group b {font-size:1rem;white-space:nowrap;}
+.fnri-skill-pool-group span {font-size:.82rem;white-space:normal;overflow-wrap:anywhere;}
+
+/* S.1: one effective formula cell; the native select remains keyboard operable. */
+.fast-nri-v14.fast-nri-sheet [data-fnri-panel="skills"] :is(.fnri-skill-row,.fnri-skill-column-head) {grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) 64px;gap:5px;}
+.fast-nri-v14.fast-nri-sheet [data-fnri-panel="skills"] .fnri-skill-row > button {grid-column:3;grid-row:1;}
+.fnri-formula-cell,.fnri-formula-picker {min-width:0;}
+.fnri-formula-face {display:flex;align-items:center;gap:0;min-width:0;white-space:nowrap;font-size:.83rem;font-weight:600;line-height:1.25;overflow:hidden;}
+.fnri-formula-base,.fnri-formula-suffix {display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fnri-formula-base {flex:0 1 auto;}
+.fnri-formula-suffix {flex:0 1 auto;}
+.fnri-formula-base.up {color:#237a39;}
+.fnri-formula-base.down {color:#b32b2b;}
+.theme-dark .fnri-formula-base.up {color:#aef2b8;}
+.theme-dark .fnri-formula-base.down {color:#ffc3bf;}
+.fnri-formula-picker {position:relative;display:flex;align-items:center;gap:4px;min-height:27px;padding:2px 5px;border:1px solid var(--color-border-light-tertiary,#8886);border-radius:4px;flex:1;}
+.fnri-formula-picker .fnri-formula-face {flex:1;pointer-events:none;}
+.fnri-formula-picker > i {font-size:.65rem;flex:none;pointer-events:none;}
+.fnri-formula-picker > select {position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.fnri-formula-picker:focus-within {outline:2px solid var(--color-border-highlight,#aa7944);outline-offset:1px;}
+.fnri-skill-manual-editor {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.6fr);gap:4px;margin-top:3px;}
+.fnri-skill-manual-editor label {min-width:0;font-size:.72rem;}
+.fnri-skill-restricted {flex:none;color:var(--color-level-warning,#b98532);font-size:.83rem;}
+.fnri-skill-upgrade-control {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px;align-items:center;font-size:.82rem;}
+.fnri-skill-upgrade-control select {width:100%;min-width:0;text-overflow:ellipsis;}
+.fnri-skill-manual-editor > button {grid-column:1/-1;font-size:.78rem;height:auto;min-height:24px;white-space:normal;}
+
+.fnri-spell-range-warning {display:block;color:var(--color-level-error,#b32b2b);font-weight:600;}
+.theme-dark .fnri-spell-range-warning {color:#ffc3bf;}
+
+/* Native frame button: side is encoded by color; its name is in the tooltip. */
+.fast-nri-sheet [data-action="chooseActorSide"] { --fnri-side-color: #9b9b9b; color: var(--fnri-side-color); }
+.fast-nri-sheet [data-fnri-side="friendly"] { --fnri-side-color: #319c59; }
+.fast-nri-sheet [data-fnri-side="hostile"] { --fnri-side-color: #d54d4d; }
+.fast-nri-sheet [data-fnri-side="neutral"] { --fnri-side-color: #d19b35; }
+.fast-nri-sheet [data-fnri-side="secret"] { --fnri-side-color: #8d79c7; }
+.fast-nri-sheet [data-action="chooseActorSide"] i { color: var(--fnri-side-color); }
+
+/* Native top-layer menu: anchored to the side button, no extra dialog. */
+.fast-nri-sheet .fnri-side-menu {position:fixed;inset:auto;margin:0;padding:4px;max-width:calc(100vw - 8px);width:max-content;border:1px solid var(--color-border-light-tertiary,#888);border-radius:5px;background:var(--color-bg-option,#ece9e1);color:var(--color-text-primary,#222);box-shadow:0 3px 12px #0005;}
+.theme-dark .fast-nri-sheet .fnri-side-menu,.fast-nri-sheet.theme-dark .fnri-side-menu {background:var(--color-bg-option,#302a35);color:var(--color-text-primary,#eee);}
+.fast-nri-sheet .fnri-side-menu button {display:flex;align-items:center;gap:8px;justify-content:flex-start;width:100%;margin:0;padding:4px 8px;min-height:28px;white-space:nowrap;}
+.fast-nri-sheet .fnri-side-menu button span {flex:1;text-align:left;}
+.fast-nri-sheet .fnri-side-menu .fa-circle {color:var(--fnri-side-color);}
+.fast-nri-sheet .fnri-abilities [hidden] {display:none!important;}
+.fast-nri-sheet .fnri-ability-identity {flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+.fast-nri-v14.fast-nri-sheet .fnri-item-row .fnri-ability-name {flex:0 1 auto;width:auto;height:auto;min-width:0;min-height:24px;padding:0;border:0;background:transparent;box-shadow:none;text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.2;font-weight:600;}
+.fast-nri-sheet .fnri-ability-identity small {overflow-wrap:anywhere;min-width:0;max-width:100%;}
+.fast-nri-sheet .fnri-ability-actions {display:grid;grid-template-columns:repeat(4,31px);align-items:center;gap:3px;flex:none;}
+.fast-nri-sheet .fnri-ability-edit {margin-top:8px;width:auto;}
+.fast-nri-sheet .fnri-ability-editor-buttons {margin-top:8px;}
+.fast-nri-sheet .fnri-ability-actions [data-action="publishAbility"] {grid-column:1;grid-row:1;}
+.fast-nri-sheet .fnri-ability-actions [data-action="rollAbility"] {grid-column:2;grid-row:1;}
+.fast-nri-sheet .fnri-ability-actions [data-action="invokeFromSheet"] {grid-column:3;grid-row:1;}
+.fast-nri-sheet .fnri-ability-actions [data-action="openGrantedAction"] {grid-column:4;grid-row:1;}
+
+.fnri-ability-chat-button > small {display:block;font-weight:normal;white-space:normal;overflow-wrap:anywhere;}
+.fnri-spell-option-warning {color:var(--color-level-warning,#b58b43);}
+
+.fast-nri-v14.fast-nri-sheet .fnri-modifier-group { border-top: 1px solid var(--color-border-light-tertiary,#8886); padding: 6px 0; }
+.fast-nri-v14.fast-nri-sheet .fnri-modifier-heading, .fast-nri-v14.fast-nri-sheet .fnri-modifier-row { display: flex; justify-content: space-between; gap: 8px; overflow-wrap: anywhere; }
+.fast-nri-v14.fast-nri-sheet .fnri-modifier-row > span { min-width: 0; }
+.fast-nri-v14.fast-nri-sheet .fnri-modifier-row > strong { flex: 0 0 auto; max-width: 45%; }
+.fast-nri-v14.fast-nri-sheet .fnri-modifier-row small { display: block; opacity: .8; }
+.fast-nri-v14.fast-nri-sheet .fnri-role-benefits { padding-inline-start: 1.3em; }

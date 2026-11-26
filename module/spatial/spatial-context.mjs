@@ -13,8 +13,23 @@ function entry(id,label,value){return {
   parts:[{id:'penalty',kind:'modifier',label,value:String(value),nonStackingGroup:'hindrance'}]
 };}
 function propertySet(raw){return String(raw??'').split(/[,;]+/).map(x=>x.trim().toLowerCase());}
+// The same range check is used by attacks and directed non-attack spells.
+// A hidden source/target, an area or absent geometry yields no advisory.
+function spellRangeAtDistance(source,target,spellRange,distanceSpaces){
+  if(!Number.isFinite(spellRange)||spellRange<0||!Number.isFinite(distanceSpaces)||
+    (source.document??source).hidden===true||(target.document??target).hidden===true)return null;
+  return {distanceSpaces,spellRange,...(distanceSpaces>spellRange?{spellRangeWarning:'Цель вне дистанции заклинания'}:{})};
+}
+export function directedSpellSpatialContext({origin,targetTokens=[],spellRange=null,properties='',
+  scene=globalThis.canvas?.scene,grid=globalThis.canvas?.grid,tokens=globalThis.canvas?.tokens?.placeables??[]}={}){
+  const props=propertySet(properties);
+  if(targetTokens.length!==1||!scene||grid?.isSquare!==true||props.includes('область действия')||props.includes('area'))return null;
+  const source=tokens.find(t=>t?.document?.uuid&&t.document.uuid===origin?.tokenUuid),target=targetTokens[0];
+  if(!source||!sameScene(source,target))return null;
+  return spellRangeAtDistance(source,target,spellRange,tokenDistance(source,target,grid));
+}
 export function spatialAttackContext({origin,targetTokens=[],weaponItem=null,attackKind=null,
-  properties='',scene=globalThis.canvas?.scene,grid=globalThis.canvas?.grid,
+  properties='',spellRange=null,scene=globalThis.canvas?.scene,grid=globalThis.canvas?.grid,
   tokens=globalThis.canvas?.tokens?.placeables??[]}={}){
   const target=targetTokens?.length===1?targetTokens[0]:null;
   const out={entries:[],distanceSpaces:null,lineCreatures:[],formation:null,
@@ -30,6 +45,9 @@ export function spatialAttackContext({origin,targetTokens=[],weaponItem=null,att
   if(props.includes('область действия')||props.includes('area'))return out;
   const directed=['melee','ranged'].includes(attackKind);
   if(!directed)return out;
+  // Spell distance is advisory, never a weapon second-distance penalty.
+  // Do not surface a hidden token's range in the new display.
+  Object.assign(out,spellRangeAtDistance(source,target,spellRange,out.distanceSpaces)??{});
   // 'Наводимое' is a selectable weapon property: apply its suppression only
   // after trait switches are resolved by the shared preroll, not here.
   // The weapon may expose 'Дальнобойное' as a per-attack trait option.
@@ -45,7 +63,7 @@ export function spatialAttackContext({origin,targetTokens=[],weaponItem=null,att
     };
     return result;
   };
-  if(attackKind==='ranged'&&weaponItem?.type==='weapon'){
+  if(spellRange===null&&attackKind==='ranged'&&weaponItem?.type==='weapon'){
     const base=Number(String(weaponItem.system?.distance??'').replace(',','.'));
     if(Number.isFinite(base)&&base>0&&Number.isFinite(out.distanceSpaces)&&out.distanceSpaces>base){
       if(out.distanceSpaces>2*base) {
