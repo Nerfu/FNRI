@@ -1,0 +1,46 @@
+{
+  "name": "Телекинез",
+  "type": "ability",
+  "_id": "fnriwizard000006",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие и 1 Волшебная сила.  \n> **Свойства:** Заклинание, Манёвр.  \n> **Цель:** одно существо в дистанции заклинаний.  \n> **Проверка:** `1d20 + Куб боя` против Стойкости цели.\n\nСовершите проверку и примените эффект достигнутой степени.\n\n| Степень успеха | Эффект |\n|---|---|\n| Провал | Эффекта нет. |\n| Частичный успех | Принудительно переместите цель на расстояние до 2 клеток. |\n| Успех | Принудительно переместите цель на расстояние до 3 клеток. |\n| Большой успех | Принудительно переместите цель на расстояние до 4 клеток и Сбейте с ног. |",
+    "category": "Способность Волшебника",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "maneuver",
+          "type": "roll",
+          "label": "Телекинез",
+          "combatCheck": true,
+          "rollKind": "maneuver",
+          "targetDefense": "fortitude",
+          "spell": {
+            "spellEnergy": "wizard",
+            "spellRange": "current",
+            "target": "selected"
+          }
+        }
+      ],
+      "accounting": {
+        "resourceCosts": [
+          {
+            "resourceKey": "class_wizard",
+            "kind": "class",
+            "amount": 1,
+            "resourceName": "Волшебная сила"
+          }
+        ]
+      }
+    },
+    "tags": "Заклинание, Манёвр",
+    "cost": "1 Воздействие и 1 Волшебная сила"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.wizard.telekinesis",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Волшебника / Телекинез"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/control/encase-creature-humanoid-hold.webp"
+}

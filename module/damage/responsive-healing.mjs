@@ -13,7 +13,7 @@ const validAmount=value=>typeof value==='number' && Number.isFinite(value) && va
 
 /** Pure calculation: the response is a *healing amount*, not a temporary-HP
  * grant, and has already been resolved under its own HP-gain rules. */
-export function planResponsiveDamage(hp,damageAmount,healingAmount,{ignoreTempHp=false}={}) {
+export function planResponsiveDamage(hp,damageAmount,healingAmount,{ignoreTempHp=false,preventZero=false}={}) {
   if (!validAmount(damageAmount) || !validAmount(healingAmount))
     throw Error('Reactive damage and healing must be finite non-negative amounts');
   const original=planHpChange(hp,0,'damage').before;
@@ -23,9 +23,9 @@ export function planResponsiveDamage(hp,damageAmount,healingAmount,{ignoreTempHp
   let heal,damage;
   if (healingFirst) {
     heal=planHpChange(hp,healingAmount,'heal');
-    damage=planHpChange({...hp,...heal.after,...(heal.tempHpState?{tempHpState:heal.tempHpState}:{})},damageAmount,'damage',{ignoreTempHp});
+    damage=planHpChange({...hp,...heal.after,...(heal.tempHpState?{tempHpState:heal.tempHpState}:{})},damageAmount,'damage',{ignoreTempHp,preventZero});
   } else {
-    damage=planHpChange(hp,damageAmount,'damage',{ignoreTempHp});
+    damage=planHpChange(hp,damageAmount,'damage',{ignoreTempHp,preventZero});
     heal=planHpChange({...hp,...damage.after,...(damage.tempHpState?{tempHpState:damage.tempHpState}:{})},healingAmount,'heal');
   }
   const after=healingFirst?damage.after:heal.after;

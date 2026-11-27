@@ -1,0 +1,24 @@
+{
+  "name": "Неуловимый",
+  "type": "ability",
+  "_id": "fnrihalflingstep",
+  "system": {
+    "description": "После Успеха действия **«Вырваться»** совершите Шаг свободным действием.\n\nКогда ваше добровольное перемещение должно вызвать Быстрый удар или вы проваливаете действие **«Проскользнуть»**, можете остановиться в текущей допустимой клетке и совершить Шаг свободным действием.",
+    "category": "Свойство Полурослика",
+    "mechanics": {
+      "racialProperty": {
+        "races": [
+          "halfling"
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.neulovimyi",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Неуловимый"
+    }
+  },
+  "effects": [],
+  "img": "icons/creatures/mammals/rabbit-movement-glowing-green.webp"
+}

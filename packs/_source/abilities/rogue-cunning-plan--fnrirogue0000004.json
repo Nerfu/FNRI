@@ -1,0 +1,50 @@
+{
+  "name": "Коварный план",
+  "type": "ability",
+  "_id": "fnrirogue0000004",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие.  \n> **Цель:** одно существо.  \n> **Длительность:** до начала вашего следующего хода.\n\nВыбранная цель считается застигнутой врасплох для вас.",
+    "category": "Способность Разбойника",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "effect",
+          "type": "effect",
+          "label": "Коварный план",
+          "effectId": "fnrirogueplan001",
+          "target": "selected"
+        }
+      ]
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.rogue.cunning-plan",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Разбойника / Коварный план"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnrirogueplan001",
+      "name": "Коварный план",
+      "img": "icons/tools/navigation/map-marked-red.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [],
+      "description": "> **Требуется:** 1 Воздействие.  \n> **Цель:** одно существо.  \n> **Длительность:** до начала вашего следующего хода.\n\nВыбранная цель считается застигнутой врасплох для вас.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "effectEnding": "particular",
+          "relativeOffGuard": true
+        }
+      }
+    }
+  ],
+  "img": "icons/tools/navigation/map-marked-red.webp"
+}

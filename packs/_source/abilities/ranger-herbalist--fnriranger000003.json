@@ -1,0 +1,25 @@
+{
+  "name": "Травник",
+  "type": "ability",
+  "_id": "fnriranger000003",
+  "system": {
+    "description": "> **Частота:** `1 раз в день`.  \n> **Цель:** вы или один союзник.\n\nВыберите одно Зелье цели, потраченное **в этот день**. Восстановите это Зелье.",
+    "category": "Способность Егеря",
+    "mechanics": {
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    },
+    "frequency": "1 раз в день"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.ranger.herbalist",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Егеря / Травник"
+    }
+  },
+  "effects": [],
+  "img": "icons/tools/laboratory/bowl-herbs-green.webp"
+}

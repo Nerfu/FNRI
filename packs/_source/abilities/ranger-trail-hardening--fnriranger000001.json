@@ -1,0 +1,20 @@
+{
+  "name": "Походная закалка",
+  "type": "ability",
+  "_id": "fnriranger000001",
+  "system": {
+    "description": "Ваш общий предел Зелий увеличен на `1`.",
+    "category": "Способность Егеря",
+    "mechanics": {
+      "passive": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.ranger.trail-hardening",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Егеря / Походная закалка"
+    }
+  },
+  "effects": [],
+  "img": "icons/containers/bags/pack-leather-brown.webp"
+}

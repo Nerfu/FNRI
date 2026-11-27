@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {readFileSync,readdirSync} from 'node:fs';
+import {CLASSES} from '../module/data/classes.mjs';
+import {attackOutcomePreview} from '../module/equipment/attack-outcomes.mjs';
+import {abilityExecutions,abilityChatVariants} from '../module/abilities/ability-chat.mjs';
+import {cardRollKind} from '../module/rolls/roll-contributions.mjs';
+import {magicCombatAttackExpression,magicAttackPartsForDegree} from '../module/rolls/magic-attack-profile.mjs';
+import {damageChargeDefinitions,damageChargeTotal} from '../module/abilities/damage-charges.mjs';
+import {accountingRule} from '../module/data/ability-accounting.mjs';
+const ID='fast-nri-v14',dir=new URL('../packs/_source/abilities/',import.meta.url);
+const cards=readdirSync(dir).filter(f=>f.startsWith('wizard-')).map(f=>JSON.parse(readFileSync(new URL(f,dir),'utf8')));
+assert.equal(cards.length,7);assert.deepEqual(new Set(cards.map(c=>c.flags[ID].contentId)),new Set(CLASSES.wizard.abilityIds));
+const get=n=>cards.find(c=>c.name===n);
+const ignite=get('Поджог');
+for(const [degree,formula] of [['failure',null],['partial','1'],['success','1d6'],['great','1d8']]){
+ const actual=attackOutcomePreview(ignite,{effectDegree:degree,executionId:'attack'}).applicable;
+ assert.deepEqual(actual.map(r=>r.formula),formula?[formula]:[]);
+}
+const blast=get('Взрыв').system.mechanics.executions[0].attack;
+assert.equal(magicAttackPartsForDegree(blast.damageProfile,'great').parts.length,3);assert.deepEqual(blast.areaDamageProfile.partial.remove,['highest','lowest']);
+const tk=get('Телекинез');assert.equal(cardRollKind(tk,tk.system.mechanics.executions[0]),'maneuver');assert.equal(magicCombatAttackExpression({system:{combatDie:'d6'}}).expression,'1d20 + 1d6');
+const salvo=get('Залп магии');salvo.documentName='Item';salvo.parent={documentName:'Actor',system:{resources:{class_wizard:{name:'Волшебная сила',kind:'class',current:7,max:7}}}};
+globalThis.game={i18n:{localize:k=>k},user:{isGM:true}};
+assert.equal(abilityExecutions(salvo).length,1);assert.equal(abilityChatVariants(salvo.parent,salvo).length,1);
+const execution=abilityExecutions(salvo)[0];assert.equal(execution.count,3);assert.equal(damageChargeDefinitions(execution).length,2);assert.equal(accountingRule(salvo,execution).resourceCosts[0].amount,1);
+const charge={parts:[{id:'die',kind:'die',value:4,damageType:'магический'},{id:'bonus',kind:'fixed',value:1,damageType:'магический'}],damageRules:{ignoreResistance:true}};
+const target={flags:{[ID]:{damageDefenses:{resistances:[{trait:'магический',value:9}],vulnerabilities:[{trait:'магический',value:2}]}}}};
+assert.equal(damageChargeTotal(charge,target),7);target.flags[ID].damageDefenses.immunities=['магический'];assert.equal(damageChargeTotal(charge,target),0);
+const shield=get('Защитный щит');assert.equal(shield.system.mechanics.intervention.effect.damageRemovalCount,2);assert.equal(shield.system.mechanics.intervention.effect.effectReduction,2);assert.equal(accountingRule(shield).resourceCosts.length,2);
+console.log('PASS Wizard card contracts, exact Ignite degree, area damage profile, maneuver, single launch, immunity and vulnerability, shield');

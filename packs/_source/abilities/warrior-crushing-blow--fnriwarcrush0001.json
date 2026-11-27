@@ -1,0 +1,24 @@
+{
+  "name": "Сокрушительный удар",
+  "type": "ability",
+  "_id": "fnriwarcrush0001",
+  "system": {
+    "description": "Когда натуральная `20` выпадает при атаке в ближнем бою оружием, которым вы владеете, умножьте оставшийся после Защит урон этой атаки на `3` вместо `2`.",
+    "category": "Способность Воина",
+    "mechanics": {
+      "passive": true,
+      "proficientWeaponCritical": {
+        "attackKind": "melee",
+        "naturalTwentyMultiplier": 3
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.warrior.crushing-blow",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Воина / Сокрушительный удар"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/strike-flail-destructive-yellow.webp"
+}

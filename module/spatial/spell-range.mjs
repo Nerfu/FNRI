@@ -1,3 +1,4 @@
+import {suppressesHeldProtection} from '../effects/active-effect.mjs';
 import {classDefinition} from '../data/classes.mjs';
 import {itemSlot,weaponProficiency} from '../equipment/equipment.mjs';
 import {chooseByButtons} from '../rolls/button-choice.mjs';
@@ -61,6 +62,7 @@ function printedSpellRange(item){
 }
 /** Highest non-stacking bonus, only when a compatible weapon is selected. */
 export function focusRangeBonus(actor){
+  if(suppressesHeldProtection(actor))return 0;
   return Math.max(0,...held(actor).filter(item=>item.type==='gear').map(item=>{
     const rule=item.system?.mechanics?.spell;
     if(rule?.stack!=='highest')return 0;

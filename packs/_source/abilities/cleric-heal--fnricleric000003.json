@@ -1,0 +1,36 @@
+{
+  "name": "Лечение",
+  "type": "ability",
+  "_id": "fnricleric000003",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие.  \n> **Свойства:** Заклинание, Исцеление.  \n> **Цель:** одно существо в дистанции заклинаний.\n\nЦель восстанавливает `1d6 HP`.",
+    "category": "Способность Клерика",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "heal",
+          "type": "roll",
+          "label": "Лечение",
+          "formula": "1d6",
+          "rollKind": "heal",
+          "target": "selected",
+          "spell": {
+            "spellEnergy": "divine",
+            "spellRange": "current",
+            "target": "selected"
+          }
+        }
+      ]
+    },
+    "tags": "Заклинание, Исцеление",
+    "cost": "1 Воздействие"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.cleric.heal",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Клерика / Лечение"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/life/cross-area-circle-green-white.webp"
+}

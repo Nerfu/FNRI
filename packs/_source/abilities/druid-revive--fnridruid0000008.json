@@ -1,0 +1,46 @@
+{
+  "name": "Оживление",
+  "type": "ability",
+  "_id": "fnridruid0000008",
+  "system": {
+    "description": "> **Требуется:** 1 Вмешательство и 2 Жизненные силы.  \n> **Свойства:** Заклинание, Исцеление, Вмешательство.  \n> **Условие:** Периодическое исцеление наложенного вами Восстановления только что сработало.  \n> **Цель:** существо с этим Восстановлением.  \n> **Дистанция:** без ограничения.\n\nЗавершите Восстановление на цели.\n\nЦель восстанавливает `2d6 HP`.",
+    "category": "Способность Друида",
+    "mechanics": {
+      "isIntervention": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          },
+          {
+            "kind": "class",
+            "resourceKey": "class_life",
+            "resourceName": "Жизненная сила",
+            "amount": 2
+          }
+        ]
+      },
+      "executions": [
+        {
+          "id": "heal",
+          "label": "Оживление",
+          "type": "roll",
+          "formula": "2d6",
+          "rollKind": "heal",
+          "target": "selected"
+        }
+      ]
+    },
+    "tags": "Заклинание, Исцеление, Вмешательство",
+    "cost": "1 Вмешательство и 2 Жизненные силы"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.druid.revive",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Друида / Оживление"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/life/heart-area-circle-red-green.webp"
+}

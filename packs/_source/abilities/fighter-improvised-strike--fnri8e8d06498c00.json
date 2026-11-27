@@ -1,0 +1,46 @@
+{
+  "name": "Бью этим",
+  "type": "ability",
+  "_id": "fnri8e8d06498c00",
+  "system": {
+    "description": "> **Требуется:** `2 Воздействия`.  \n> **Свойства:** Воздействие, Атака, Ближняя атака.\n\nСовершите Ближнюю атаку удерживаемым оружием или предметом. Для неё используйте Куб боя и профиль **Рукопашной атаки Бойца**.\n\nПри обычном Успехе добавьте `1d12` урона. При Большом успехе добавьте `2d12` урона.\n\nСвойства удерживаемого оружия или предмета не применяются.",
+    "category": "Способность Бойца",
+    "mechanics": {
+      "attack": {
+        "kind": "physical",
+        "targetDefense": "ac",
+        "attackKind": "melee",
+        "damageType": "физический",
+        "properties": "Воздействие, Атака, Ближняя атака",
+        "damageProfile": {
+          "A": "1d6",
+          "B": "1d12",
+          "C": 4
+        },
+        "unarmed": true,
+        "requiresHeldItem": true,
+        "damageDiceByDegree": {
+          "success": "1d12",
+          "great": "2d12"
+        }
+      },
+      "executions": [
+        {
+          "id": "attack",
+          "type": "attack",
+          "label": "Бью этим"
+        }
+      ]
+    },
+    "cost": "2 Воздействия.",
+    "tags": "Воздействие, Атака, Ближняя атака."
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.fighter.improvised-strike",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Бойца / Бью этим"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/strike-club-red.webp"
+}

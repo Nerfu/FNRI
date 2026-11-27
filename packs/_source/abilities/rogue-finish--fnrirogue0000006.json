@@ -1,0 +1,44 @@
+{
+  "name": "Завершение",
+  "type": "ability",
+  "_id": "fnrirogue0000006",
+  "system": {
+    "description": "> **Требуется:** 1 Вмешательство.  \n> **Условие:** вы завершили Атаку, включая Быстрый удар.  \n> **Цель:** существо, которое было целью этой атаки.\n\nСовершите по цели ещё `1` атаку оружием и используйте для неё на `1` Куб боя больше.\n\nАтака, совершённая Завершением, не может вызвать другое Завершение.",
+    "category": "Способность Разбойника",
+    "mechanics": {
+      "isIntervention": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          }
+        ]
+      },
+      "attack": {
+        "kind": "physical",
+        "useWeapon": true,
+        "properties": "Вмешательство, Атака",
+        "extraCombatDice": 1,
+        "finishingAttack": true
+      },
+      "executions": [
+        {
+          "id": "attack",
+          "type": "attack",
+          "label": "Завершение",
+          "isIntervention": true
+        }
+      ]
+    },
+    "cost": "1 Вмешательство"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.rogue.finish",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Разбойника / Завершение"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/strike-sword-blood-red.webp"
+}

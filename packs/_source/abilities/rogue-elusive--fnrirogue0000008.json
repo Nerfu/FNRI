@@ -1,0 +1,21 @@
+{
+  "name": "Изворотливость",
+  "type": "ability",
+  "_id": "fnrirogue0000008",
+  "system": {
+    "description": "Существа, застигнутые врасплох для вас, не могут выбрать вас целью Быстрого удара или Быстрого выстрела.",
+    "category": "Способность Разбойника",
+    "mechanics": {
+      "passive": true,
+      "quickAttackWarning": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.rogue.elusive",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Разбойника / Изворотливость"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/defensive/illusion-evasion-echo-purple.webp"
+}

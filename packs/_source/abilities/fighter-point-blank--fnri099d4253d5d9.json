@@ -1,0 +1,21 @@
+{
+  "name": "Выстрел в упор",
+  "type": "ability",
+  "_id": "fnri099d4253d5d9",
+  "system": {
+    "description": "При Дистанционной атаке огнестрельным оружием по соседней цели можете использовать Куб боя, даже если не владеете этим оружием.",
+    "category": "Способность Бойца",
+    "mechanics": {
+      "passive": true,
+      "pointBlankCombatDie": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.fighter.point-blank",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Бойца / Выстрел в упор"
+    }
+  },
+  "effects": [],
+  "img": "icons/weapons/guns/pistol-fire-orange.webp"
+}

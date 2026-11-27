@@ -15,7 +15,7 @@
   </section>
   <div class="fnri-projection-stats">
     <section class="fnri-panel">
-      <h3>HP</h3>
+      <h3>HP{{#if summary.tempHP}} <small class="fnri-temp-hp" title="{{localize 'FASTNRI.Fields.hpTemp'}}">({{summary.tempHP}})</small>{{/if}}</h3>
       <div class="fnri-grid-2">
         <label>{{localize "FASTNRI.Fields.hpCurrent"}}<input class="fnri-number" name="system.hp.current" type="number" data-dtype="Number" data-integer="true" value="{{effectiveSystem.hp.current}}" {{#unless editable}}disabled{{/unless}}></label>
         <label>{{localize "FASTNRI.Fields.hpMax"}}<input class="fnri-number" name="system.hp.max" type="number" data-dtype="Number" data-integer="true" value="{{system.hp.max}}" {{#unless editable}}disabled{{/unless}}></label>
@@ -49,7 +49,7 @@
   <div class="fnri-summary-stats">
     <div class="fnri-summary-stat" title="{{localize 'FASTNRI.Fields.hpCurrent'}} / {{localize 'FASTNRI.Fields.hpMax'}}">
       {{#if editable}}<button type="button" class="fnri-hp-trigger" data-action="toggleQuickHp" aria-label="{{localize 'FASTNRI.Actions.editHp'}}" aria-expanded="{{#if quickHpOpen}}true{{else}}false{{/if}}">{{/if}}
-      <span>HP</span><strong>{{summary.hp}}</strong>{{#if summary.tempHP}}<small>({{summary.tempHP}})</small>{{/if}}
+      <span>HP</span><strong>{{summary.hp}}</strong>{{#if summary.tempHP}}<small class="fnri-temp-hp" title="{{localize 'FASTNRI.Fields.hpTemp'}}">({{summary.tempHP}})</small>{{/if}}
       {{#if editable}}</button>{{/if}}
     </div>
     <div class="fnri-summary-stat" title="{{localize 'FASTNRI.Fields.partial'}} / {{localize 'FASTNRI.Fields.success'}} / {{localize 'FASTNRI.Fields.great'}}"><span>{{localize "FASTNRI.Fields.acShort"}}</span><strong>{{summary.ac}}</strong></div>

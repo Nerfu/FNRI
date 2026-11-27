@@ -1,0 +1,28 @@
+{
+  "name": "Раз-два-три!",
+  "type": "ability",
+  "_id": "fnri5d8da908a3e0",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие.  \n> **Свойство:** Вдохновление.\n\nБард и каждый союзник, получивший эффект, могут немедленно совершить до трёх Шагов.\n\nБард выбирает порядок их перемещения.",
+    "category": "Способность Барда",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "steps",
+          "type": "manual",
+          "label": "Раз-два-три!"
+        }
+      ]
+    },
+    "tags": "Вдохновление",
+    "cost": "1 Воздействие"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.bard.steps",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Барда / Раз-два-три!"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/movement/feet-bladed-boots-fire.webp"
+}

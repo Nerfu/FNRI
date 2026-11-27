@@ -1,0 +1,37 @@
+{
+  "name": "Ловкий хвост",
+  "type": "ability",
+  "_id": "fnrinephtail0001",
+  "system": {
+    "description": "> **Требование:** Нечестивый.\n\nМожете применять **«Сбить с ног»**, когда обе руки заняты.\n\nПолучите `+1` к проверкам боевых Манёвров.",
+    "category": "Свойство Нефалема",
+    "mechanics": {
+      "racialProperty": {
+        "nature": "unholy",
+        "races": [
+          "nephalem"
+        ]
+      },
+      "passive": true,
+      "rollContributions": [
+        {
+          "label": "Ловкий хвост",
+          "kind": "modifier",
+          "value": 1,
+          "kinds": [
+            "maneuver"
+          ],
+          "applyToOtherRolls": true
+        }
+      ]
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.lovkii-khvost",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Ловкий хвост"
+    }
+  },
+  "effects": [],
+  "img": "icons/creatures/abilities/tail-swipe-green.webp"
+}

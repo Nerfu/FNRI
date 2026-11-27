@@ -8,6 +8,7 @@
 import {declareAction,actionText} from './action-declaration.mjs';
 import { skillFormula, postCheckRoll } from './checks.mjs';
 import { standardSkillEntry, BASIC_SKILLS } from '../data/skills-catalog.mjs';
+import { HANDS } from '../equipment/equipment.mjs';
 import { hasCondition } from '../spatial/geometry.mjs';
 import { bestiaryAttackExpression } from './attack-core.mjs';
 
@@ -75,7 +76,9 @@ export function standardManeuverFormula(actor) {
   const mod=numeric(athletics?.modifier);
   let result=`1d20${athleticsDice?` + (${athleticsDice})`:''}`;
   if (actor?.type !== 'npc') {
-    const combat=die(actor?.system?.combatDie);
+    const wrestler=(actor.items?.contents??[]).some(i=>i.type==='ability'&&i.system?.mechanics?.passive===true&&i.system.mechanics.freeHandsManeuverD12===true);
+    const free=HANDS.every(hand=>!actor.system?.equipment?.[hand]);
+    const combat=wrestler&&free?'1d12':die(actor?.system?.combatDie);
     if (combat) result+=` + (${combat})`;
   }
   if (mod) result+=` + (${mod})`;
@@ -87,7 +90,8 @@ export function standardManeuverFormula(actor) {
  * Manual actions declare their intent, without changing the game situation.
  */
 export async function rollStandardAction(actor, actionId, {
-  skillId = null, difficulty = null, targetTokens = null, skipPreroll = false, mode = null
+  skillId = null, difficulty = null, targetTokens = null, skipPreroll = false, mode = null,
+  sourceItem = null, execution = null, audienceMessage = null, label = null
 } = {}) {
   const action=standardAction(actionId);
   if (!action) throw new Error(`Unknown standard action: ${String(actionId)}`);
@@ -110,7 +114,8 @@ export async function rollStandardAction(actor, actionId, {
     kind:action.mode === 'maneuver' ? 'maneuver' : 'skill',skillId:rowId,
     defenseStat:action.defenseStat,
     targetDefense:action.defenseStat ?? (checkDifficulty === null ? null : `DC ${checkDifficulty}`),
-    difficulty:checkDifficulty,label:action.name, skipPreroll,
+    difficulty:checkDifficulty,label:label??action.name, skipPreroll,
+    sourceItem,execution,audienceMessage,isIntervention:execution?.isIntervention===true,
     targetTokens,standardActionId:action.id,
     compareEachTarget:action.id === 'hide',
     recordRecipient:action.id === 'firstAid',

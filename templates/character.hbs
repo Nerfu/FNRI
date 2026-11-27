@@ -48,7 +48,7 @@
   </header>
   <div class="fnri-summary-stats">
     <div class="fnri-summary-stat" title="{{localize 'FASTNRI.Fields.hpCurrent'}} / {{localize 'FASTNRI.Fields.hpMax'}}">
-      <span>HP</span><strong>{{summary.hp}}</strong>{{#if summary.tempHP}}<small>({{summary.tempHP}})</small>{{/if}}
+      <span>HP</span><strong>{{summary.hp}}</strong>{{#if summary.tempHP}}<small class="fnri-temp-hp" title="{{localize 'FASTNRI.Fields.hpTemp'}}">({{summary.tempHP}})</small>{{/if}}
     </div>
     <div class="fnri-summary-stat" title="{{localize 'FASTNRI.Fields.partial'}} / {{localize 'FASTNRI.Fields.success'}} / {{localize 'FASTNRI.Fields.great'}}"><span>{{localize "FASTNRI.Fields.acShort"}}</span><strong>{{summary.ac}}</strong></div>
     <div class="fnri-summary-stat"><span>{{localize "FASTNRI.Fields.combatDie"}}</span><strong>{{summary.combatDie}}</strong></div>

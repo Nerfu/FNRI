@@ -1,0 +1,49 @@
+{
+  "name": "Быстрый выстрел",
+  "type": "ability",
+  "_id": "fnriranger000005",
+  "system": {
+    "description": "> **Требуется:** 1 Вмешательство.  \n> **Свойства:** Воздействие, Вмешательство, Атака, Дистанционная атака.  \n> **Условие:** непосредственно перед тем, как подходящее видимое существо покинет свою клетку во время Перемещения или выполнит Манипуляцию.  \n> **Требования:** вы стоите, не Захвачены, можете стрелять двумя руками и не соседствуете с противником; цель находится в прямой видимости; к атаке не применяется Штраф.\n\nДо вызвавшего Вмешательство перемещения или Манипуляции совершите по этому существу обычную атаку удерживаемым луком.",
+    "category": "Способность Егеря",
+    "mechanics": {
+      "isIntervention": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          }
+        ]
+      },
+      "attack": {
+        "kind": "physical",
+        "useWeapon": true,
+        "quickShot": true,
+        "attackKind": "ranged",
+        "properties": "Воздействие, Вмешательство, Атака, Дистанционная атака",
+        "weaponContentIds": [
+          "fnri7.rulebook.weapon.020",
+          "fnri7.rulebook.weapon.022"
+        ]
+      },
+      "executions": [
+        {
+          "id": "shot",
+          "type": "attack",
+          "label": "Быстрый выстрел",
+          "isIntervention": true
+        }
+      ]
+    },
+    "cost": "1 Вмешательство",
+    "tags": "Воздействие, Вмешательство, Атака, Дистанционная атака"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.ranger.quick-shot",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Егеря / Быстрый выстрел"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/ranged/arrow-flying-white-blue.webp"
+}

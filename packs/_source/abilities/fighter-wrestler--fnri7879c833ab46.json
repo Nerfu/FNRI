@@ -1,0 +1,21 @@
+{
+  "name": "Борец",
+  "type": "ability",
+  "_id": "fnri7879c833ab46",
+  "system": {
+    "description": "> **Требование:** две свободные руки.\n\nВаши Манёвры используют `d12` вместо Куба боя.",
+    "category": "Способность Бойца",
+    "mechanics": {
+      "passive": true,
+      "freeHandsManeuverD12": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.fighter.wrestler",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Бойца / Борец"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/control/buff-strength-muscle-damage.webp"
+}

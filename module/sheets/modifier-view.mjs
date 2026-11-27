@@ -1,5 +1,5 @@
 /** Read-only catalogue of known modifier sources. Never applies a second bonus. */
-import {classDefinition,prepareClassBaseStats,prepareSpellRangeBase} from '../data/classes.mjs';
+import {classDefinition,prepareClassBaseStats,prepareSpellRangeBase,rhythmBonus} from '../data/classes.mjs';
 import {actorRoleDefinition} from '../data/roles.mjs';
 import {racialPropertyRule,racialContentId} from '../data/racial-properties.mjs';
 import {permanentRacialStats} from '../data/character-contributions.mjs';
@@ -10,7 +10,7 @@ import {resolveSkillAllocation} from '../data/skill-allocation.mjs';
 import {projectionBorrowedArmor,projectionArmorForActor} from '../projection/projection.mjs';
 import {itemSlot} from '../equipment/equipment.mjs';
 import {ruleComponents} from '../rolls/roll-contributions.mjs';
-import {potionResource} from '../data/potion-resource.mjs';
+import {potionResource,potionBonusSources} from '../data/potion-resource.mjs';
 import {BASIC_SKILLS_BY_ROW_ID} from '../data/skills-catalog.mjs';
 const scope='fast-nri-v14';
 const paths=['hp.max','speed','spellRange','combatDie','attackModifier',...['partial','success','great'].map(k=>'ac.'+k),...['awareness','reflex','fortitude','will'].map(k=>'defenses.'+k)];
@@ -41,6 +41,8 @@ export function modifierGroups(actor,t=k=>k){
   const add=(p,source,value,note)=>group(p).sources.push({source,value:show(value),note});
   for(const [k,v] of Object.entries(role?.defenses??{}))add('defenses.'+k,role.name,signed(v),t('ModifierView.permanent'));
   if(pc){
+    const rhythm=rhythmBonus(actor);
+    if(rhythm){for(const k of ['partial','success','great'])add('ac.'+k,'Ритм',signed(rhythm),t('ModifierView.permanent'));add('contextual.attack','Ритм',signed(rhythm),t('ModifierView.situational'));}
     const seen=new Set();
     for(const item of items){
       const data=item.system?.mechanics?.characterContributions,id=racialContentId(item)||item.id;
@@ -88,6 +90,7 @@ export function modifierGroups(actor,t=k=>k){
   }
   if(pc&&cls?.potionBonus){add('potionMax',cls.name,signed(cls.potionBonus),t('ModifierView.permanent'));}
   if(pc){const stable=items.find(i=>i.type==='ability'&&(i.getFlag?.(scope,'contentId')??i.flags?.[scope]?.contentId)==='fnri7.rulebook.racial.ustoichivyi');if(stable)add('potionMax',stable.name,'+1',t('ModifierView.permanent'));}
+  for(const e of potionBonusSources(actor))add('potionMax',e.name,signed(e.value),'');
   if(groups.has('potionMax')||pc&&Number.isSafeInteger(raw.potionsBaseMax)){const g=group('potionMax');g.total=show(potionResource(actor).max);g.sources.unshift({source:t(Number.isSafeInteger(raw.potionsBaseMax)?'ModifierView.manual':'ModifierView.base'),value:show(raw.potionsBaseMax??3),note:t('ModifierView.base')});}
   if(pc){
     const allocation=resolveSkillAllocation(raw,items);

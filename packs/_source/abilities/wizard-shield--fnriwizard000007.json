@@ -1,0 +1,46 @@
+{
+  "name": "Защитный щит",
+  "type": "ability",
+  "_id": "fnriwizard000007",
+  "system": {
+    "description": "> **Требуется:** 1 Вмешательство и 1 Волшебная сила.  \n> **Свойства:** Заклинание, Вмешательство, Защитное.  \n> **Защищаемая цель:** союзник в дистанции заклинаний.\n\nСовершите Направленную защиту.\n\nЗащитным щитом можно защищать союзника и от Манёвра.\n\nЕсли защита удаляет урон, удалите два самых больших оставшихся куба урона вместо одного.\n\nПри успешной защите от направленной **Атаки против КЗ** снизьте степень её Эффекта на `2` вместо `1`.\n\nЗащитный щит можно применить против действия со свойством **Силовой**, даже если оно не имеет проверки. В этом случае защитная проверка не совершается, а урон защищаемой цели становится равен `0`.",
+    "category": "Способность Волшебника",
+    "mechanics": {
+      "isIntervention": true,
+      "intervention": {
+        "requiresDefense": "ac",
+        "targeting": "ally",
+        "effect": {
+          "kind": "directedDefense",
+          "damageRemovalCount": 2,
+          "effectReduction": 2
+        },
+        "targetRange": "spell"
+      },
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          },
+          {
+            "resourceKey": "class_wizard",
+            "kind": "class",
+            "amount": 1,
+            "resourceName": "Волшебная сила"
+          }
+        ]
+      }
+    },
+    "tags": "Заклинание, Вмешательство, Защитное",
+    "cost": "1 Вмешательство и 1 Волшебная сила"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.wizard.shield",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Волшебника / Защитный щит"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/defensive/shield-barrier-blue.webp"
+}

@@ -1,0 +1,103 @@
+{
+  "name": "Убавь темп!",
+  "type": "ability",
+  "_id": "fnri5abcdf66c5bd",
+  "system": {
+    "description": "> **Требуется:** 1 Вмешательство и 1 Ритм.  \n> **Свойство:** Заклинание.  \n> **Условие:** враг в дистанции заклинаний объявляет действие в свой ход.\n\nЦель получает **Замедление**.\n\nЕсли она уже Замедлена, вместо этого получает **Оглушение**.",
+    "category": "Способность Барда",
+    "mechanics": {
+      "isIntervention": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          },
+          {
+            "kind": "class",
+            "resourceKey": "class_rhythm",
+            "resourceName": "Ритм",
+            "amount": 1
+          }
+        ]
+      },
+      "executions": [
+        {
+          "id": "slow",
+          "type": "effect",
+          "label": "Замедлен",
+          "effectId": "fnri56f46560d636",
+          "target": "selected"
+        },
+        {
+          "id": "stun",
+          "type": "effect",
+          "label": "Оглушён",
+          "effectId": "fnribbcb38ae8672",
+          "target": "selected"
+        }
+      ]
+    },
+    "tags": "Заклинание, Вмешательство",
+    "cost": "1 Вмешательство и 1 Ритм"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.bard.slow-tempo",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Барда / Убавь темп!"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnri56f46560d636",
+      "name": "Замедлен",
+      "img": "icons/magic/movement/chevrons-down-yellow.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-slowed"
+      ],
+      "description": "Скорость существа уменьшается **вдвое**. Если получается дробное значение, примените глобальное округление вниз.\n\nЕсли источник не указывает отдельное завершение, состояние заканчивается по общему правилу завершения длительных эффектов.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "slowed",
+          "requiresManualResolution": true,
+          "effectEnding": "general",
+          "rulesRef": "rulebook.md#состояния"
+        }
+      }
+    },
+    {
+      "_id": "fnribbcb38ae8672",
+      "name": "Оглушён",
+      "img": "icons/skills/wounds/injury-face-impact-orange.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-stunned"
+      ],
+      "description": "Оглушение действует мгновенно и не остаётся на цели как длительное состояние.\n\n**Наложено вмешательством в активный ход цели:** текущее действие прерывается; затем цель теряет одно оставшееся использование движения, воздействия или вмешательства по своему выбору. Следующее восстановление не уменьшается.\n\n**Наложено действием источника в его ход:** цель немедленно теряет одно оставшееся использование; в начале следующего хода восстанавливает на одно использование меньше по своему выбору.\n\nДо начала следующего хода дополнительные Оглушения не отнимают ещё один ресурс и не уменьшают восстановление повторно. Однако Оглушение, наложенное вмешательством, каждый раз может прервать новое текущее действие.\n\n---",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "conditionId": "stunned",
+          "informationalMarker": true,
+          "requiresManualResolution": true,
+          "rulesRef": "rulebook.md#оглушён"
+        }
+      }
+    }
+  ],
+  "img": "icons/magic/control/hypnosis-mesmerism-watch.webp"
+}

@@ -3,6 +3,7 @@
  * Item.name or on the Russian text of a weapon trait. Content defines rules.
  * Read-only helpers; no hidden Actor mutation or additional sheet controls.
  */
+import {suppressesHeldProtection} from '../effects/active-effect.mjs';
 import {itemSlot} from './equipment.mjs';
 import {nativeUnarmedGrant} from '../data/native-unarmed-grants.mjs';
 const finite=x=>typeof x==='number' && Number.isFinite(x);
@@ -33,7 +34,7 @@ export function equipmentDefensePreview(actor,{classAcBonus=null,system=actor?.s
   const equipped=items.filter(item=>!!itemSlot(item.id,system));
   const armor=equipped.find(item=>item.id===system?.equipment?.armor && item.type==='armor')??null;
   const wornHandItems=equipped.filter(item=>itemSlot(item.id,system)?.kind==='hand');
-  const protective=wornHandItems.flatMap(item=>{
+  const protective=(suppressesHeldProtection(actor)?[]:wornHandItems).flatMap(item=>{
     const rule=asObject(item.system?.mechanics?.protection);
     if(!finite(rule.acBonus))return [];
     return [{itemUuid:item.uuid??null,name:item.name??'',
@@ -95,7 +96,7 @@ export function equipmentSkillBonusPreview(actor,skillId,{circumstancesApproved=
  * No bonuses are inferred from having a focus in the backpack.
  */
 export function spellFocusPreview(actor) {
-  const held=(actor?.items?.contents??[]).filter(item=>
+  const held=(suppressesHeldProtection(actor)?[]:actor?.items?.contents??[]).filter(item=>
     itemSlot(item.id,actor.system)?.kind==='hand');
   const caster=String(actor?.system?.className??'').trim();
   const candidates=held.flatMap(item=>{

@@ -1,23 +1,24 @@
 /**
  * A per-execution duration stamp for source-specific temporary HP.
  * Native Combat provides the next actual turn; no synthetic timers or actions.
- * Legacy nextOwnTurn timing is fixed on publication. A recipientTurnEnd
- * result declares its duration policy; application binds it to the recipient.
+ * Caster-relative timing is fixed on publication, not on application.
  */
 const object=value=>value && typeof value==='object' && !Array.isArray(value)?value:{};
 
 /** A unique Combatant is needed. A linked Actor represented twice by two
  * combatants is ambiguous: do not silently choose either token's turn.
  */
-export function nextOwnTurnExpiry(actor, combat, timestamp=null) {
+export function nextOwnTurnExpiry(actor, combat, timestamp=null, sourceToken=null) {
   const expires={};
   if(typeof timestamp==='number' && Number.isFinite(timestamp)) {
     expires.worldTime=timestamp+600; // Rulebook absolute 10 in-game minute limit
   }
   if(!combat?.started || !Number.isInteger(combat.round))return expires;
   const combatants=Array.from(combat.turns??[]);
-  const matches=combatants.flatMap((combatant,index)=>
+  let matches=combatants.flatMap((combatant,index)=>
     combatant?.actor?.uuid===actor?.uuid ? [{combatant,index}]:[]);
+  const tokenUuid=sourceToken?.document?.uuid??sourceToken?.uuid;
+  if(matches.length>1 && tokenUuid)matches=matches.filter(({combatant})=>combatant.token?.uuid===tokenUuid);
   if(matches.length!==1)return expires;
   const {combatant,index}=matches[0];
   const currentIndex=Number.isInteger(combat.turn)?combat.turn:null;
@@ -27,14 +28,14 @@ export function nextOwnTurnExpiry(actor, combat, timestamp=null) {
   return expires;
 }
 
-export function abilityTempHpExpiry(actor,execution,{combat=null,worldTime=null}={}) {
+export function abilityTempHpExpiry(actor,execution,{combat=null,worldTime=null,sourceToken=null}={}) {
   const duration=object(execution?.duration);
-  if(duration.kind==='recipientTurnEnd')return {recipientTurnEnd:true};
-  if(duration.kind==='nextOwnTurn')return nextOwnTurnExpiry(actor,combat,worldTime);
+  if(duration.kind==='nextOwnTurn')return {...nextOwnTurnExpiry(actor,combat,worldTime,sourceToken),
+    ...(duration.marker==='shadowShield'?{marker:'shadowShield'}:{})};
   return {};
 }
 
-/** Expired legacy results are advisory; callers may still apply them. */
+/** Expired results are advisory; callers may still apply them. */
 export function hasTempHpResultExpired(expiry,{combat=null,worldTime=null}={}) {
   const due=object(expiry);
   if(typeof due.worldTime==='number' && typeof worldTime==='number' &&

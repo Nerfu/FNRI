@@ -1,0 +1,31 @@
+{
+  "name": "Выстрел охотника",
+  "type": "ability",
+  "_id": "fnriranger000004",
+  "system": {
+    "description": "**Эффект Успеха:** обычный выстрел Длинным или Коротким луком наносит дополнительно `1d8` урона того же типа.\n\nБыстрый выстрел не наносит этот урон.",
+    "category": "Способность Егеря",
+    "mechanics": {
+      "passive": true,
+      "ordinaryWeaponDamage": {
+        "weaponContentIds": [
+          "fnri7.rulebook.weapon.020",
+          "fnri7.rulebook.weapon.022"
+        ],
+        "degrees": [
+          "success",
+          "great"
+        ],
+        "faces": 8
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.ranger.hunter-shot",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Егеря / Выстрел охотника"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/ranged/arrow-strike-apple-orange.webp"
+}

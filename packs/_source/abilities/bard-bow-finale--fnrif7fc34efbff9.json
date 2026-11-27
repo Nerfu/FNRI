@@ -1,0 +1,60 @@
+{
+  "name": "В яблочко!",
+  "type": "ability",
+  "_id": "fnrif7fc34efbff9",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие и 3 Ритма.  \n> **Свойства:** Атака, Дистанционная атака.  \n> **Требование:** Короткий лук.  \n> **Цель:** одно существо в дистанции Короткого лука.\n\nСовершите обычную атаку Коротким луком. Атака наносит дополнительно `3d6` урона. Весь её урон становится магическим.",
+    "category": "Способность Барда",
+    "mechanics": {
+      "culmination": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "class",
+            "resourceKey": "class_rhythm",
+            "resourceName": "Ритм",
+            "amount": 3
+          }
+        ]
+      },
+      "attack": {
+        "kind": "physical",
+        "useWeapon": true,
+        "weaponContentIds": [
+          "fnri7.rulebook.weapon.022"
+        ],
+        "attackKind": "ranged",
+        "properties": "Атака, Дистанционная атака",
+        "damageType": "магический"
+      },
+      "rollContributions": [
+        {
+          "label": "В яблочко!",
+          "kind": "modifier",
+          "value": "3d6",
+          "kinds": [
+            "damage"
+          ],
+          "damageType": "магический"
+        }
+      ],
+      "executions": [
+        {
+          "id": "attack",
+          "type": "attack",
+          "label": "В яблочко!"
+        }
+      ]
+    },
+    "tags": "Атака, Дистанционная атака",
+    "cost": "1 Воздействие и 3 Ритма"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.bard.bow-finale",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Барда / В яблочко!"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/ranged/target-bullseye-arrow-glowing.webp"
+}

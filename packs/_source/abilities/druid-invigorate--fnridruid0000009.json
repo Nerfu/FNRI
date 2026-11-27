@@ -1,0 +1,69 @@
+{
+  "name": "Придание сил",
+  "type": "ability",
+  "_id": "fnridruid0000009",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие и 3 Жизненные силы.  \n> **Свойства:** Заклинание, Исцеление.  \n> **Цель:** вы или один союзник в дистанции заклинаний.  \n> **Длительность:** до следующего Длинного отдыха.\n\nЦель восстанавливает `5 HP`.\n\nЕё общий предел Зелий увеличивается на `1`.",
+    "category": "Способность Друида",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "heal",
+          "label": "Придание сил",
+          "type": "roll",
+          "formula": "5",
+          "rollKind": "heal",
+          "target": "selected",
+          "spell": {
+            "spellEnergy": "life",
+            "spellRange": "current",
+            "target": "selected"
+          },
+          "effectId": "fnridruidVig0001"
+        }
+      ],
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "class",
+            "resourceKey": "class_life",
+            "resourceName": "Жизненная сила",
+            "amount": 3
+          }
+        ]
+      }
+    },
+    "tags": "Заклинание, Исцеление",
+    "cost": "1 Воздействие и 3 Жизненные силы"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.druid.invigorate",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Друида / Придание сил"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnridruidVig0001",
+      "name": "Придание сил",
+      "img": "icons/magic/nature/leaf-glow-triple-green.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [],
+      "description": "> **Требуется:** 1 Воздействие и 3 Жизненные силы.  \n> **Свойства:** Заклинание, Исцеление.  \n> **Цель:** вы или один союзник в дистанции заклинаний.  \n> **Длительность:** до следующего Длинного отдыха.\n\nЦель восстанавливает `5 HP`.\n\nЕё общий предел Зелий увеличивается на `1`.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "effectEnding": "particular",
+          "potionMaxBonus": 1
+        }
+      }
+    }
+  ],
+  "img": "icons/magic/nature/leaf-glow-triple-green.webp"
+}

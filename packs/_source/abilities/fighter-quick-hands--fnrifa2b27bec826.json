@@ -1,0 +1,20 @@
+{
+  "name": "Быстрые руки",
+  "type": "ability",
+  "_id": "fnrifa2b27bec826",
+  "system": {
+    "description": "Когда вы совершаете **Манипуляцию с предметом**, она не вызывает против вас **Быстрый удар**.",
+    "category": "Способность Бойца",
+    "mechanics": {
+      "passive": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.fighter.quick-hands",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Бойца / Быстрые руки"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/social/theft-pickpocket-bribery-brown.webp"
+}

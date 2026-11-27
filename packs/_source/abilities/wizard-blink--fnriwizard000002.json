@@ -1,0 +1,35 @@
+{
+  "name": "Скачок",
+  "type": "ability",
+  "_id": "fnriwizard000002",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие и 1 Волшебная сила.  \n> **Свойства:** Заклинание, Быстрое, Телепортация.\n\nТелепортируйтесь в видимую свободную клетку в дистанции заклинаний.",
+    "category": "Способность Волшебника",
+    "mechanics": {
+      "accounting": {
+        "resourceCosts": [
+          {
+            "resourceKey": "class_wizard",
+            "kind": "class",
+            "amount": 1,
+            "resourceName": "Волшебная сила"
+          }
+        ]
+      },
+      "spell": {
+        "spellEnergy": "wizard",
+        "spellRange": "current"
+      }
+    },
+    "tags": "Заклинание, Быстрое, Телепортация",
+    "cost": "1 Воздействие и 1 Волшебная сила"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.wizard.blink",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Волшебника / Скачок"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/movement/portal-vortex-orange.webp"
+}

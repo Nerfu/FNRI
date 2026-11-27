@@ -1,0 +1,43 @@
+{
+  "name": "Швыряю",
+  "type": "ability",
+  "_id": "fnri31a7f1190ee9",
+  "system": {
+    "description": "> **Требуется:** `1 Воздействие`.  \n> **Свойства:** Воздействие, Атака, Дистанционная атака.  \n> **Дистанция:** `4`.\n\nСовершите Дистанционную атаку удерживаемым оружием или предметом. Для неё используйте Куб боя и профиль **Рукопашной атаки Бойца**.\n\nСвойства удерживаемого оружия или предмета не применяются.",
+    "category": "Способность Бойца",
+    "mechanics": {
+      "attack": {
+        "kind": "physical",
+        "targetDefense": "ac",
+        "attackKind": "ranged",
+        "damageType": "физический",
+        "properties": "Воздействие, Атака, Дистанционная атака",
+        "damageProfile": {
+          "A": "1d6",
+          "B": "1d12",
+          "C": 4
+        },
+        "unarmed": true,
+        "requiresHeldItem": true,
+        "attackRange": 4
+      },
+      "executions": [
+        {
+          "id": "attack",
+          "type": "attack",
+          "label": "Швыряю"
+        }
+      ]
+    },
+    "cost": "1 Воздействие.",
+    "tags": "Воздействие, Атака, Дистанционная атака."
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.fighter.throw",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Бойца / Швыряю"
+    }
+  },
+  "effects": [],
+  "img": "icons/weapons/thrown/throwing-brick.webp"
+}

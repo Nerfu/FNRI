@@ -1,0 +1,65 @@
+{
+  "name": "Обострённые чувства",
+  "type": "ability",
+  "_id": "fnriranger000007",
+  "system": {
+    "description": "> **Свойства:** Заклинание, Манипуляция.  \n> **Длительность:** до конца текущего хода.\n\nУменьшайте модуль Штрафа, применяемого к вашим атакам, на `4`, но не ниже `0`. Это уменьшение не превращает Штраф в бонус.",
+    "category": "Способность Егеря",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "senses",
+          "type": "effect",
+          "label": "Обострённые чувства",
+          "effectId": "fnrirangersense1",
+          "target": "self"
+        }
+      ]
+    },
+    "tags": "Заклинание, Манипуляция"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.ranger.heightened-senses",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Егеря / Обострённые чувства"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnrirangersense1",
+      "name": "Обострённые чувства",
+      "img": "icons/magic/perception/eye-slit-orange.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [],
+      "description": "> **Свойства:** Заклинание, Манипуляция.  \n> **Длительность:** до конца текущего хода.\n\nУменьшайте модуль Штрафа, применяемого к вашим атакам, на `4`, но не ниже `0`. Это уменьшение не превращает Штраф в бонус.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {
+        "units": "rounds",
+        "value": 0,
+        "expiry": "turnEnd",
+        "expired": false
+      },
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "effectEnding": "particular",
+          "rollContributions": [
+            {
+              "label": "Уменьшение Штрафа",
+              "kind": "hindranceReduction",
+              "value": 4,
+              "kinds": [
+                "attack"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "img": "icons/magic/perception/eye-slit-orange.webp"
+}

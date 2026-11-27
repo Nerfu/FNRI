@@ -1,0 +1,43 @@
+{
+  "name": "Залп магии",
+  "type": "ability",
+  "_id": "fnriwizard000003",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие и от 1 до 3 Волшебной силы.  \n> **Свойства:** Заклинание, Силовой.  \n> **Цели:** одна или две цели в дистанции заклинаний.\n\nЗа каждую использованную Волшебную силу создайте один заряд, наносящий `1d4+1` магического урона.\n\nРаспределите заряды между целями. В одну цель можно направить несколько зарядов.\n\nВсе заряды, направленные в одну цель, наносят урон одновременно. Проверка отсутствует. Урон игнорирует любую Устойчивость.",
+    "category": "Способность Волшебника",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "salvo",
+          "type": "damageCharges",
+          "label": "Залп магии",
+          "count": 3,
+          "faces": 4,
+          "bonus": 1,
+          "damageType": "магический",
+          "ignoreResistance": true,
+          "accounting": {
+            "resourceCosts": [
+              {
+                "resourceKey": "class_wizard",
+                "kind": "class",
+                "amount": 1,
+                "resourceName": "Волшебная сила"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "tags": "Заклинание, Силовой",
+    "cost": "1 Воздействие и 1–3 Волшебной силы"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.wizard.salvo",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Волшебника / Залп магии"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/light/projectiles-trio-pink.webp"
+}

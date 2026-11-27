@@ -22,6 +22,14 @@ function sameProperty(actor, item) {
   return id ? actor.items.contents.find(owned => owned.type === "ability" && racialContentId(owned) === id) : null;
 }
 
+/** Only the catalog filter; already owned cards remain editable/removable. */
+export function racialPickerIncludes(actor, item, state, {ownedItem=false, showAll=false}={}) {
+  if (ownedItem || showAll) return true;
+  const rule = racialPropertyRule(item);
+  if (racialAddWarnings(actor, item, state).includes("wrongRace")) return false;
+  return !rule?.nature || !state.nature || rule.nature === state.nature;
+}
+
 export function racialChoiceWarning(state) {
   return state.max !== null && state.used < state.max ? "limitMissing" : "";
 }
@@ -99,8 +107,7 @@ export async function openRacialPropertyEditor(actor, {add, remove}) {
           ...cards.filter(card => !keys.has(keyOf(card))).map(item => ({item, ownedItem: false}))
         ].sort((a, b) => a.item.name.localeCompare(b.item.name, game.i18n.lang));
         visible = sources.flatMap(({item, ownedItem}) => {
-          const warnings = ownedItem ? [] : racialAddWarnings(actor, item, state);
-          if ((!ownedItem && !showAll.checked && warnings.includes("wrongRace")) ||
+          if (!racialPickerIncludes(actor, item, state, {ownedItem, showAll: showAll.checked}) ||
               !normalizeSearch(item.name).includes(query)) return [];
           const choice = ownedItem ? selectedRacialChoiceForItem(item,actor) : null;
           const blocked = ownedItem ? racialRemoveBlock(actor,item,permissions) : racialAddBlock(actor,item,permissions);

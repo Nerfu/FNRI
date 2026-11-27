@@ -5,10 +5,11 @@ import {stableDocumentId} from '../data/document-id.mjs';
 import {redactActorSourceForAudience} from '../rolls/roll-context.mjs';
 import {coverAllyDice, planCoverAlly} from './damage-core.mjs';
 import {applyIndependentHp} from './free-hp.mjs';
+import {areaCoverSnapshot} from './area-attack.mjs';
 import {declareAction} from '../rolls/action-declaration.mjs';
 import {
   COVER_ALLY_ID, coverActorKey, coverAllyItem, coverScope,
-  isCurrentDirectedCoverSource, sameCoverAudience, hasIntervened
+  isCurrentDirectedCoverSource, sameCoverAudience, hasIntervened, coverRecords, directedCoverSnapshot
 } from './cover-ally-state.mjs';
 
 const ID = 'fast-nri-v14';
@@ -61,7 +62,11 @@ export async function chooseCoverAlly({source, defender, candidates,repeatWarnin
     if (!plan || describeDie(plan.transferred) !== describeDie(die)) {
       ui.notifications?.warn(local('changed'));return independent();
     }
-    const messageId = stableDocumentId('cvr',[scope,target,die.id]);
+    const baseId = stableDocumentId('cvr',[scope,target,die.id]);
+    // A previous choice may have moved away from this component. Keep its
+    // original message identity and allocate a fresh use for the freed die.
+    const existing=game.messages?.get(baseId)?.getFlag(ID,'coverAlly');
+    const messageId=existing&&existing.partId!==die.id?stableDocumentId('cvr',[scope,target,die.id,coverRecords(source,target).map(r=>r.messageId).sort()]):baseId;
     const record = {
       version:1,scope,sourceId:source.id,sourceRevision:source.getFlag(ID,'weaponDamage')?.revision ?? 0,
       allyToken:target,allyKey:coverActorKey(entry.ally.actor),
@@ -86,6 +91,31 @@ export async function chooseCoverAlly({source, defender, candidates,repeatWarnin
     }});
     return published??independent();
   } finally {pending.delete(actor.uuid);}
+}
+
+function tokenByUuid(uuid){
+  return (globalThis.canvas?.tokens?.placeables??[]).find(t=>t.document?.uuid===uuid)??globalThis.foundry?.utils?.fromUuidSync?.(uuid);
+}
+export function coverComponentChoice(message){
+  const record=message?.getFlag?.(ID,'coverAlly');
+  if(record?.version!==1||!canReadChatContent(message))return null;
+  const source=game.messages?.get(record.sourceId),ally=tokenByUuid(record.allyToken),defender=tokenByUuid(record.defenderToken);
+  if(!canReadChatContent(source)||!sameCoverAudience(source,message)||!ally?.actor||!defender?.actor||ally.visible===false||defender.visible===false||(ally.document??ally).hidden===true||(defender.document??defender).hidden===true||coverActorKey(ally.actor)!==record.allyKey||coverActorKey(defender.actor)!==record.defenderKey)return null;
+  const card=source.getFlag(ID,'weaponDamage');
+  if((card?.revision??0)!==record.sourceRevision)return null;
+  const snapshot=card?.version===2&&!card.areaAttack?directedCoverSnapshot(source,ally,{omitMessageId:message.id}):areaCoverSnapshot(source,ally,{omitMessageId:message.id});
+  const parts=coverAllyDice(snapshot),current=parts.find(p=>p.id===record.partId);
+  if(!current||current.value!==record.amount)return null;
+  const candidates=parts.filter(p=>p.id!==record.partId);
+  return candidates.length?{record,current,candidates,allyName:ally.name,defenderName:defender.name}:null;
+}
+export function coverComponentPatch(message,partId){
+  const choice=coverComponentChoice(message),die=choice?.candidates.find(p=>p.id===partId);
+  if(!die)return null;
+  const record={...choice.record,partId,amount:die.value,choiceHistory:[...(choice.record.choiceHistory??[]),{from:choice.record.partId,to:partId,by:game.user?.id,at:Date.now()}]};
+  const heading=game.i18n.format('FASTNRI.CoverAlly.heading',{defender:choice.defenderName,ally:choice.allyName});
+  const detail=game.i18n.format('FASTNRI.CoverAlly.detail',{die:die.formula,value:record.amount,defender:choice.defenderName});
+  return {[`flags.${ID}.coverAlly`]:record,content:`<strong>${esc(heading)}</strong><div>${esc(detail)}</div>`};
 }
 
 export function renderCoverAlly(message, html) {

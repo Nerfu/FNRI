@@ -1,4 +1,5 @@
 import {activeConditionEffect} from '../effects/active-effect.mjs';
+import {itemSlot} from '../equipment/equipment.mjs';
 /**
  * Fast NRI 7.0 — Stage 3C.1/3C.2: periodic damage data and pure calculations.
  * Every native Actor ActiveEffect is a distinct instance; neither its title,
@@ -106,8 +107,12 @@ export function inspectDamageDefenseSources(actor) {
     if (id) seen.add(id);
     if (!activeConditionEffect(effect)) continue;
     const data = effect?.flags?.[PERIODIC_SCOPE]?.damageDefenses;
-    if (data && typeof data === 'object')
-      sources.push({kind:'active-effect',id:id??null,rule:data});
+    if (data && typeof data === 'object') {
+      const hasConditional=Array.isArray(data.resistances)&&data.resistances.some(row=>Number.isSafeInteger(row.heldShieldValue));
+      const shield=hasConditional&&(actor?.items?.contents??[]).some(item=>item.system?.mechanics?.protection?.kind==='shield'&&itemSlot(item.id,actor.system)?.kind==='hand');
+      const rule=shield?{...data,resistances:data.resistances.map(row=>Number.isSafeInteger(row.heldShieldValue)?{...row,value:row.heldShieldValue}:row)}:data;
+      sources.push({kind:'active-effect',id:id??null,rule});
+    }
   }
   const equipped=equippedItemIds(actor);
   for (const item of actor?.items?.contents ?? []) {

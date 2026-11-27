@@ -61,3 +61,38 @@ actor.items.contents=[shield,staff];prepare(withHands(shield.id,staff.id));asser
 actor.items.contents=[];prepare(withHands(shield.id));assert.deepEqual(Object.values(model.ac),[10,18,22],'removed items no longer count');
 assert.equal(classSelectionUpdate(fresh,'Воин',{hpBonus:permanentRacialStats({items:{contents:[fortress]}}).hpMax})['system.hp.current'],23);
 console.log('PASS canonical permanent racial cards, shield/staff strongest protection, no repeated bonus, removing or unequipping sources');
+
+// C2: Part II fixed weapon proficiencies, exercised through the actual resolver.
+// Cleric's additional selected one-handed weapon and Defender's special rule are
+// separate open tasks, not part of the fixed list below.
+const {weaponProficiency}=await import('../module/equipment/equipment.mjs');
+const {shortRestActions}=await import('../module/sheets/action-catalog.mjs');
+const fixedWeapons={
+ 'Защитник':['Цеп','Короткий меч','Длинный меч','Пистолет','Кистень'],
+ 'Воин':['Цеп','Дубина','Короткий меч','Длинный меч','Рапира','Одноручный топор','Двуручный топор','Двуручный молот','Длинное копьё','Двуручный меч','Пистолет','Кинжал','Серп','Арбалет','Жестокий топор','Тяжёлый молот'],
+ 'Егерь':['Арбалет','Длинный лук','Короткий лук','Длинный меч','Короткий меч','Длинное копьё','Одноручный топор'],
+ 'Разбойник':['Арбалет','Короткий меч','Кинжал','Праща'],
+ 'Клерик':['Божественный символ','Ветвь','Жезл'],
+ 'Волшебник':['Волшебная палочка','Сфера','Жезл','Двуручный волшебный посох'],
+ 'Друид':['Праща','Дубина','Серп','Ветвь','Жезл'],
+ 'Бард':['Рапира','Длинный меч','Короткий лук'],
+ 'Колдун':['Кинжал','Короткий меч','Длинный меч','Серп'],
+ 'Боец':[]
+};
+const weaponDir=new URL('../packs/_source/weapons/',import.meta.url);
+const weapons=readdirSync(weaponDir).filter(f=>f.endsWith('.json')).map(f=>JSON.parse(readFileSync(new URL(f,weaponDir),'utf8')));
+assert.equal(weapons.length,28);
+assert.equal(new Set(weapons.map(w=>w.name)).size,weapons.length);
+globalThis.game={i18n:{localize:k=>k}};
+for(const [className,names] of Object.entries(fixedWeapons)){
+ const pc={type:'character',system:{className},items:{contents:[]}};
+ assert.deepEqual(weapons.filter(w=>weaponProficiency(w,pc).proficient).map(w=>w.name).sort(),[...names].sort(),className);
+ for(const w of weapons){
+  assert.equal(weaponProficiency({...w,system:{...w.system,proficiencyMode:'yes'}},pc).proficient,true);
+  assert.equal(weaponProficiency({...w,system:{...w.system,proficiencyMode:'no'}},pc).proficient,false);
+ }
+ assert.equal(shortRestActions(pc).some(a=>a.id==='fieldRecovery'),['Егерь','Клерик','Друид','Колдун'].includes(className));
+}
+for(const [name,level] of [['Кистень',2],['Жестокий топор',2],['Тяжёлый молот',2]])assert.equal(weapons.find(w=>w.name===name).system.level,level);
+assert.equal(weapons.find(w=>w.name==='Пистолет').system.grip,'1');
+console.log('PASS C2: 280 fixed weapon proficiency combinations, explicit overrides, level-2 weapons and field recovery access');

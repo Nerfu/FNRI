@@ -8,6 +8,7 @@ import {registerGameReroll} from './module/rolls/game-reroll.mjs';
 import {registerAbilityChat,publishAbility,abilityExecutions,abilityExecution,executeAbilityFromChat} from './module/abilities/ability-chat.mjs';
 import {registerTempHpManualEdits,registerTempHpWorldTime,readTempHpState,grantTempHp,removeTempHpLayer,tempHpMax,planTempHpExpiration} from './module/damage/temporary-hp-layers.mjs';
 import {FastNRICombat} from './module/combat/fnri-combat.mjs';
+import {FastNRICombatant} from './module/combat/initiative.mjs';
 import {FastNRITokenRuler} from './module/spatial/token-ruler.mjs';
 import {applyCardDamageWithResponse} from './module/damage/hp-actions.mjs';
 import {coverAllyDice, planCoverAlly} from './module/damage/damage-core.mjs';
@@ -33,6 +34,7 @@ import {registerChatEffectDrag} from './module/effects/chat-effect-links.mjs';
 import {registerEffectsPanel} from './module/effects/effects-panel.mjs';
 import {registerFreeHp} from './module/damage/free-hp.mjs';
 import {registerRollEditor} from './module/damage/roll-editor.mjs';
+import {registerDamageComponentChoice} from './module/damage/damage-component-choice.mjs';
 import {registerDamageChatControls} from './module/damage/damage-chat.mjs';
 import {registerDamageRecovery,ensureDamageRecovery} from './module/abilities/damage-recovery.mjs';
 import {registerWeaponChatControls} from "./module/weapon/weapon-attack.mjs";
@@ -70,6 +72,7 @@ Hooks.once("init", () => {
   registerInitialSheetLock();
   // Foundry native _onEndTurn executes only on designated GM.
   CONFIG.Combat.documentClass = FastNRICombat;
+  CONFIG.Combatant.documentClass = FastNRICombatant;
   CONFIG.Combat.initiative.formula = "1d20";
   CONFIG.Token.rulerClass = FastNRITokenRuler;
   Object.assign(CONFIG.Actor.dataModels ??= {}, {
@@ -110,6 +113,7 @@ Hooks.once("init", () => {
   registerRollEditor();
   registerFreeHp();
   registerDamageChatControls();
+  registerDamageComponentChoice();
   registerDamageRecovery();
   registerEffectsPanel();
   registerChatEffectDrag();

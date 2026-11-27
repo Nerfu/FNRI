@@ -1,0 +1,55 @@
+{
+  "name": "Голод",
+  "type": "ability",
+  "_id": "fnrinephhunger01",
+  "system": {
+    "description": "> **Требование:** Нечестивый.  \n> **Требуется:** 1 Воздействие.  \n> **Свойства:** Воздействие, Атака, Ближняя атака.  \n> **Частота:** `1 раз в день`.  \n> **Цель:** одно соседнее существо.\n\nСовершите атаку **«Укус»**, наносящую физический урон:\n\n| Провал | Частичный успех | Успех | Большой успех |\n|---:|---:|---:|---:|\n| `0` | `1d6` | `1d8+1d6` | `1d8+1d6+3` |\n\nЕсли атака нанесла урон, восстановите HP, равные результату самого большого Куба урона.",
+    "category": "Свойство Нефалема",
+    "mechanics": {
+      "racialProperty": {
+        "nature": "unholy",
+        "races": [
+          "nephalem"
+        ]
+      },
+      "executions": [
+        {
+          "id": "bite",
+          "label": "Укус",
+          "type": "attack",
+          "attack": {
+            "kind": "physical",
+            "unarmed": true,
+            "name": "Укус",
+            "targetDefense": "ac",
+            "attackKind": "melee",
+            "damageType": "физический",
+            "properties": "Воздействие, Атака, Ближняя атака",
+            "damageProfile": {
+              "A": "1d6",
+              "B": "1d8",
+              "C": 3
+            },
+            "healLargestDamageDie": true
+          }
+        }
+      ],
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    },
+    "cost": "1 Воздействие",
+    "tags": "Воздействие, Атака, Ближняя атака",
+    "frequency": "1 раз в день"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.golod",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Голод"
+    }
+  },
+  "effects": [],
+  "img": "icons/creatures/abilities/mouth-teeth-long-red.webp"
+}

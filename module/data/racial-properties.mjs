@@ -74,6 +74,14 @@ export function racialPermissions() {
   };
 }
 
+/** Nature selected by a Nephalem or a class card. No additional Actor state. */
+export function creatureNature(actor,{exclude=null}={}) {
+  const items=actor?.items?.contents??[];
+  const racial=items.find(item=>racialContentId(item)===NEPHALEM_NATURE);
+  const candidates=[racialPropertyRule(racial)?.selection,...items.filter(i=>i!==exclude).map(i=>i.system?.mechanics?.classNature?.selection)];
+  return candidates.find(v=>v==='holy'||v==='unholy')??null;
+}
+
 export const racialRaceName = id => RACES[id]?.[0] ?? null;
 export const racialRaceNames = () => Object.values(RACES).map(([name]) => name);
 export function primaryRace(actor) {
@@ -109,7 +117,7 @@ export function racialState(actor, items = actor?.items?.contents ?? []) {
   }
   const chosen = new Set(items.filter(racialPropertyRule)
     .map(item => racialContentId(item) || item.id).filter(id => !innate.has(id)));
-  return {races, innate, max: primary ? RACES[primary][1] + roleRacialChoices(actor) : null, used: chosen.size};
+  return {races, innate, nature, max: primary ? RACES[primary][1] + roleRacialChoices(actor) : null, used: chosen.size};
 }
 
 export function racialAddWarnings(actor, item, state = null) {

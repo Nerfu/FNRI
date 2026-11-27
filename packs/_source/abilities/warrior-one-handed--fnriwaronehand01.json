@@ -1,0 +1,24 @@
+{
+  "name": "Одноручный бой",
+  "type": "ability",
+  "_id": "fnriwaronehand01",
+  "system": {
+    "description": "Ваши атаки одноручным оружием, которым вы владеете, наносят `+2` урона.",
+    "category": "Способность Воина",
+    "mechanics": {
+      "passive": true,
+      "proficientWeaponDamage": {
+        "grip": "1",
+        "bonus": 2
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.warrior.one-handed",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Воина / Одноручный бой"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/hand-grip-sword-red.webp"
+}

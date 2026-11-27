@@ -134,3 +134,12 @@ unseen.actor.effects.contents=[{...condition('invisible'),disabled:true}];
 assert.equal(formationForTarget(subject2,canvas.tokens.placeables,{grid}).threats,3);
 assert.equal(invisibleAttackSource(unseen.actor,{tokenUuid:unseen.document.uuid}),false);
 console.log('R104 invisible threat and attack-local off-guard, defense result, no stacking: PASS');
+
+// Defender's formation contribution is per eligible standing creature.
+const fa=initContents(actor('fa')),fb=initContents(actor('fb'));
+const ft=token(fa,0,0),fl=token(fb,1,0),fe=token(actor('fe'),0,1,-1);
+const formationCard={type:'ability',system:{mechanics:{formationBonus:1}}};
+fa.items.contents.push(formationCard);assert.equal(formationForTarget(ft,[fl,fe],{grid}).formation,3);
+fb.items.contents.push(formationCard);assert.equal(formationForTarget(ft,[fl,fe],{grid}).formation,4);
+fb.effects.contents=[condition('prone')];assert.equal(formationForTarget(ft,[fl,fe],{grid}).formation,2);
+console.log('PASS Defender formation: own, adjacent ally, independent sources and prone');

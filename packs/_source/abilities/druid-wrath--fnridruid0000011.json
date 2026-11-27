@@ -1,0 +1,53 @@
+{
+  "name": "Гнев природы",
+  "type": "ability",
+  "_id": "fnridruid0000011",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие и 1 Жизненная сила.  \n> **Свойства:** Заклинание, Атака, Дистанционная атака.  \n> **Цель:** одно существо в дистанции заклинаний.  \n> **Проверка:** `1d20 + Куб боя` против КЗ цели.\n\nСовершите проверку и определите урон по достигнутой степени.\n\n| Степень | Урон |\n|---|---|\n| Провал | — |\n| Частичный успех | `1d6` магического урона. |\n| Успех | `2d6` магического урона. |\n| Большой успех | `3d6` магического урона. |\n\nДистанцию можно отсчитывать от вас или от клетки созданных вами Зарослей.\n\nПри отсчёте от Зарослей линия видимости от вас до цели не требуется.",
+    "category": "Способность Друида",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "attack",
+          "label": "Гнев природы",
+          "type": "attack",
+          "attack": {
+            "kind": "magic",
+            "targetDefense": "ac",
+            "attackKind": "ranged",
+            "damageType": "магический",
+            "properties": "Заклинание, Атака, Дистанционная атака",
+            "damageProfile": {
+              "failure": "0",
+              "partial": "1d6",
+              "success": "2d6",
+              "great": "3d6"
+            },
+            "spellRange": "current",
+            "spellEnergy": "life"
+          }
+        }
+      ],
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "class",
+            "resourceKey": "class_life",
+            "resourceName": "Жизненная сила",
+            "amount": 1
+          }
+        ]
+      }
+    },
+    "tags": "Заклинание, Атака, Дистанционная атака",
+    "cost": "1 Воздействие и 1 Жизненная сила"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.druid.wrath",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Друида / Гнев природы"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/nature/beam-hand-leaves-green.webp"
+}

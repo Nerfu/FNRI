@@ -1,0 +1,101 @@
+{
+  "name": "Хищный зверь",
+  "type": "ability",
+  "_id": "fnridruid0000005",
+  "system": {
+    "description": "> **Размер:** как в обычной форме.  \n> **Скорость:** `9`.\n\nВы сохраняете обычные ресурсы и можете использовать Вмешательства.\n\n**Особая атака:**\n\n> **Свойства особой атаки:** Атака, Ближняя атака.\n\n| Степень | Урон |\n|---|---:|\n| Провал | `0` |\n| Частичный успех | `1d6` |\n| Успех | `1d6+1d6` |\n| Большой успех | `1d6+1d6+3` |\n\nПока вы удерживаете цель Захватом, вы не можете атаковать.",
+    "category": "Способность Друида",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "form",
+          "type": "effect",
+          "label": "Принять форму",
+          "target": "self",
+          "effectId": "fnridruidPred001"
+        },
+        {
+          "id": "attack",
+          "label": "Особая атака Хищного зверя",
+          "type": "attack",
+          "attack": {
+            "kind": "physical",
+            "targetDefense": "ac",
+            "attackKind": "melee",
+            "damageType": "физический",
+            "properties": "Атака, Ближняя атака",
+            "damageProfile": {
+              "A": "1d6",
+              "B": "1d6",
+              "C": 3
+            },
+            "unarmed": true,
+            "name": "Особая атака Хищного зверя"
+          }
+        }
+      ]
+    },
+    "tags": "Атака, Ближняя атака"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.druid.predator",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Друида / Хищный зверь"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnridruidPred001",
+      "name": "Хищный зверь",
+      "img": "icons/creatures/mammals/wolf-shadow-black.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [],
+      "description": "> **Размер:** как в обычной форме.  \n> **Скорость:** `9`.\n\nВы сохраняете обычные ресурсы и можете использовать Вмешательства.\n\n**Особая атака:**\n\n> **Свойства особой атаки:** Атака, Ближняя атака.\n\n| Степень | Урон |\n|---|---:|\n| Провал | `0` |\n| Частичный успех | `1d6` |\n| Успех | `1d6+1d6` |\n| Большой успех | `1d6+1d6+3` |\n\nПока вы удерживаете цель Захватом, вы не можете атаковать.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": [
+          {
+            "key": "system.speed",
+            "type": "override",
+            "phase": "initial",
+            "priority": 0,
+            "value": "9"
+          },
+          {
+            "key": "system.ac.partial",
+            "type": "add",
+            "phase": "initial",
+            "priority": 0,
+            "value": "2"
+          },
+          {
+            "key": "system.ac.success",
+            "type": "add",
+            "phase": "initial",
+            "priority": 0,
+            "value": "2"
+          },
+          {
+            "key": "system.ac.great",
+            "type": "add",
+            "phase": "initial",
+            "priority": 0,
+            "value": "2"
+          }
+        ]
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "effectEnding": "particular",
+          "effectGroup": "druidForm",
+          "suppressHeldProtection": true,
+          "endsAtZeroHp": true
+        }
+      }
+    }
+  ],
+  "img": "icons/creatures/mammals/wolf-shadow-black.webp"
+}

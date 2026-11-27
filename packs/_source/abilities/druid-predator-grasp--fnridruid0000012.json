@@ -1,0 +1,57 @@
+{
+  "name": "Хищная хватка",
+  "type": "ability",
+  "_id": "fnridruid0000012",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие.  \n> **Свойства:** Атака, Ближняя атака.  \n> **Требование:** форма Хищного зверя.\n\nСовершите особую атаку Хищного зверя.\n\nПри Успехе примените к цели связанный автоматический Манёвр **Захватить**. Примените общие правила связанных автоматических Манёвров.",
+    "category": "Способность Друида",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "attack",
+          "label": "Хищная хватка",
+          "type": "attack",
+          "attack": {
+            "kind": "physical",
+            "targetDefense": "ac",
+            "attackKind": "melee",
+            "damageType": "физический",
+            "properties": "Атака, Ближняя атака",
+            "damageProfile": {
+              "A": "1d6",
+              "B": "1d6",
+              "C": 3
+            },
+            "unarmed": true,
+            "name": "Хищная хватка",
+            "outcomes": [
+              {
+                "kind": "condition",
+                "minEffectDegree": "success",
+                "conditions": [
+                  "Захвачен"
+                ],
+                "effectRefs": [
+                  {
+                    "contentId": "fnri7.rulebook.condition.grabbed",
+                    "effectId": "f7Status00000002"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "tags": "Атака, Ближняя атака",
+    "cost": "1 Воздействие"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.druid.predator-grasp",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Друида / Хищная хватка"
+    }
+  },
+  "effects": [],
+  "img": "icons/creatures/abilities/mouth-teeth-rows-red.webp"
+}

@@ -95,6 +95,7 @@ export async function postCheckRoll({ formula, label, actor = null, mode, isInte
       ...(execution?.id?{abilityExecution:{executionId:execution.id,sourceItemUuid:sourceItem?.uuid??null,actorUuid:actor?.uuid??null}}:{}),
       ...(resultKind==='temporaryHp' && execution?.id ? {abilityResult:{version:1,kind:'temporaryHp',
         executionId:execution.id,sourceItemUuid:sourceItem?.uuid??null,actorUuid:actor?.uuid??null}}:{}),
+      ...(execution?.type==='roll' && execution.effectId && sourceItem?.effects?.get(execution.effectId) ? {abilityResult:{version:1,kind:'effect',sourceItemUuid:sourceItem.uuid,actorUuid:actor.uuid,executionId:execution.id,effectId:execution.effectId,...(execution.target==='self'?{target:'self'}:{})}} : {}),
       fixedRollComponents:fixedRollComponents(context,{redact:redactSpell || actor && !actor.hasPlayerOwner && ['public','ic'].includes(visibilityMode)}),
       checkRoll:{version:1,label:String(label),actorUuid:actor?.uuid??null,
       ...(standardActionId ? {standardActionId} : {}),

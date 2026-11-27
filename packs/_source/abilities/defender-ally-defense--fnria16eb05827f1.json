@@ -1,0 +1,35 @@
+{
+  "name": "Защита союзника",
+  "type": "ability",
+  "_id": "fnria16eb05827f1",
+  "system": {
+    "description": "> **Требуется:** 1 Вмешательство.  \n> **Свойства:** Воздействие, Вмешательство, Защитное.  \n> **Защищаемая цель:** соседний союзник.\n\nСовершите Направленную защиту этой цели.",
+    "category": "Способность Защитника",
+    "mechanics": {
+      "isIntervention": true,
+      "intervention": {
+        "requiresDefense": "ac",
+        "effect": {
+          "kind": "directedDefense"
+        },
+        "targeting": "ally"
+      },
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.defender.ally-defense",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Защитника / Защита союзника"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/defensive/armor-shield-barrier-steel.webp"
+}

@@ -31,12 +31,15 @@ export function hasAvailableReach(actor){
 function canThreaten(other,gap){
   return !isProjectionActor(other.actor)&& !hasCondition(other.actor,['invisible']) && (gap===1 || (gap===2&&hasAvailableReach(other.actor)));
 }
+function formationContribution(actor){
+  return Math.max(0,...(actor?.items?.contents??[]).filter(i=>i.type==='ability').map(i=>i.system?.mechanics?.formationBonus).filter(Number.isFinite));
+}
 export function formationForTarget(target,tokens=[],{grid=globalThis.canvas?.grid}={}){
   const targetCells=cellsForToken(target,grid);
   if(!target||hidden(target)||!targetCells.length)return null;
   const own=standingConscious(target,{forFormation:true})?1:0;
   const targetHp=target?.actor?.system?.hp?.current;
-  let allies=0,threats=0,uncertain=![1,-1].includes(tokenSide(target))||targetHp==null||!Number.isFinite(Number(targetHp));
+  let bonus=own?formationContribution(target.actor):0,allies=0,threats=0,uncertain=![1,-1].includes(tokenSide(target))||targetHp==null||!Number.isFinite(Number(targetHp));
   const seen=new Set([identity(target)??target]);
   for(const other of tokens){
     const key=identity(other)??other;
@@ -57,11 +60,11 @@ export function formationForTarget(target,tokens=[],{grid=globalThis.canvas?.gri
     if(gap===0||!known){uncertain=true;continue;}
     const canForm=gap===1&&standingConscious(other,{forFormation:true});
     const threat=canThreaten(other,gap);
-    if(relation==='ally'){if(canForm)allies++;}
+    if(relation==='ally'){if(canForm){allies++;bonus+=formationContribution(other.actor);}}
     else if(relation==='enemy'){if(threat)threats++;}
     else if(canForm||threat)uncertain=true;
   }
-  return {threats,formation:own+allies,surrounded:!uncertain&&threats>own+allies,
+  return {threats,formation:own+allies+bonus,surrounded:!uncertain&&threats>own+allies+bonus,
     uncertain,standing:own===1};
 }
 /** Use only a concrete token of this Actor on the current scene. No selection

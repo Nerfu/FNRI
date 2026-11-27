@@ -1,4 +1,5 @@
 /** Player-facing, rule-bound rerolls. Never grants access to the GM editor. */
+import {naturalAttackingD20} from './attack-core.mjs';
 import {chooseByButtons} from './button-choice.mjs';
 import {weaponRerollEligible} from '../equipment/weapon-traits.mjs';
 import {privateAreaSourceFor} from '../data/private-area-source.mjs';
@@ -15,7 +16,7 @@ const live=m=>game.messages?.get(m?.id)??null;
 const selected=()=>globalThis.canvas?.tokens?.controlled??[];
 const active=new Set();
 const isTalisman=i=>i?.system?.mechanics?.talisman?.rerollAnyDieExceptD20===true;
-const eligible=p=>p.kind==='die'&&!p.pending&&Number.isInteger(p.faces)&&p.faces>=2&&Number.isFinite(p.value);
+const eligible=p=>p.kind==='die'&&!p.noReroll&&!p.pending&&Number.isInteger(p.faces)&&p.faces>=2&&Number.isFinite(p.value);
 
 // A copied damage card on an intervention is not a roll by the defender.
 // Its native defense roll, in contrast, belongs to that defender.
@@ -75,6 +76,15 @@ function weaponRerollOptions(message,parts){
     return candidates.length?[{id:`trait:${rule}`,rule,label:l(rule),parts:candidates,exhausted:false}]:[];
   });
 }
+// Only the original, unambiguous check d20, not damage, added dice or a GM-edited 1.
+function luckParts(message,parts){
+  const damage=flag(message,'weaponDamage'),attack=flag(message,'weaponAttack');
+  const check=flag(message,'checkRoll');
+  const isCheck=!!(attack||check&&!flag(message,'abilityResult')||damage?.intervention||flag(message,'areaIntervention')||flag(message,'manualAction')?.isIntervention);
+  if(!isCheck||check?.previousMessageId&&!check.isIntervention||damage&&!attack&&!damage.intervention)return [];
+  if((message.rolls?.[0]?.dice??[]).filter(d=>d.faces===20).length!==1||naturalAttackingD20(message.rolls?.[0])!==1)return [];
+  return parts.filter(({view,part})=>view==='0'&&part.faces===20&&part.original===1&&part.value===1&&!part.added&&!part.excluded);
+}
 export function rerollOptions(message,actor,token=null){
   const parts=rerollParts(message,actor,token);
   if(!parts.length)return [];
@@ -84,7 +94,12 @@ export function rerollOptions(message,actor,token=null){
     const exhausted=quantity<=0||(status?.used??0)>=(status?.frequency?.uses??1)*quantity;
     return {id:item.id,rule:'talisman',label:item.name,item,parts:talismanParts,exhausted};
   }):[];
-  return [...talismans,...weaponRerollOptions(message,parts)];
+  const luck=luckParts(message,parts);
+  const lucky=luck.length?[...(actor.items?.contents??[])].filter(item=>item.system?.mechanics?.reroll?.naturalOneD20===true).map(item=>{
+    const status=abilityAccountingStatus(actor,item);
+    return {id:item.id,rule:'luck',label:item.name,item,parts:luck,exhausted:status?.remaining===0};
+  }):[];
+  return [...talismans,...lucky,...weaponRerollOptions(message,parts)];
 }
 function selection(message){
   const tokens=selected();
@@ -117,7 +132,9 @@ function correction(message,row,value,rule){
   // The existing area calculator reads its shared check total from the
   // damage snapshot, not the native-roll correction flag.
   if(row.view==='0'&&flag(message,'weaponAttack')&&card?.areaAttack&&!card.previousMessageId){
-    const next=copy(card);next.attackTotal=state.currentTotal;next.areaAttack.attackTotal=state.currentTotal;next.revision=(next.revision??0)+1;
+    const next=copy(card);next.attackTotal=state.currentTotal;next.areaAttack.attackTotal=state.currentTotal;
+    if(rule==='luck'){next.naturalD20=value;next.areaAttack.naturalD20=value;next.naturalTwenty=value===20;}
+    next.revision=(next.revision??0)+1;
     patch[`flags.${ID}.weaponDamage`]=next;
   }
   return {view,patch,total:state.currentTotal};

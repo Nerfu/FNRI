@@ -1,8 +1,9 @@
+import {rhythmBonus} from '../data/classes.mjs';
 import {activeConditionEffect} from '../effects/active-effect.mjs';
 import {defenseFormationForActor} from '../spatial/formation.mjs';
 import {isFrightened,isOffGuard} from '../effects/condition-calculations.mjs';
 import {specializationEntries,preparedSpecializationEntry} from '../data/specializations.mjs';
-import {cardContributionEntry,buildRollContributionCatalog,ruleComponents,nonStackingSelections,roleContributionEntry} from './roll-contributions.mjs';
+import {cardContributionEntry,buildRollContributionCatalog,ruleComponents,nonStackingSelections,effectiveHindrance,roleContributionEntry} from './roll-contributions.mjs';
 import {weaponTraitEntry,weaponTraitOptions} from '../equipment/weapon-traits.mjs';
 import {abilityAccountingStatus,finishCardAccounting} from '../data/ability-accounting.mjs';
 import {attackAugmentEntries} from './attack-augmentations.mjs';
@@ -119,6 +120,28 @@ function combatDieStep(actor,formula) {
   if(!faces || faces===12 || String(formula).replace(/\s+/g,'')!==`1d20+1d${faces}`)return null;
   return {from:`1d${faces}`,to:`1d${faces+2}`};
 }
+function fixedCombatDieStep(actor,formula) {
+  const faces=Number(/^(?:1)?d(4|6|8|10|12)$/i.exec(String(actor?.system?.combatDie??''))?.[1]);
+  if(!faces || String(formula).replace(/\s+/g,'')!==`1d20+1d${faces}`)return null;
+  return {from:`1d${faces}`,to:'1d12'};
+}
+function ferocityEntry(actor,params) {
+  if(params.kind!=='attack'||!params.usesCombatDie)return null;
+  const step=fixedCombatDieStep(actor,params.formula);
+  if(!step)return null;
+  const item=(actor?.items?.contents??[]).find(item=>item.type==='ability' && item.uuid &&
+    item.system?.mechanics?.attackCombatDieOverride===12 && item.system?.mechanics?.partialAttackFails===true &&
+    (item.system?.mechanics?.successDamageDie===6 || item.system?.mechanics?.ferocityAfterDefenses===true));
+  if(item?.system?.mechanics?.ferocityAfterDefenses===true && (params.attackKind!=='melee'||isAreaAttack(params.attackProperties)||(params.declaredTargets?.length??0)>1))return null;
+  if(!item)return null;
+  const status=abilityAccountingStatus(actor,item);
+  const warning=status?.remaining===0?game.i18n.localize('FASTNRI.GameReroll.exhausted'):null;
+  const note=!warning && status?.remaining!=null?game.i18n.localize('FASTNRI.AbilityChat.dailyRemaining').replace('{remaining}',String(status.remaining)):null;
+  return {uuid:`ferocity:${item.uuid}`,sourceUuid:item.uuid,sourceType:'item',id:item.id,name:item.name,
+    effect:null,native:false,nativeChanges:[],modifier:null,replacement:null,onUse:'none',actorOwned:false,
+    combatMasterItem:item,combatMasterActor:actor,ferocity:true,
+    parts:[{id:'combat-die-override',kind:'replacement',label:item.name,...step,defaultEnabled:false,warning,note}]};
+}
 function combatMasterEntry(actor,params) {
   if(params.kind!=='attack'||!params.usesCombatDie)return null;
   const step=combatDieStep(actor,params.formula);
@@ -150,9 +173,13 @@ export function applicableRollContributions(actor,{sourceItem=null,weaponItem=nu
   const otherItems = [...(actor?.items?.contents ?? [])]
     .filter(item => item.uuid !== sourceItem?.uuid && item.uuid !== weaponItem?.uuid)
     .map(item => cardContributionEntry(item,params,{passive:true})).filter(Boolean);
+  const rhythm=params.kind==='attack'?rhythmBonus(actor):0;
+  const rhythmEntry=rhythm>0?{uuid:'class-rhythm',sourceType:'item',name:'Ритм',native:false,nativeChanges:[],onUse:'none',actorOwned:false,
+    parts:[{id:'rhythm',kind:'modifier',label:'Ритм',value:String(rhythm)}]}:null;
   const role=roleContributionEntry(actor,params);
   const master=combatMasterEntry(actor,params);
-  return [...effects,...(role?[role]:[]),...(master?[master]:[]),...(source?[source]:[]),...(weaponSource?[weaponSource]:[]),
+  const ferocity=ferocityEntry(actor,params);
+  return [...effects,...(rhythmEntry?[rhythmEntry]:[]),...(role?[role]:[]),...(master?[master]:[]),...(ferocity?[ferocity]:[]),...(source?[source]:[]),...(weaponSource?[weaponSource]:[]),
     ...(traits?[traits]:[]),...augments,...otherItems];
 }
 
@@ -239,6 +266,7 @@ function removeGuidedHindrance(selected,{weaponItem=null,sourceItem=null,attackP
 function partDescription(part) {
   if (part.kind === 'replacement') return `${part.from} → ${part.to}`;
   if (part.kind === 'activation') return pr('fromCard');
+  if (part.kind === 'hindranceReduction') return `до ${part.value}`;
   return String(part.value ?? '');
 }
 
@@ -359,11 +387,15 @@ export async function computeRollPreview({actor=null, available=[], selected=ava
   const rollActor = await actorWithoutEffects(actor, excluded, partial);
   const rawBase = formulaForActor ? String(formulaForActor(rollActor) ?? '') : String(formula ?? '');
   const base = baseAdjustment ? `${rawBase} + (${baseAdjustment})` : rawBase;
+  let priorCombatStep=null;
   selected=selected.flatMap(entry=>{
     if(entry.specializationId)return [preparedSpecializationEntry(entry,rollActor)].filter(row=>selectedRollParts(row).length);
     if(!entry.combatMasterItem)return [entry];
-    const step=combatDieStep(rollActor,base);
-    return step?[{...entry,parts:entry.parts.map(part=>({...part,...step}))}]:[];
+    const step=entry.ferocity?fixedCombatDieStep(rollActor,base):combatDieStep(rollActor,base);
+    if(!step)return [];
+    if(entry.ferocity&&priorCombatStep)step.from=priorCombatStep.to;
+    if(!entry.ferocity)priorCombatStep=step;
+    return [{...entry,parts:entry.parts.map(part=>({...part,...step}))}];
   });
   let expression = applyDirectRollModifiers(base, selected);
   const additions=sanitizeManualComponents(manual);
@@ -482,7 +514,7 @@ export async function chooseRollEffects(effects, {actor=null, formula='',formula
                 const reasons=choice.selected.flatMap(row=>selectedRollParts(row)
                   .filter(p=>p.nonStackingGroup==='hindrance' && Number(p.value)===Number(biggest.value))
                   .map(p=>row.fallbackPenalty?'':(p.label||row.name))).filter(Boolean);
-                add(`Штраф помехи${reasons.length?' · '+[...new Set(reasons)].join(', '):''}`,biggest.value);
+                add(`Штраф помехи${reasons.length?' · '+[...new Set(reasons)].join(', '):''}`,preview.hindrance?.value??biggest.value);
                 continue;
               }
               if(part.nonStackingGroup){
@@ -594,7 +626,7 @@ export async function actorWithoutEffects(actor, excluded = [], partial = new Ma
 export function hindranceSummary(selected=[]) {
   const group=nonStackingSelections(selected).get('hindrance');
   if(!group)return null;
-  return {value:Number(group.winner.value),candidates:group.candidates,
+  return {...effectiveHindrance(selected,group),candidates:group.candidates,
     counter:group.candidates.length,winner:group.winner};
 }
 
@@ -606,6 +638,12 @@ export function applyDirectRollModifiers(expression, selected) {
     for (const part of selectedRollParts(entry)) {
     if (part.kind === 'replacement') {
       const {from,to} = part;
+      // A situational minimum applies to the combat term after other selected
+      // replacements, never to a matching skill or bonus die.
+      if(part.minimumCombatDie===true){
+        result=result.replace(/^(1d20\s*\+\s*)1d(4|6|8|10|12)(?![\w\d])/i,(_,prefix,faces)=>prefix+`1d${Math.max(Number(faces),Number(to.slice(2)))}`);
+        continue;
+      }
       // Replace one whole die term, not e.g. 1d8 inside 11d8 or 1d80.
       const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const rx = new RegExp(`(^|[^\\w\\d])(${escaped})(?![\\w\\d])`, 'i');
@@ -615,7 +653,10 @@ export function applyDirectRollModifiers(expression, selected) {
     if (part.kind === 'modifier' && !part.nonStackingGroup) result += ` + (${part.value})`;
     }
   }
-  for(const winner of winners.values())result += ` + (${winner.winner.value})`;
+  for(const [group,winner] of winners){
+    const value=group==='hindrance'?effectiveHindrance(selected,winner).value:winner.winner.value;
+    if(Number(value)!==0)result += ` + (${value})`;
+  }
   return result;
 }
 
@@ -647,14 +688,14 @@ export function surroundedDefenseAdjustment(actor,{defenseStat,defenseToken=null
 /** Shared roll preparation for skills, attacks, abilities and interventions. */
 export async function prepareRoll({actor = null, kind, skillId = null, defenseStat = null,
   formula = '', formulaForActor = null, skipDialog = false, label = '',sourceItem=null,weaponItem=null,attackKind=null,
-  extraEntries=[],prerollEntries=[],spatialInfo=null,targetActor=null,targetToken=null,attackProperties='',usesCombatDie=false,declaredTargets=[],declaredSpellWeapon=false,effectEnding=false,defenseToken=null,usesDefenseStat=false,attackOffGuard=false } = {}) {
+  extraEntries=[],prerollEntries=[],spatialInfo=null,targetActor=null,targetToken=null,attackProperties='',usesCombatDie=false,declaredTargets=[],declaredSpellWeapon=false,effectEnding=false,defenseToken=null,usesDefenseStat=false,attackOffGuard=false,attackDamage=false } = {}) {
   const frightened=frightenedCheckEntry(actor,{kind,formula,formulaForActor,effectEnding});
   const area=isAreaAttack(attackProperties);
   const isAttack=kind==='attack';
   const directed=isAttack && !area;
   const available = [...(kind==='skill' ? specializationEntries(actor,skillId) : []),
     ...(frightened?[frightened]:[]),
-    ...applicableRollContributions(actor,{kind,skillId,defenseStat,formula,sourceItem,weaponItem,attackKind,usesCombatDie,declaredTargets,declaredSpellWeapon}),
+    ...applicableRollContributions(actor,{kind,skillId,defenseStat,formula,sourceItem,weaponItem,attackKind,attackProperties,usesCombatDie,declaredTargets,declaredSpellWeapon,attackDamage}),
     ...(Array.isArray(prerollEntries) ? prerollEntries : []),
     ...(directed && Array.isArray(extraEntries) ? extraEntries : []),
     ...(directed ? targetHindranceEntries({attacker:actor,target:targetActor,targetToken,area}) : []),
@@ -668,7 +709,7 @@ export async function prepareRoll({actor = null, kind, skillId = null, defenseSt
   const defenseOffGuard=kind==='intervention'&&!effectEnding&&usesDefenseStat&&['awareness','fortitude','reflex','will'].includes(defenseStat)&&(baseAdjustment===-2||isOffGuard(actor));
   const {actor:rollActor,base,expression,selected} = await computeRollPreview({actor,available,selected:choice.selected,
     formula,formulaForActor,manual,baseAdjustment});
-  return { actor: rollActor, expression, selected,defenseOffGuard,
+  return { actor: rollActor, base, expression, selected,defenseOffGuard,
     hindrance:hindranceSummary(selected),
     manual,contributions:buildRollContributionCatalog({actor,sourceItem,formula:baseAdjustment?base:formula,
       available:available.map(entry=>entry.combatMasterItem||entry.specializationId?(selected.find(row=>row.uuid===entry.uuid)??entry):entry),selected,manual}),
@@ -867,7 +908,8 @@ export function fixedRollComponents(context,{redact=false}={}) {
         const winner=winners.get(part.nonStackingGroup)?.winner;
         if(winner?.entry!==entry.uuid||winner?.part!==part.id)continue;
       }
-      add(part.value,`${entry.name}: ${part.label??pr('component')}`,entry.sourceUuid??entry.uuid);
+      const value=part.nonStackingGroup==='hindrance'?effectiveHindrance(context.selected,winners.get('hindrance')).value:part.value;
+      add(value,`${entry.name}: ${part.label??pr('component')}`,entry.sourceUuid??entry.uuid);
     }
   for(const [i,part] of (context?.manual??[]).entries())
     add(part.value,part.comment||`${pr('manual')} ${i+1}`,null);

@@ -1,0 +1,23 @@
+{
+  "name": "Природа клерика",
+  "type": "ability",
+  "_id": "fnricleric000001",
+  "system": {
+    "description": "При создании персонажа выберите одно свойство: **Святой** или **Нечестивый**. Вы получаете выбранное свойство. Если у вас уже есть одно из них, сохраните его.\n\n**Святой** и **Нечестивый** являются противоположными свойствами. Каждая ваша способность со свойством **Природа клерика** также получает выбранное свойство.",
+    "category": "Способность Клерика",
+    "mechanics": {
+      "passive": true,
+      "classNature": {
+        "selection": ""
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.cleric.nature",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Клерика / Природа клерика"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/social/trading-justice-scale-gold.webp"
+}

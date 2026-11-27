@@ -1,0 +1,44 @@
+{
+  "name": "Удачный момент",
+  "type": "ability",
+  "_id": "fnrirogue0000005",
+  "system": {
+    "description": "> **Требуется:** 1 Вмешательство.  \n> **Условие:** союзник завершил Атаку по существу.  \n> **Цель:** существо, которое было целью этой атаки.\n\nСовершите по цели **Быстрый удар**.",
+    "category": "Способность Разбойника",
+    "mechanics": {
+      "isIntervention": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          }
+        ]
+      },
+      "attack": {
+        "kind": "physical",
+        "useWeapon": true,
+        "properties": "Вмешательство, Атака",
+        "attackKind": "melee",
+        "quickStrike": true
+      },
+      "executions": [
+        {
+          "id": "attack",
+          "type": "attack",
+          "label": "Удачный момент",
+          "isIntervention": true
+        }
+      ]
+    },
+    "cost": "1 Вмешательство"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.rogue.opportunity",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Разбойника / Удачный момент"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/strike-dagger-white-orange.webp"
+}

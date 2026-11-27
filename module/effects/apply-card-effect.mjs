@@ -48,6 +48,9 @@ export function createCardEffectData(item, template, target) {
   copy.disabled = false;
   copy.transfer = false;
   copy.origin = template.uuid;
+  const group=copy.flags?.['fast-nri-v14'];
+  if(group?.effectGroup && group.effectGroupScope==='sourceActor' && item.parent?.uuid)
+    group.effectGroup=`${group.effectGroup}:${item.parent.uuid}`;
   // The destination Actor's current source data is used for formula @actor.*.
   const instance = {system:copy.system ?? {},flags:copy.flags ?? {},parent:target};
   const rows = readEffectChangeRows(instance);
@@ -82,8 +85,13 @@ export async function applyCardEffect(item, template, target, {resultMessageId=n
     data.flags['fast-nri-v14'] ??= {};
     data.flags['fast-nri-v14'].abilityResultMessageId=resultMessageId;
   }
+  const group=data.flags?.['fast-nri-v14']?.effectGroup;
+  const previous=group?(target.effects?.contents??[]).filter(e=>e.flags?.['fast-nri-v14']?.effectGroup===group).map(e=>e.id):[];
+  const healing=data.flags?.['fast-nri-v14']?.periodicHealing;
+  if(healing&&resultMessageId)healing.sourceMessageId=resultMessageId;
   const created = await target.createEmbeddedDocuments('ActiveEffect',[data]);
   if (!Array.isArray(created) || created.length !== 1 || !created[0]?.id)
     throw Error('Foundry не подтвердил создание эффекта');
+  if(previous.length)await target.deleteEmbeddedDocuments('ActiveEffect',previous);
   return created[0];
 }

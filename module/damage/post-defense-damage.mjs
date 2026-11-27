@@ -3,7 +3,7 @@
 import {canReadChatContent,chatAudience} from '../data/chat-visibility.mjs';
 import {stableDocumentId} from '../data/document-id.mjs';
 import {sameCoverAudience} from './cover-ally-state.mjs';
-import {snapshotDamageParts} from './damage-core.mjs';
+import {snapshotDamageParts,damageDisplay} from './damage-core.mjs';
 const ID='fast-nri-v14';
 const flag=(m,k)=>m?.getFlag?.(ID,k);
 const tr=k=>game.i18n.localize(`FASTNRI.Damage.${k}`);
@@ -11,9 +11,14 @@ const live=m=>game.messages?.get?.(m?.id)??null;
 const pending=new Set();
 const hit=degree=>['partial','success','great'].includes(degree);
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+function ferocityCritical(parent,offer){
+  if(!offer.ferocity)return false;
+  const report=(game.messages?.contents??[]).findLast(m=>{const r=flag(m,'hpReport');return r?.sourceMessageId===parent.id&&r.kind==='damage'&&!r.reverted&&(!offer.targetUuid||r.tokenUuid===offer.targetUuid)&&canReadChatContent(m)&&sameCoverAudience(parent,m);});
+  return report?flag(report,'hpReport').critical===true:damageDisplay(flag(parent,'weaponDamage')).active;
+}
 function validParts(parts){
   return Array.isArray(parts)&&parts.length>0&&parts.length<=100&&parts.every(p=>
-    p?.kind==='die'&&Number.isInteger(p.faces)&&p.faces>0&&p.faces<=1000&&p.formula===`1d${p.faces}`&&typeof p.damageType==='string'&&p.damageType.trim());
+    (p?.kind==='die'&&Number.isInteger(p.faces)&&p.faces>0&&p.faces<=1000&&p.formula===`1d${p.faces}`||p?.kind==='fixed'&&Number.isSafeInteger(p.value)&&p.value>0&&p.value<=1000&&p.formula===String(p.value))&&typeof p.damageType==='string'&&p.damageType.trim());
 }
 export function postDefenseChoices(root,parent,card,eligible){
   if(!canReadChatContent(root)||!canReadChatContent(parent)||!sameCoverAudience(root,parent)||card?.cancelled)return [];
@@ -40,8 +45,10 @@ export function directedPostDefenseChoices(message){
     return c?.attackMessageId===root.id&&!c.areaAttack&&!c.postDefenseOrigin&&canReadChatContent(m)&&sameCoverAudience(root,m);
   });
   if(latest?.id!==current.id)return [];
-  return postDefenseChoices(root,current,card,offer=>!offer.targetUuid?'manual':
-    !card.originalTargetUuid||offer.targetUuid===card.originalTargetUuid);
+  return postDefenseChoices(root,current,card,offer=>{
+    if(offer.ferocity&&!['success','great'].includes(card.degree))return false;
+    return !offer.targetUuid?'manual':!card.originalTargetUuid||offer.targetUuid===card.originalTargetUuid;
+  });
 }
 export async function publishPostDefenseDamage(choice,choices){
   if(!choice||pending.has(choice.id))return null;
@@ -50,12 +57,14 @@ export async function publishPostDefenseDamage(choice,choices){
     const find=()=>choices().find(c=>c.id===choice.id);
     let current=find();if(!current){ui.notifications?.warn(tr('postDefenseUnavailable'));return null;}
     const {offer,root,parent,name,label,status}=current;
-    const definitions=offer.parts.map((p,index)=>({...p,id:`post-${index}`,partOrigin:'attackAugment',source:offer.sourceUuid??null}));
+    const critical=ferocityCritical(parent,offer);
+    const parts=critical?[...offer.parts,...offer.parts]:offer.parts;
+    const definitions=parts.map((p,index)=>({...p,id:`post-${index}`,partOrigin:offer.ferocity||p.traits?.length?'postDefense':'attackAugment',source:offer.sourceUuid??null}));
     const formula=definitions.map(p=>p.formula).join(' + ');
     const roll=await new Roll(formula).evaluate();
     // Recheck the current defense chain and audience after rolling.
     current=find();if(!current||current.parent.id!==parent.id||!sameCoverAudience(root,current.root)||
-      current.status!==status||JSON.stringify(current.offer)!==JSON.stringify(offer))return null;
+      current.status!==status||JSON.stringify(current.offer)!==JSON.stringify(offer)||ferocityCritical(current.parent,current.offer)!==critical)return null;
     const snapshot={version:2,attackMessageId:null,previousMessageId:null,name,
       postDefenseOrigin:{rootMessageId:root.id,parentMessageId:parent.id,offerId:offer.id,targetUuid:offer.targetUuid??null},
       originalTargetUuid:offer.targetUuid??null,sourceUuid:offer.sourceUuid??null,sourceActorUuid:null,
@@ -63,7 +72,7 @@ export async function publishPostDefenseDamage(choice,choices){
       cancelled:false,damageType:definitions[0].damageType,properties:'',parts:snapshotDamageParts(roll,definitions),
       adjustments:{penalty:0,resistance:0,vulnerability:0},history:[],revision:0};
     const data=await roll.toMessage({speaker:root.speaker,flavor:`<strong>${esc(label)}</strong>`,flags:{[ID]:{weaponDamage:snapshot}}},{create:false});
-    current=find();if(!current||current.parent.id!==parent.id||!sameCoverAudience(root,current.root)||current.status!==status||JSON.stringify(current.offer)!==JSON.stringify(offer))return null;
+    current=find();if(!current||current.parent.id!==parent.id||!sameCoverAudience(root,current.root)||current.status!==status||JSON.stringify(current.offer)!==JSON.stringify(offer)||ferocityCritical(current.parent,current.offer)!==critical)return null;
     // Native deterministic ID prevents duplicate publication across clients.
     try{return await ChatMessage.create({...data,...chatAudience(root),_id:choice.id},{keepId:true});}
     catch(error){if(game.messages?.get?.(choice.id))return null;throw error;}

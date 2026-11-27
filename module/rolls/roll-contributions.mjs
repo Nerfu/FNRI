@@ -23,18 +23,19 @@ const pr = key => game.i18n.localize(`FASTNRI.Preroll.${key}`);
  */
 export function cardRollKind(item, execution=null) {
   const kind=execution?.rollKind??item?.system?.mechanics?.rollKind;
-  return ['damage','heal'].includes(kind)?kind:'ability';
+  return ['damage','heal','maneuver'].includes(kind)?kind:'ability';
 }
 
 /** Explicit, source-labelled components. No arbitrary JS or inferred class rules.
  * applyToOtherRolls is opt-in on passive class/race Item contributions. */
-export function ruleComponents(raw, {kind,skillId=null,defenseStat=null}, {passive=false}={}) {
+export function ruleComponents(raw, {kind,skillId=null,defenseStat=null,attackDamage=false}, {passive=false}={}) {
   if (!ROLL_KINDS.has(kind) || !Array.isArray(raw)) return [];
   const parts=[];
   raw.forEach((entry,i) => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
     if (passive && entry.applyToOtherRolls !== true) return;
     if (!Array.isArray(entry.kinds) || !entry.kinds.includes(kind)) return;
+    if (entry.attackDamageOnly===true && !attackDamage) return;
     if (entry.skillId && entry.skillId !== skillId) return;
     if (entry.defenseStat && entry.defenseStat !== defenseStat) return;
     const label = compact(entry.label) || pr('cardModifier');
@@ -51,6 +52,9 @@ export function ruleComponents(raw, {kind,skillId=null,defenseStat=null}, {passi
         ...(entry.defaultEnabled===false?{defaultEnabled:false}:{}),
         ...(nonStackingGroup?{nonStackingGroup}:{}),
         damageType:compact(entry.damageType),traits:Array.isArray(entry.traits)?entry.traits:[]});
+    } else if (entry.kind === 'hindranceReduction' && kind === 'attack') {
+      const value=Number(entry.value);
+      if(Number.isSafeInteger(value)&&value>0)parts.push({id:`card-${i}`,kind:'hindranceReduction',label,value:String(value),...(entry.defaultEnabled===false?{defaultEnabled:false}:{})});
     } else if (entry.kind === 'replacement') {
       const from=compact(entry.from),to=compact(entry.to);
       if (DICE_TERM.test(from)&&DICE_TERM.test(to))
@@ -124,6 +128,22 @@ export function nonStackingSelections(selected=[]) {
   return groups;
 }
 
+/** Reduce only the winning hindrance. Duplicate effects do not multiply the relief. */
+export function effectiveHindrance(selected=[],group=nonStackingSelections(selected).get('hindrance')) {
+  if(!group)return null;
+  let reduction=0;
+  for(const entry of selected){
+    const enabled=Array.isArray(entry.enabledPartIds)?new Set(entry.enabledPartIds):null;
+    for(const part of entry.parts??[]){
+      if(enabled?!enabled.has(part.id):part.defaultEnabled===false)continue;
+      if(part.kind==='hindranceReduction'&&Number.isSafeInteger(Number(part.value))&&Number(part.value)>0)
+        reduction=Math.max(reduction,Number(part.value));
+    }
+  }
+  const raw=Number(group.winner.value);
+  return {value:Math.min(0,raw+reduction),raw,reduction:Math.min(-raw,reduction)};
+}
+
 /** A single presentation/snapshot catalog describing every contribution
  * which this engine can actually identify. The base formula is not split.
  */
@@ -162,4 +182,11 @@ export function buildRollContributionCatalog({actor=null,sourceItem=null,
     value:component.value,selectable:true,enabled:true
   });
   return contributions;
+}
+
+/** Card-defined replacement of the combat die for Protective checks. */
+export function protectiveCombatDice(actor,base){
+  if(!base)return base;
+  const replacement=[...(actor?.items?.contents??actor?.items??[])].find(i=>i.type==='ability'&&DICE_TERM.test(String(i.system?.mechanics?.defensiveCombatDice??'')))?.system.mechanics.defensiveCombatDice;
+  return replacement??base;
 }

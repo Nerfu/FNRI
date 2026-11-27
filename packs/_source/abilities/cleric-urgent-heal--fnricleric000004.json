@@ -1,0 +1,51 @@
+{
+  "name": "Срочное лечение",
+  "type": "ability",
+  "_id": "fnricleric000004",
+  "system": {
+    "description": "> **Требуется:** 1 Вмешательство и 2 Божественные силы.  \n> **Свойства:** Заклинание, Исцеление, Вмешательство.  \n> **Условие:** союзник в дистанции заклинаний только что получил хотя бы `1` урон.  \n> **Цель:** этот союзник.\n\nЦель восстанавливает `1d6+5 HP`.",
+    "category": "Способность Клерика",
+    "mechanics": {
+      "isIntervention": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          },
+          {
+            "kind": "class",
+            "resourceKey": "class_divine",
+            "resourceName": "Божественная сила",
+            "amount": 2
+          }
+        ]
+      },
+      "executions": [
+        {
+          "id": "heal",
+          "type": "roll",
+          "label": "Срочное лечение",
+          "formula": "1d6+5",
+          "rollKind": "heal",
+          "target": "selected",
+          "spell": {
+            "spellEnergy": "divine",
+            "spellRange": "current",
+            "target": "selected"
+          }
+        }
+      ]
+    },
+    "tags": "Заклинание, Исцеление, Вмешательство",
+    "cost": "1 Вмешательство и 2 Божественные силы"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.cleric.urgent-heal",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Клерика / Срочное лечение"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/life/cross-explosion-burst-green.webp"
+}

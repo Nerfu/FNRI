@@ -7,6 +7,7 @@
  * External manual updates during an await are not a cross-document transaction:
  * those limitations are recorded in the project handoff.
  */
+import {zeroHpPreventionItem,markZeroHpPrevention} from './zero-hp-prevention.mjs';
 import {queueActorWrite} from '../data/ability-accounting.mjs';
 import {stableDocumentId} from '../data/document-id.mjs';
 import {canReadChatContent,gmChatAudience} from '../data/chat-visibility.mjs';
@@ -104,6 +105,7 @@ function receiptContent(receipt) {
       lines.push(`${text('skipCheck')} · <strong>${text('remains')}</strong>`);
       break;
   }
+  if(receipt.zeroHpPrevented)lines.push('Неукротимость: 1 HP');
   if (receipt.deathInitial != null)
     lines.push(`${text('deathCounter')} · 1d4+3 = ${escape(receipt.deathInitial)} · ${text('deathTick')}`);
   return `<div class="fnri-hp-report">${lines.map(line=>`<div>${line}</div>`).join('')}</div>`;
@@ -176,6 +178,8 @@ async function settleOne(actor,effectId,identity) {
     const hpBefore=actor.system?.hp?.current;
     if (!validCount(hpBefore)) return {status:'manual-hp'};
     const hp=planPeriodicHp(actor.system.hp,calculation.total);
+    const markerItem=hp.reachedZero&&actor.system.hp.max>=1?zeroHpPreventionItem(actor):null;
+    if(markerItem)hp.after.current=1;
     const count=validCount(previous.count)?previous.count+1:1;
     const endPlan=periodicEndPlan(data,count);
     let checkRoll=null;
@@ -207,7 +211,7 @@ async function settleOne(actor,effectId,identity) {
       ...(data.privateToGm?{privateToGm:true}:{}),
       actorName:actor.name,effectName:effect.name,
       hpBefore:hp.before.current,hpAfter:hp.after.current,
-      calculation,ending,check,checkRoll:checkRoll?.toJSON?.()??null,
+      calculation,ending,check,...(markerItem?{zeroHpPrevented:true}:{}),checkRoll:checkRoll?.toJSON?.()??null,
       deathInitial:death.roll ? Number(death.roll.total) : null};
     const changed={
       [`flags.${SCOPE}.periodicProgress.${effectId}`]:{
@@ -223,13 +227,14 @@ async function settleOne(actor,effectId,identity) {
         !isActivePeriodicEffect(actor.effects?.get(effectId)))
       return {status:'stale-actor-needs-manual-review'};
     if (privateResult) privateReceipts.set(id,{...details,visibility});
+    const marker=markerItem?await markZeroHpPrevention(actor,markerItem):null;
     try {
       await actor.update(changed,{
         fnriJournal:{kind:'periodic-damage',reason:'Периодический урон'},
         fnriDeathLifecycle:'managed'
       });
     } catch(error) {
-      if (!readFlag(actor,'periodicPending')[id]) privateReceipts.delete(id);
+      if (!readFlag(actor,'periodicPending')[id]) {privateReceipts.delete(id);if(marker)await actor.deleteEmbeddedDocuments('ActiveEffect',[marker.id]);}
       throw error;
     }
     if (death.needsEffects) {

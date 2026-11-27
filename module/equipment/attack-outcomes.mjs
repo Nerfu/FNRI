@@ -49,7 +49,7 @@ export function attackOutcomePreview(item,{effectDegree=null,inflictedDamage=nul
     }
     // No degree? Do not guess it: return the rule as pending.
     if(level===undefined) {pending.push({...entry,reason:'missing-effect-degree'});continue;}
-    if(level<requirement) continue;
+    if(level<requirement || (Object.hasOwn(degrees,rule.maxEffectDegree) && level>degrees[rule.maxEffectDegree])) continue;
     if ((rule.afterDamage === true && !damageResolved) ||
         (rule.requiresDamage === true && !Number.isFinite(inflictedDamage))) {
       pending.push({...entry,reason:'damage-not-applied'});

@@ -1,4 +1,5 @@
-import {queueActorWrite} from '../data/ability-accounting.mjs';
+import {queueActorWrite,abilityAccountingStatus,finishCardAccounting} from '../data/ability-accounting.mjs';
+import {zeroHpPreventionItem,markZeroHpPrevention} from './zero-hp-prevention.mjs';
 import {hasTempHpResultExpired} from '../abilities/temporary-hp-cast.mjs';
 import {ensureDamageRecovery} from '../abilities/damage-recovery.mjs';
 import {canReadChatContent,chatAudience,gmChatAudience} from '../data/chat-visibility.mjs';
@@ -81,8 +82,9 @@ export async function applyHp({kind='damage',amount,sourceMessage=null,token=nul
   const key=actor.uuid;
   if (locks.has(key)) return null;
   locks.add(key);
+  let preventedBy=null,markerItem=null;
   try {
-    return await queueActorWrite(actor, async () => {
+    const applied=await queueActorWrite(actor, async () => {
       if (!canChange(actor)) return null;
       if (coverApplicationKey && hasCoverApplication(coverApplicationKey)) return null;
       const reportId = coverApplicationKey ? coverReportId(coverApplicationKey) : null;
@@ -109,12 +111,24 @@ export async function applyHp({kind='damage',amount,sourceMessage=null,token=nul
       if(expiry&&hasTempHpResultExpired(expiry,{combat:game.combat,worldTime:game.time?.worldTime}))
         ui.notifications?.warn(game.i18n.localize('FASTNRI.AbilityChat.expiredTemporaryHp'));
 
-      const plan=responseHealing===null ? planHpChange(initialHp,amount,kind,
+      const makePlan=(preventZero=false)=>responseHealing===null ? planHpChange(initialHp,amount,kind,
         {id:layerId,source:{kind:'hp-card',messageId:sourceMessage?.id??null},
-          worldTime:game.time?.worldTime??null,expiry:cappedTempHpExpiry(expiry?.recipientTurnEnd?{recipientTurnEnd:true}:expiry),
-          ignoreTempHp:bypassTemp}) :
+          worldTime:game.time?.worldTime??null,expiry:cappedTempHpExpiry(expiry),
+          ignoreTempHp:bypassTemp,preventZero}) :
         planResponsiveDamage(initialHp,amount,responseHealing,{
-          ignoreTempHp:attack?.damageRules?.ignoreTempHp===true});
+          ignoreTempHp:attack?.damageRules?.ignoreTempHp===true,preventZero});
+      let plan=makePlan();
+      const phase=plan.damagePhase??plan;
+      if(kind==='damage'&&phase.before.current>0&&phase.after.current===0&&initialHp.max>=1){
+        markerItem=zeroHpPreventionItem(actor);
+        if(markerItem)plan=makePlan(true);
+        const item=(actor.items?.contents??[]).find(item=>item.type==='ability'&&item.system?.mechanics?.preventZeroHp===true&&!item.system?.mechanics?.preventZeroHpMarker);
+        if(!markerItem&&item){
+          const exhausted=abilityAccountingStatus(actor,item)?.remaining===0;
+          const accepted=await confirm(`<p>0 → 1 HP</p>${exhausted?`<p>${esc(game.i18n.localize('FASTNRI.GameReroll.exhausted'))}</p>`:''}`,item.name);
+          if(accepted){plan=makePlan(true);preventedBy=item;}
+        }
+      }
       const death=responseHealing===null ? await planDeathTransition(actor,{
         before:plan.before.current,after:plan.after.current,kind,
         hitPointsDamage:plan.damageThroughTemp,
@@ -162,15 +176,17 @@ export async function applyHp({kind='damage',amount,sourceMessage=null,token=nul
           hpValue(actor.system?.hp?.temp)!==plan.before.temp ||
           !equalTempHpState(readTempHpState(actor),plan.beforeTempHpState) ||
           (deathTransition && !deathStillMatches(actor,deathTransition.before))) return null;
-      await actor.update({'system.hp.current':after.current,
+      const marker=markerItem?await markZeroHpPrevention(actor,markerItem):null;
+      try {await actor.update({'system.hp.current':after.current,
         'system.hp.temp':after.temp,...tempHpStateUpdate(actor,plan.tempHpState),...death.patch},
-        {fnriJournal:{kind,reason},fnriDeathLifecycle:'managed',fnriTempHp:'managed'});
+        {fnriJournal:{kind,reason},fnriDeathLifecycle:'managed',fnriTempHp:'managed'});}
+      catch(error){if(marker)await actor.deleteEmbeddedDocuments('ActiveEffect',[marker.id]);throw error;}
       try {
         await reconcileTempHpEffects(actor);
         const chatData={speaker:ChatMessage.getSpeaker(doc ? {actor,token:doc} : {actor}),
           content:`<div class="fnri-hp-report">${esc(name)} · ${esc(t(kind))}`+
             (kind==='damage' && critical ? ` (${esc(t('critical'))} ×${esc(multiplier)})` : '')+`: <strong>${plan.actual}</strong>`+
-            (kind==='damage' ? ` <small>(${esc(t('temp'))} ${-(plan.damagePhase?.delta.temp ?? plan.delta.temp)}, HP ${-(plan.damagePhase?.delta.current ?? plan.delta.current)})</small>`:'')+`</div>`,
+            (kind==='damage' ? ` <small>(${esc(t('temp'))} ${-(plan.damagePhase?.delta.temp ?? plan.delta.temp)}, HP ${-(plan.damagePhase?.delta.current ?? plan.delta.current)})</small>`:'')+(markerItem?`<p>${esc(markerItem.name)}: 1 HP</p>`:'')+`</div>`,
           flags:{[SYSTEM_ID]:{hpReport:report}}};
         const latestSource=confirmedSource ? messageFrom(confirmedSource.id) : null;
         if (confirmedSource && (!latestSource || !canReadChatContent(latestSource) ||
@@ -217,6 +233,7 @@ export async function applyHp({kind='damage',amount,sourceMessage=null,token=nul
             'system.hp.temp':plan.before.temp,...tempHpStateUpdate(actor,plan.beforeTempHpState),
             ...(deathTransition?deathStateUpdate(actor,deathTransition.before,'hp-report-rollback'):{})},
             {fnriJournal:{kind:'recovery',reason:t('undo')},fnriDeathLifecycle:'managed',fnriTempHp:'managed'});
+            if(marker)await actor.deleteEmbeddedDocuments('ActiveEffect',[marker.id]);
             await reconcileTempHpEffects(actor);
             if (death.changed) await reconcileDeathEffects(actor);}
           catch (rollbackError) {console.error('Fast NRI | recovery failed',rollbackError);}
@@ -224,6 +241,11 @@ export async function applyHp({kind='damage',amount,sourceMessage=null,token=nul
         throw error;
       }
     });
+    // The HP operation holds the Actor write queue. Charge only after its
+    // report is persisted and that queue is released, never on a cancelled
+    // confirmation or a failed/rolled-back HP write.
+    if(applied&&preventedBy)await finishCardAccounting({actor,item:preventedBy,message:applied,actionId:applied.id});
+    return applied;
   } finally {locks.delete(key);}
 }
 

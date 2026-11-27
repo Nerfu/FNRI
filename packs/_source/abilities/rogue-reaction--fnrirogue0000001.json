@@ -1,0 +1,23 @@
+{
+  "name": "Мгновенная реакция",
+  "type": "ability",
+  "_id": "fnrirogue0000001",
+  "system": {
+    "description": "Вы получаете `+2` к инициативе.",
+    "category": "Способность Разбойника",
+    "mechanics": {
+      "passive": true,
+      "initiativeContribution": {
+        "self": 2
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.rogue.reaction",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Разбойника / Мгновенная реакция"
+    }
+  },
+  "effects": [],
+  "img": "icons/creatures/magical/humanoid-silhouette-dashing-blue.webp"
+}

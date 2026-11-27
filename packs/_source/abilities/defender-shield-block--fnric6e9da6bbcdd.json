@@ -1,0 +1,25 @@
+{
+  "name": "Блок щитом",
+  "type": "ability",
+  "_id": "fnric6e9da6bbcdd",
+  "system": {
+    "description": "> **Частота:** `1 раз до Короткого отдыха`.  \n> **Требование:** вы удерживаете Щит.  \n> **Условие:** вы успешно применили Направленную защиту против направленной Атаки против КЗ, и её стандартный результат должен удалить один куб урона.\n\nПри применении стандартного результата этой защиты удалите `2` куба урона вместо `1`.",
+    "category": "Способность Защитника",
+    "mechanics": {
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      },
+      "extraDefenseRemoval": 1
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.defender.shield-block",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Защитника / Блок щитом"
+    }
+  },
+  "effects": [],
+  "img": "icons/equipment/shield/heater-steel-worn.webp"
+}

@@ -1,0 +1,29 @@
+{
+  "name": "Природная стойкость",
+  "type": "ability",
+  "_id": "fnridruid0000001",
+  "system": {
+    "description": "В обычной форме и форме Хищного зверя вы получаете универсальную Устойчивость `1`.\n\nВ форме Большого зверя эта Устойчивость увеличивается до `3`.",
+    "category": "Способность Друида",
+    "mechanics": {
+      "passive": true,
+      "damageDefenses": {
+        "activation": "passive",
+        "resistances": [
+          {
+            "trait": "universal",
+            "value": 1
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.druid.natural-resilience",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Друида / Природная стойкость"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/nature/leaf-armor-scale-worn-green.webp"
+}

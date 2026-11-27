@@ -1,0 +1,74 @@
+{
+  "name": "Взрыв",
+  "type": "ability",
+  "_id": "fnriwizard000004",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие и 1 Волшебная сила.  \n> **Свойства:** Заклинание, Атака, Область действия, Огонь.  \n> **Область:** зона `3×3`; выберите её центр в дистанции заклинаний.  \n> **Проверка:** `1d20 + Куб боя` против КЗ.  \n> **Урон:** `3d8` магического урона.\n\n| Окончательная степень | Профиль |\n|---|---|\n| Большой успех | Наносит полный урон. |\n| Успех | Удаляется куб урона с наименьшим результатом. |\n| Частичный успех | Удаляются кубы урона с наибольшим и наименьшим результатом. |\n| Провал | Удаляются все кубы урона. |",
+    "category": "Способность Волшебника",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "attack",
+          "label": "Взрыв",
+          "type": "attack",
+          "attack": {
+            "kind": "magic",
+            "targetDefense": "ac",
+            "attackKind": "ranged",
+            "spellRange": "current",
+            "spellEnergy": "wizard",
+            "damageType": "магический",
+            "properties": "Заклинание, Атака, Область действия, Огонь",
+            "damageProfile": {
+              "failure": "0",
+              "partial": "1d8",
+              "success": "2d8",
+              "great": "3d8"
+            },
+            "areaDamageProfile": {
+              "failure": {
+                "remove": [
+                  "all"
+                ]
+              },
+              "partial": {
+                "remove": [
+                  "highest",
+                  "lowest"
+                ]
+              },
+              "success": {
+                "remove": [
+                  "lowest"
+                ]
+              },
+              "great": {
+                "remove": []
+              }
+            }
+          }
+        }
+      ],
+      "accounting": {
+        "resourceCosts": [
+          {
+            "resourceKey": "class_wizard",
+            "kind": "class",
+            "amount": 1,
+            "resourceName": "Волшебная сила"
+          }
+        ]
+      }
+    },
+    "tags": "Заклинание, Атака, Область действия, Огонь",
+    "cost": "1 Воздействие и 1 Волшебная сила"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.wizard.blast",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Волшебника / Взрыв"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/fire/explosion-fireball-large-red-orange.webp"
+}

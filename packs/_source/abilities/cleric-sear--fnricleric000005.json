@@ -1,0 +1,41 @@
+{
+  "name": "Опаление",
+  "type": "ability",
+  "_id": "fnricleric000005",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие.  \n> **Свойства:** Заклинание, Быстрое, Ближняя атака, Природа клерика.\n\nСовершите обычную атаку оружием ближнего боя или Безоружную атаку. Если после Защитных действий атака остаётся попаданием, цель получает `2` магического урона.\n\nЕсли цель имеет свойство, противоположное Природе клерика, она дополнительно получает `1d8` магического урона. Урон Опаления применяется после Защитных действий и не может быть удалён или уменьшен Защитным действием.",
+    "category": "Способность Клерика",
+    "mechanics": {
+      "attackAugment": {
+        "id": "sear",
+        "label": "Опаление",
+        "singleTarget": true,
+        "afterDefenses": true,
+        "spellDamage": true,
+        "damageParts": [
+          {
+            "formula": "2",
+            "damageType": "магический"
+          }
+        ],
+        "oppositeNaturePart": {
+          "formula": "1d8",
+          "damageType": "магический"
+        },
+        "requirements": {
+          "attackKind": "melee"
+        }
+      }
+    },
+    "tags": "Заклинание, Быстрое, Ближняя атака, Природа клерика",
+    "cost": "1 Воздействие"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.cleric.sear",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Клерика / Опаление"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/unholy/hand-claw-glow-orange.webp"
+}

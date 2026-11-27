@@ -1,0 +1,20 @@
+{
+  "name": "Мне не больно",
+  "type": "ability",
+  "_id": "fnri4340ddbf3a20",
+  "system": {
+    "description": "Если вы не используете **Самозащиту** против направленной атаки по вам, после остальных Защит удалите самый маленький куб её урона.",
+    "category": "Способность Бойца",
+    "mechanics": {
+      "passive": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.fighter.no-pain",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Бойца / Мне не больно"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/unarmed-punch-fist-blue.webp"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "Возвращение жизненной силы",
+  "type": "ability",
+  "_id": "fnridruid0000007",
+  "system": {
+    "description": "Когда заканчивается **Периодическое исцеление**, созданное вашим **Восстановлением**, восстановите `1 Жизненную силу`.",
+    "category": "Способность Друида",
+    "mechanics": {
+      "passive": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.druid.life-return",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Друида / Возвращение жизненной силы"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/unholy/orb-colllecting-energy-green.webp"
+}

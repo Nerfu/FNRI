@@ -4,7 +4,7 @@ import {stableDocumentId} from '../data/document-id.mjs';
 import {calculateDamage, coverAllyDice, planCoverAlly} from './damage-core.mjs';
 import {previewDeclaredDamageDefenses} from './periodic-damage.mjs';
 import {messageIntervention} from '../rolls/attack-properties.mjs';
-import {minimumCellGap, sameScene} from '../spatial/geometry.mjs';
+import {minimumCellGap, sameScene, tokenDistance} from '../spatial/geometry.mjs';
 
 const ID = 'fast-nri-v14';
 export const COVER_ALLY_ID = 'builtin:coverAlly';
@@ -61,7 +61,7 @@ export function hasIntervened(message, actor) {
     const area=flag(entry,'areaIntervention');
     return directed?.initiatorActorUuid===actor.uuid || directed?.initiatorKey===scopedKey ||
       (check?.isIntervention && !!check.previousMessageId && check.actorUuid===actor.uuid) ||
-      (area?.kindKey!=='followUp' && (area?.actorUuid===actor.uuid || area?.initiatorKey===scopedKey));
+      (!['followUp','degreeReduction'].includes(area?.kindKey) && (area?.actorUuid===actor.uuid || area?.initiatorKey===scopedKey));
   });
 }
 
@@ -113,14 +113,16 @@ export function applyCoverExclusions(card, covers) {
   return current;
 }
 
-export function coverRecipients(defender, uuids = []) {
+export function coverRecipients(defender, uuids = [], {spellRange=null} = {}) {
   const defenderDoc = doc(defender);
   if (!defender?.actor || defenderDoc.hidden === true || defender.visible === false) return [];
   const explicit = new Set([...(game.user?.targets ?? [])].map(token => doc(token)?.uuid));
   return (globalThis.canvas?.tokens?.placeables ?? []).filter(ally => {
     const token = doc(ally);
     if (!ally.actor || ally.actor.uuid === defender.actor.uuid || ally.visible === false ||
-        token.hidden === true || !sameScene(defender, ally) || minimumCellGap(defender, ally) !== 1) return false;
+        token.hidden === true || !sameScene(defender, ally)) return false;
+    const distance=spellRange===null?minimumCellGap(defender,ally):tokenDistance(defender,ally);
+    if(distance===null||(spellRange===null?distance!==1:distance>spellRange))return false;
     if (uuids.length && !uuids.includes(token.uuid)) return false;
     const defenderSide=tokenSide(defender), allySide=tokenSide(ally);
     const known = [1, -1].includes(defenderSide) && [1, -1].includes(allySide);
@@ -150,11 +152,11 @@ export function directedCoverTargets(message, defender) {
   return coverRecipients(defender, targets).filter(ally => !hasDamageForCoverTarget(message, ally));
 }
 
-export function directedCoverSnapshot(message, ally) {
+export function directedCoverSnapshot(message, ally, {omitMessageId=null}={}) {
   const card = flag(message, 'weaponDamage');
   const immune = new Set(previewDeclaredDamageDefenses(ally.actor, card)?.immunePartIds ?? []);
   const masked = {...card,parts:card.parts.map(part => ({...part,immune:part.immune || immune.has(part.id)}))};
-  const records = coverRecords(message, doc(ally).uuid);
+  const records = coverRecords(message, doc(ally).uuid).filter(r=>r.messageId!==omitMessageId);
   if (records.some(cover => cover.sourceId !== message.id || cover.sourceRevision !== (card.revision ?? 0) ||
     coverActorKey(ally.actor) !== cover.allyKey)) return null;
   const adjusted = applyCoverExclusions(masked, records);

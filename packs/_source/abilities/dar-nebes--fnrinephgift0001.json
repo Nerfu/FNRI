@@ -1,0 +1,42 @@
+{
+  "name": "Дар небес",
+  "type": "ability",
+  "_id": "fnrinephgift0001",
+  "system": {
+    "description": "> **Требование:** Святой.  \n> **Требуется:** 1 Воздействие.  \n> **Свойства:** Воздействие, Заклинание, Исцеление.  \n> **Частота:** `1 раз в день`.  \n> **Цель:** вы или одно допустимое существо в текущей дистанции заклинаний.\n\nЦель восстанавливает `2d4+2 HP`.",
+    "category": "Свойство Нефалема",
+    "mechanics": {
+      "racialProperty": {
+        "nature": "holy",
+        "races": [
+          "nephalem"
+        ]
+      },
+      "executions": [
+        {
+          "id": "heal",
+          "type": "roll",
+          "label": "Дар небес",
+          "formula": "2d4+2",
+          "rollKind": "heal"
+        }
+      ],
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    },
+    "cost": "1 Воздействие",
+    "tags": "Воздействие, Заклинание, Исцеление",
+    "frequency": "1 раз в день"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.dar-nebes",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Дар небес"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/life/heart-hand-gold-green.webp"
+}

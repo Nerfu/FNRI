@@ -1,0 +1,25 @@
+{
+  "name": "Месть",
+  "type": "ability",
+  "_id": "fnrinephrevenge1",
+  "system": {
+    "description": "> **Требование:** Нечестивый.\n\nПри Успехе Самозащиты источник атаки получает `1` магического урона.",
+    "category": "Свойство Нефалема",
+    "mechanics": {
+      "racialProperty": {
+        "nature": "unholy",
+        "races": [
+          "nephalem"
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.mest",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Месть"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/defensive/shield-barrier-deflect-gold.webp"
+}

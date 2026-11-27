@@ -67,3 +67,44 @@ const reduced=message({flags:{[S]:{areaIntervention:{version:1,rootMessageId:are
 const areaChoice=areaPostDefenseChoices(area)[0];assert.ok(areaChoice);const areaExtra=await publishPostDefenseDamage(areaChoice,()=>areaPostDefenseChoices(area));assert.equal(flags(areaExtra,'weaponDamage').parts.length,2);assert.equal(flags(areaExtra,'weaponDamage').originalTargetUuid,a.document.uuid);assert.equal(areaPostDefenseChoices(area).length,0);
 assert.equal(abilityAccountingStatus(actor,spark).used,1);
 console.log('PASS elf cards: bow proficiency, opt-in Spark target, frequency, typed dice, separate post-defense roll, no critical, area isolation, cancellation and deduplication');
+
+// New Ferocity uses the same separate hit pipeline, with its own critical dice.
+const orc=property('Суровость');actor.items.contents=[orc];
+const sword=mk(weapons.find(c=>c.system.attackKind==='melee'));sword.system.proficiencyMode='yes';sword.system.properties='Огонь';
+game.user.targets=new Set([a]);
+foundry.applications.api.DialogV2.wait=async cfg=>acceptPreroll({...cfg,content:cfg.content.replace(/<label\b[^>]*>[\s\S]*?<\/label>/g,row=>row.includes('Суровость')?row.replace(/<input\b/,'<input checked'):row)});
+for(const critical of [false,true]){
+ const attack=await sendAttackSnapshot({actor,name:'Melee',expression:'1d20 + 1d8',usesCombatDie:true,attackKind:'melee',profile:{A:'1d6',B:'1d6',C:3},properties:'Огонь',damageType:'физический',targetTokens:[a]});const original=flags(attack,'weaponAttack');
+ assert.equal(attack.formula,'1d20 + 1d12');assert.equal(original.postDefenseDamage[0].parts[0].faces,8);
+ const damage=await sendWeaponDamage(attack,'success',{skipPreroll:true});const card=flags(damage,'weaponDamage');
+ const defense=message({flags:{[S]:{weaponDamage:{...card,previousMessageId:damage.id,effectDegree:'partial'}}}});
+ message({flags:{[S]:{hpReport:{kind:'damage',sourceMessageId:defense.id,tokenUuid:a.document.uuid,critical,reverted:false}}}});
+ const choices=directedPostDefenseChoices(defense);assert.equal(choices.length,1);
+ const hit=await publishPostDefenseDamage(choices[0],()=>directedPostDefenseChoices(defense));
+ const result=flags(hit,'weaponDamage');assert.equal(result.parts.length,critical?2:1);
+ assert.ok(result.parts.every(p=>p.faces===8&&p.traits.includes('Огонь')&&p.damageType===card.damageType));
+ assert.equal(result.noCritical,true);assert.equal(calculateDamage(result,{critical:true}).total,critical?6:3);
+ assert.equal(directedPostDefenseChoices(defense).length,0);
+}
+const ranged=await sendWeaponAttack(short,actor);assert.equal(flags(ranged,'weaponAttack').ferocity,undefined);
+const {damageAtReducedDegree,largestDamageDieHealing}=await import('../module/damage/damage-core.mjs');
+assert.equal(damageAtReducedDegree({degree:'success',ferocity:true,postDefenseDamage:[{ferocity:true}],parts:[],profile:{A:'1d6',B:'1d6',C:3}},'partial').degree,'failure');
+assert.equal(largestDamageDieHealing({healLargestDamageDie:true,parts:[{kind:'die',value:1},{kind:'fixed',value:3},{kind:'die',value:6,excluded:true}]}),3);
+console.log('PASS updated Ferocity: 1d8 or 2d8 as separate hit, inherited properties, no multiplier, melee only; Hunger counts fixed damage bonuses');
+
+// Cleric uses the same optional preroll and separate result path; a fixed
+// component is a damage die in rules, not a synthetic native dice result.
+const nature=property('Природа клерика'),sear=property('Опаление');
+nature.system.mechanics.classNature.selection='holy';actor.items.contents=[nature,sear];
+const targetNature=property('Природа Нефалема');targetNature.system.mechanics.racialProperty.selection='unholy';
+a.actor.isOwner=true;a.actor.items={contents:[targetNature]};
+foundry.applications.api.DialogV2.wait=async cfg=>acceptPreroll({...cfg,content:cfg.content.replace(/<label\b[^>]*>[\s\S]*?<\/label>/g,row=>row.includes('Опаление')?row.replace(/<input\b/,'<input checked'):row)});
+for(const targetIsOpposite of [false,true]){
+ targetNature.system.mechanics.racialProperty.selection=targetIsOpposite?'unholy':'holy';
+ const strike=await sendAttackSnapshot({actor,name:'Melee',expression:'1d20 + 1d8',usesCombatDie:true,attackKind:'melee',profile:{A:'1d6',B:'1d6',C:3},properties:'',damageType:'физический',targetTokens:[a]});
+ const offer=flags(strike,'weaponAttack').postDefenseDamage[0];assert.deepEqual(offer.parts.map(p=>p.formula),targetIsOpposite?['2','1d8']:['2']);
+ const dmg=await sendWeaponDamage(strike,'success',{skipPreroll:true});const available=directedPostDefenseChoices(dmg);assert.equal(available.length,1);
+ const extra=await publishPostDefenseDamage(available[0],()=>directedPostDefenseChoices(dmg));const result=flags(extra,'weaponDamage');
+ assert.equal(result.parts[0].kind,'fixed');assert.equal(result.parts[0].value,2);assert.ok(result.parts.every(p=>p.traits.includes('Святой')));assert.equal(result.noCritical,true);assert.equal(calculateDamage(result,{critical:true}).total,targetIsOpposite?5:2);
+}
+console.log('PASS Cleric Sear: selected preroll, fixed 2, optional opposite nature d8, separate post-defense hit, no critical');

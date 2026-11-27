@@ -55,3 +55,17 @@ assert.equal((await run(normal,{attackProperties:'areal'})).hindrance.value,-10)
 assert.equal((await run(normal,{attackProperties:'Наводимое'})).expression,'1d20');
 for(const kind of ['skill','ability','intervention','damage','heal'])assert.equal((await run(normal,{kind})).expression,'1d20');
 console.log('PASS P.3.1 vision matrix, active sources, privacy, area/guided, strongest hindrance and roll-editor correction');
+
+// Ranger's actual timed effect uses the same selected hindrance in formula and editor.
+const senses=cards('abilities').find(c=>c._id==='fnriranger000007');
+assert.equal(senses.effects[0].duration.expiry,'turnEnd');
+const senseEffect={...senses.effects[0],uuid:'Actor.test.ActiveEffect.senses'};
+const keen=actor([],[senseEffect]);
+let ctx=await run(keen);assert.equal(ctx.hindrance.value,-6);assert.equal(ctx.expression,'1d20 + (-6)');
+assert.equal(fixedRollComponents(ctx)[0].value,-6);
+ctx=await run(keen,{targetActor:actor([],[effect('partial-cover')]),extraEntries:[]});
+assert.equal(ctx.hindrance.value,0);assert.equal(ctx.expression,'1d20');assert.deepEqual(fixedRollComponents(ctx),[]);
+ctx=await run(keen,{targetActor:null,extraEntries:[]});assert.equal(ctx.expression,'1d20');
+ctx=await run(keen,{kind:'skill'});assert.equal(ctx.expression,'1d20');
+senseEffect.disabled=true;assert.equal((await run(keen)).hindrance.value,-10);
+console.log('PASS Ranger heightened senses: winning penalty only, no positive bonus, editor, disabled and non-attack');

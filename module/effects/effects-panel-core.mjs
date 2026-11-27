@@ -3,6 +3,7 @@
  * Pure helpers, kept independent of Foundry UI for regression tests.
  * Unlike PF2e's condition Items, Fast NRI effects are native ActiveEffects.
  */
+import {deleteShieldEffect,shieldEffectId,readTempHpState} from '../damage/temporary-hp-layers.mjs';
 import { readEffectState, strengthStep, writeEffectState, retireZeroStrengthEffect } from './effect-state.mjs';
 
 export function selectedEffectActor(controlledTokens, assignedCharacter) {
@@ -65,6 +66,7 @@ export async function applyPanelClick(actor, effect, button, { shiftKey = false,
     return 'opened';
   }
   if (!mayManageEffect(actor, effect)) return 'forbidden';
+  if(button===2 && shieldEffectId(effect)){await deleteShieldEffect(actor,effect);return 'deleted-actor';}
   const state = readEffectState(effect);
   if (button === 0) {
     const operation = strengthStep(state, +1);
@@ -94,12 +96,14 @@ export async function applyPanelClick(actor, effect, button, { shiftKey = false,
 }
 
 export function panelEffectData(actor) {
+  const layers=readTempHpState(actor).layers;
   return applicablePanelEffects(actor).map(effect => {
     const source = effectSource(effect);
     const rawDuration = effect.duration?.label;
     const duration = typeof rawDuration === 'string' && rawDuration.trim() ? rawDuration.trim() : '';
     const state = readEffectState(effect);
     return {
+      shieldRemaining:shieldEffectId(effect)?layers[shieldEffectId(effect)]?.remaining??null:null,
       ...state, hasStrength: state.strength !== null && state.strength > 0,
       hasEffectLevel: state.effectLevel !== null, hasMagnitude: state.magnitude !== null,
       name: effect.name ?? '', icon: effect.img || 'icons/svg/aura.svg',

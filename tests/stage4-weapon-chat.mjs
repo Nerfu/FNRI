@@ -56,6 +56,13 @@ nextD20=1;nextTotal=99;
 attack=await sendWeaponAttack(item,actor);
 assert.equal(attack.getFlag('fast-nri-v14','weaponAttack').attackDegree,'failure');
 assert.equal(attack.getFlag('fast-nri-v14','weaponAttack').suggestedDegree,null);
+// Luck preserves the native attack but the next damage uses its corrected natural d20.
+attack.flags['fast-nri-v14'].rollEdit={currentTotal:118,components:[{id:'die-1',kind:'die',faces:20,original:1,value:20}],history:[{id:'die-1',gameReroll:true,rule:'luck'}]};
+const luckDamage=await sendWeaponDamage(attack,'great');
+assert.equal(luckDamage.getFlag('fast-nri-v14','weaponDamage').naturalD20,20);
+assert.equal(luckDamage.getFlag('fast-nri-v14','weaponDamage').criticalTriggered,true);
+assert.equal(luckDamage.getFlag('fast-nri-v14','weaponDamage').attackTotal,118);
+assert.equal(attack.getFlag('fast-nri-v14','weaponAttack').naturalD20,1);
 nextD20=20;nextTotal=25;
 attack=await sendWeaponAttack(item,actor);
 assert.equal(attack.getFlag('fast-nri-v14','weaponAttack').attackDegree,'great');
@@ -423,3 +430,146 @@ assert.equal(attackFlag(invisibleArea).areaAttack.targets[0].attackOffGuard,true
 assert.equal(victim.actor.effects.contents.length,0);
 globalThis.canvas=savedCanvas;globalThis.ui=savedUi;
 console.log('R104 actual attack pipeline: invisible source local consequence, visible source unaffected, area snapshot: PASS');
+
+// C1 Orc: same attack route, explicit selection; no base Actor mutation.
+const orcCard=JSON.parse(readFileSync(new URL('../packs/_source/abilities/surovost--fnriorcferocity1.json',import.meta.url),'utf8'));
+const ferocityItem={...orcCard,id:orcCard._id,uuid:'Actor.abc.Item.'+orcCard._id};
+actor.items={contents:[ferocityItem]};actor.system.combatDie='d10';
+let ferocityChecked=true;
+foundry.applications.api.DialogV2.wait=async cfg=>{
+  const row=[...cfg.content.matchAll(/<label\b[^>]*>[\s\S]*?<\/label>/g)].find(m=>m[0].includes('Суровость'));
+  if(!row)return acceptPreroll(cfg);
+  const key=row[0].match(/name="(part_\d+_0)"/)?.[1];assert.ok(key);
+  return acceptPreroll({...cfg,content:ferocityChecked?cfg.content.replace(`name="${key}">`,`name="${key}" checked>`):cfg.content});
+};
+game.user.targets=new Set([guard]);nextTotal=14;nextD20=12;
+const orcPartial=await sendWeaponAttack(item,actor);
+assert.equal(orcPartial.formula,'1d20 + 1d12');assert.equal(attackFlag(orcPartial).attackDegree,'failure');
+assert.equal(attackFlag(orcPartial).suggestedDegree,null);
+assert.equal((await sendWeaponDamage(orcPartial,'partial')).formula,'1d10','manual choice remains but no success bonus');
+nextTotal=19;const orcSuccess=await sendWeaponAttack(item,actor);
+assert.equal(attackFlag(orcSuccess).attackDegree,'success');
+const orcDamage=await sendWeaponDamage(orcSuccess,'success');
+assert.equal(orcDamage.formula,'1d10 + 1d4');
+assert.equal(orcDamage.getFlag('fast-nri-v14','weaponDamage').parts.filter(p=>p.ferocityDamage).length,0);
+assert.equal(orcDamage.getFlag('fast-nri-v14','weaponDamage').postDefenseDamage[0].parts[0].faces,8);
+assert.equal((await sendWeaponDamage(orcSuccess,'great')).formula,'1d10 + 1d4 + 4');
+assert.equal(actor.system.combatDie,'d10');
+ferocityChecked=false;const ordinary=await sendWeaponAttack(item,actor);
+assert.equal(ordinary.formula,'1d20 + 1d10');assert.equal(attackFlag(ordinary).ferocity,undefined);
+ferocityChecked=true;actor.system.combatDie='d12';
+const already12=await sendWeaponAttack(item,actor);assert.equal(already12.formula,'1d20 + 1d12');assert.equal(attackFlag(already12).ferocity,true);
+console.log('PASS Orc: Ferocity attack replacement, failure on partial, bonus die on both success degrees, opt-in and existing d12');
+// One area roll: per-target initial degree, one shared extra die. A four-die
+// success has no default profile in the canon and must stay manually resolved.
+actor.system.combatDie='d10';nextD20=12;nextTotal=19;
+const orcArea=await sendAttackSnapshot({actor,name:'Orc area',profile:{A:'1d10',B:'1d4',C:4},expression:'1d20 + 1d10',usesCombatDie:true,properties:'Область действия',targetTokens:[
+  {name:'partial',actor:{system:{ac:{partial:10,success:20,great:25}}}},
+  {name:'success',actor:{system:{ac:{partial:10,success:15,great:25}}}},
+  {name:'great',actor:{system:{ac:{partial:10,success:15,great:18}}}}]});
+const orcAreaCard=orcArea.getFlag('fast-nri-v14','weaponDamage');
+assert.deepEqual(orcAreaCard.areaAttack.targets.map(t=>t.initialDegree),['partial','success','great']);
+assert.equal(orcAreaCard.parts.filter(p=>p.ferocityDamage).length,0);
+const orcRows=resolveAreaResults(orcArea);
+assert.equal(orcAreaCard.postDefenseDamage,undefined);
+assert.equal(orcRows[1].profileComplete,true);assert.equal(orcRows[2].profileComplete,true);
+console.log('PASS Orc area: new Ferocity unavailable, ordinary independent degrees');
+
+// Nephalem Bite uses a native physical profile, independent of held weapons.
+{
+  const data=JSON.parse(readFileSync(new URL('../packs/_source/abilities/golod--fnrinephhunger01.json',import.meta.url),'utf8'));
+  const bite={...data,id:data._id,uuid:'Actor.abc.Item.'+data._id};
+  actor.items={contents:[bite,item],get:id=>id===item.id?item:null};
+  actor.system.equipment={leftHand:item.id,rightHand:item.id};actor.system.combatDie='d8';
+  game.user.targets=new Set([guard]);nextTotal=19;nextD20=12;
+  const attack=await sendOtherItemAttack(bite,actor,{execution:data.system.mechanics.executions[0],skipPreroll:true});
+  const snap=attackFlag(attack);assert.equal(snap.name,'Укус');assert.equal(snap.sourceKind,'unarmed');assert.equal(snap.profileKind??'physical','physical');assert.equal(attack.formula,'1d20 + 1d8');
+  assert.equal((await sendWeaponDamage(attack,'partial')).formula,'1d6');
+  const biteDamage=await sendWeaponDamage(attack,'success');assert.equal(biteDamage.formula,'1d6 + 1d8');
+  const {largestDamageDieHealing}=await import('../module/damage/damage-core.mjs');
+  assert.equal(largestDamageDieHealing(biteDamage.getFlag('fast-nri-v14','weaponDamage')),3);
+  assert.equal((await sendWeaponDamage(attack,'great')).formula,'1d6 + 1d8 + 3');
+  assert.equal(actor.system.combatDie,'d8');
+  console.log('PASS Nephalem Bite: explicit unarmed execution, independent held weapon, standard damage parts');
+}
+
+// Actual Warrior cards: separate fixed damage and natural-20-only multiplier.
+{
+  const load=filename=>JSON.parse(readFileSync(new URL('../packs/_source/abilities/'+filename,import.meta.url),'utf8'));
+  const one=load('warrior-one-handed--fnriwaronehand01.json');
+  const crit=load('warrior-crushing-blow--fnriwarcrush0001.json');
+  actor.items={contents:[one,crit,item],get:id=>id===item.id?item:null};
+  actor.system.combatDie='d10';item.system={attackKind:'melee',grip:'1',damageProfile:{A:'1d10',B:'1d4',C:4},proficiencyMode:'yes',damageType:'физический'};
+  game.user.targets=new Set([guard]);nextTotal=25;nextD20=20;
+  const {calculateDamage,criticalDamageRule}=await import('../module/damage/damage-core.mjs');
+  const a=await sendWeaponAttack(item,actor,{skipPreroll:true});
+  const d=await sendWeaponDamage(a,'great',{skipPreroll:true});
+  const card=d.getFlag('fast-nri-v14','weaponDamage');
+  assert.equal(d.formula,'1d10 + 1d4 + 4 + 2');
+  assert.equal(card.parts.at(-1).kind,'fixed');assert.equal(card.parts.at(-1).value,2);
+  assert.equal(calculateDamage(card).total,48);
+  card.parts[0].excluded=true;assert.equal(calculateDamage(card).total,27);
+  assert.equal(criticalDamageRule({...card,naturalD20:19,criticalThreshold:19}).multiplier,2);
+  item.system.grip='2';const two=attackFlag(await sendWeaponAttack(item,actor,{skipPreroll:true}));
+  assert.equal(two.weaponDamageBonus,undefined);assert.equal(two.naturalTwentyMultiplier,3);
+  item.system.attackKind='ranged';item.system.grip='1';const ranged=attackFlag(await sendWeaponAttack(item,actor,{skipPreroll:true}));
+  assert.equal(ranged.weaponDamageBonus,2);assert.equal(ranged.naturalTwentyMultiplier,undefined);
+  item.system.proficiencyMode='no';const unknown=attackFlag(await sendWeaponAttack(item,actor,{skipPreroll:true}));
+  assert.equal(unknown.weaponDamageBonus,undefined);assert.equal(unknown.naturalTwentyMultiplier,undefined);
+  console.log('PASS Warrior: owned passives, separate fixed damage, critical order, natural 19/20, grips and proficiency');
+}
+{
+  const {inspectDamageDefenseSources}=await import('../module/damage/periodic-damage.mjs');
+  const card=JSON.parse(readFileSync(new URL('../packs/_source/abilities/warrior-defensive-stance--fnriwarstance001.json',import.meta.url),'utf8'));
+  const effect={...card.effects[0],id:'stance',active:true};
+  const shield={id:'shield',type:'gear',system:{mechanics:{protection:{kind:'shield'}}}};
+  const owner={system:{equipment:{}},items:{contents:[shield]},effects:{contents:[effect]}};
+  const value=()=>inspectDamageDefenseSources(owner)[0]?.rule.resistances[0].value;
+  assert.equal(value(),2);owner.system.equipment.leftHand='shield';assert.equal(value(),4);
+  delete owner.system.equipment.leftHand;assert.equal(value(),2);effect.disabled=true;assert.equal(value(),undefined);
+  assert.equal(effect.duration.expiry,'turnStart');assert.equal(effect.img,card.img);
+  console.log('PASS Warrior stance: live held shield, removal, disabled effect, native duration template');
+}
+// Ranger: actual card + actual bow, independent damage component, excludes interventions.
+{
+  const load=f=>JSON.parse(readFileSync(new URL('../packs/_source/'+f,import.meta.url),'utf8'));
+  const passive=load('abilities/ranger-hunter-shot--fnriranger000004.json');
+  const bow=load('weapons/korotkii-luk--fci07ja014xqgmsg.json');
+  Object.assign(item,{system:bow.system,flags:bow.flags,name:bow.name});
+  actor.system.className='Егерь';actor.system.combatDie='d8';
+  actor.items={contents:[passive,passive,item],get:id=>id===item.id?item:null};
+  game.user.targets=new Set([guard]);nextTotal=19;nextD20=12;
+  const a=await sendWeaponAttack(item,actor,{skipPreroll:true});
+  assert.equal((await sendWeaponDamage(a,'partial',{skipPreroll:true})).formula,'1d4');
+  assert.equal((await sendWeaponDamage(a,'success',{skipPreroll:true})).formula,'1d4 + 1d4 + (1d8)');
+  const d=await sendWeaponDamage(a,'great',{skipPreroll:true});
+  assert.equal(d.formula,'1d4 + 1d4 + 5 + (1d8)');
+  assert.equal(d.getFlag('fast-nri-v14','weaponDamage').parts.at(-1).damageType,'физический');
+  const originalWait=foundry.applications.api.DialogV2.wait;
+  foundry.applications.api.DialogV2.wait=async config=>{
+    assert.ok(config.content.includes('Выстрел охотника'));
+    return config.buttons.find(b=>b.action==='roll').callback({}, {form:{elements:{namedItem:()=>({checked:false})},querySelectorAll:()=>[]}});
+  };
+  try{assert.equal((await sendWeaponDamage(a,'success')).formula,'1d4 + 1d4');}finally{foundry.applications.api.DialogV2.wait=originalWait;}
+  const inter=await sendWeaponAttack(item,actor,{skipPreroll:true,isIntervention:true});
+  assert.equal((await sendWeaponDamage(inter,'success',{skipPreroll:true})).formula,'1d4 + 1d4');
+  console.log('PASS Ranger ordinary bow damage: degrees, duplicate passive, typed separate die, intervention exclusion');
+}
+// Bard: native card -> attack preroll -> damage preroll, ordinary and area.
+{
+  const load=async prefix=>{const {readdirSync}=await import('node:fs');const dir=new URL('../packs/_source/abilities/',import.meta.url);const f=readdirSync(dir).find(f=>f.startsWith(prefix+'--'));const data=JSON.parse(readFileSync(new URL(f,dir),'utf8'));return {...data,id:data._id,uuid:'Actor.abc.Item.'+data._id,documentName:'Item'};};
+  const rhythm=await load('bard-rhythm'),rapier=await load('bard-rapier-finale'),area=await load('bard-sword-area');
+  const loadWeapon=f=>JSON.parse(readFileSync(new URL('../packs/_source/weapons/'+f,import.meta.url),'utf8'));
+  const rap=loadWeapon('rapira--fci2qd7ik405qky2.json');Object.assign(item,{name:rap.name,system:rap.system,flags:rap.flags});
+  actor.type='character';actor.uuid='Actor.abc';actor.system.className='Бард';actor.system.combatDie='d8';actor.system.resources={class_rhythm:{kind:'class',name:'Ритм',current:3,max:3}};actor.system.equipment={leftHand:item.id,rightHand:''};
+  actor.items={contents:[rhythm,rapier,area,item],get:id=>[rhythm,rapier,area,item].find(i=>i.id===id)};
+  globalThis.fromUuid=async uuid=>[actor,rhythm,rapier,area,item].find(o=>o.uuid===uuid)??null;
+  game.user.targets=new Set([guard]);nextD20=12;nextTotal=19;
+  const a=await sendOtherItemAttack(rapier,actor,{execution:rapier.system.mechanics.executions[0],skipPreroll:true});
+  assert.match(a.formula,/\+ \(3\)$/);const d=await sendWeaponDamage(a,'success',{skipPreroll:true});
+  const parts=d.getFlag('fast-nri-v14','weaponDamage').parts;assert.equal(parts.length,6);assert.ok(parts.every(p=>p.damageType==='магический'));assert.equal(d.formula,'1d6 + 1d6 + (4d6)');
+  const sword=loadWeapon('dlinnyi-mech--fci2un4v92kc3x8z.json');Object.assign(item,{name:sword.name,system:sword.system,flags:sword.flags});
+  const b=await sendOtherItemAttack(area,actor,{execution:area.system.mechanics.executions[0],skipPreroll:true,targetTokens:[guard]});
+  const snap=b.getFlag('fast-nri-v14','weaponDamage');assert.equal(snap.parts.length,5);assert.ok(snap.parts.every(p=>p.damageType==='магический'));assert.deepEqual(snap.areaAttack.damageProfile.partial.remove,['highest']);
+  console.log('PASS Bard chat: rhythm in attack, rapier 4d6, all magical, area five independent components');
+}

@@ -1,5 +1,6 @@
 /** Always-available unarmed action with selectable card-provided alternatives. */
-import { BASE_UNARMED_ATTACK } from '../data/core-actions.mjs';
+import { actorClassDefinition, CLASSES } from '../data/classes.mjs';
+import { BASE_UNARMED_ATTACK, FIGHTER_UNARMED_ATTACK } from '../data/core-actions.mjs';
 import { bestiaryAttackExpression, parseStandardPhysicalProfile } from './attack-core.mjs';
 import { sendAttackSnapshot } from '../weapon/weapon-attack.mjs';
 import { itemSlot, HANDS } from '../equipment/equipment.mjs';
@@ -68,7 +69,9 @@ export function availableUnarmedActions(actor) {
       criticalMultiplier:rule.criticalMultiplier ?? item.system?.mechanics?.attack?.criticalMultiplier ?? null
     };
   });
-  return [base, ...cards];
+  const fighter=actorClassDefinition(actor)===CLASSES.fighter?
+    [{...base,key:'fighter',name:'Рукопашная атака Бойца',damageProfile:{...FIGHTER_UNARMED_ATTACK.damageProfile},mode:'option'}]:[];
+  return [base, ...fighter, ...cards];
 }
 
 export function resolveUnarmedAction(actor, choice = undefined) {
@@ -82,7 +85,7 @@ export function resolveUnarmedAction(actor, choice = undefined) {
   } else {
     // Preserve the previous implicit behaviour for one replacement card.
     const replacements = options.filter(option => option.mode === 'replace');
-    selected = replacements.length === 1 ? replacements[0] : options[0];
+    selected = replacements.length === 1 ? replacements[0] : options.find(option=>option.key==='fighter')??options[0];
   }
   return {
     ...selected, selectedKey: selected.key, hasChoices: options.length > 1,
@@ -93,7 +96,7 @@ export function resolveUnarmedAction(actor, choice = undefined) {
 }
 
 export async function sendUnarmedAttack(actor,{skipPreroll=false,actionId=null,accountingItem=null,
-  choice=undefined,isIntervention=false,targetTokens=null}={}) {
+  choice=undefined,isIntervention=false,targetTokens=null,quickAttack=false,audienceMessage=null}={}) {
   if (!actor) throw new Error('An Actor is required for an unarmed attack');
   const action = resolveUnarmedAction(actor, choice);
   if (choice !== undefined && action.key !== choice) return null;
@@ -106,7 +109,7 @@ export async function sendUnarmedAttack(actor,{skipPreroll=false,actionId=null,a
     expression, warning, skipPreroll,actionId,accountingItem,sourceItem,sourceKind: 'unarmed', attackKind:'melee',
     formulaForActor: temp=>unarmedExpression(temp,action).expression,
     usesCombatDie:!String(action.rollFormula??'').trim() && actor.type!=='npc',
-    isIntervention:isIntervention || action.isIntervention,targetTokens,
+    isIntervention:isIntervention || action.isIntervention,targetTokens,quickAttack,audienceMessage,
     criticalThreshold:action.criticalThreshold ?? 20,criticalMultiplier:action.criticalMultiplier ?? null,
     ...itemAttackRules(sourceItem)
   });

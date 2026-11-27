@@ -10,3 +10,8 @@ export function effectHasStatus(effect, id) {
     effect?.statuses?.has?.(status) ||
     (Array.isArray(effect?.statuses) && effect.statuses.includes(status));
 }
+
+/** Card-authored active effects that suppress held-item bonuses. */
+export function suppressesHeldProtection(actor) {
+  return Array.from(actor?.allApplicableEffects?.()??actor?.effects?.contents??[]).some(e=>activeConditionEffect(e)&&e.flags?.['fast-nri-v14']?.suppressHeldProtection===true);
+}

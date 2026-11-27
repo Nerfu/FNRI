@@ -39,7 +39,7 @@ assert.deepEqual(actor.getFlag(S,'suppressedInnateProperties'),[]);
 await actor.deleteEmbeddedDocuments('Item',[half.id]);await syncInnateProperties(actor,false);assert.deepEqual(racialState(actor).races,['human']);assert.ok(!actor.items.contents.some(i=>i.name==='Эльфийское проворство'));assert.ok(actor.items.has(wrongOwned.id));
 // The explicit excess setting allows this out-of-race or over-limit direct creation.
 assert.notEqual(hooks.preCreateItem({...wrong,parent:actor}),false);
-const attackParams=()=>({actor,kind:'attack',usesCombatDie:true,formula:`1d20 + 1${actor.system.combatDie}`});
+const attackParams=()=>({actor,kind:'attack',attackKind:'melee',usesCombatDie:true,formula:`1d20 + 1${actor.system.combatDie}`});
 const entry=()=>applicableRollContributions(actor,attackParams()).find(e=>e.combatMasterItem);
 let acceptMaster=false,cancel=false,dialogCount=0;
 foundry.applications.api.DialogV2.wait=async cfg=>{dialogCount++;if(cancel)return null;const html=cfg.content;assert.match(html,/Мастер боя/);const row=[...html.matchAll(/<label\b[^>]*>[\s\S]*?<\/label>/g)].find(m=>m[0].includes('Мастер боя'));const index=row?.[0].match(/name="(part_\d+_0)"/)?.[1];assert.ok(index);
@@ -59,3 +59,15 @@ assert.equal((await sendWeaponAttack(weapon,actor)).formula,'1d20 + 1d12');asser
 assert.equal((await sendUnarmedAttack(actor)).formula,'1d20 + 1d12');
 const spell=card('ability.warlock.eldritch-blast');assert.ok(spell);assert.equal((await sendOtherItemAttack(spell,actor,{execution:spell.system.mechanics.executions[0]})).formula,'1d20 + 1d12');
 console.log('PASS racial warnings, actual innate synchronization, Half-Blood, Heir, Combat Master step, frequency, rest and publication');
+// C1 Orc: shared accounting and opt-in fixed combat-die override, including
+// a half-blood owning both Master and Ferocity (two declared uses, no stacking).
+const orc=card('racial.surovost');const ownedOrc=await addRacialProperty(actor,orc,null);assert.ok(ownedOrc);
+actor.system.combatDie='d8';
+foundry.applications.api.DialogV2.wait=async cfg=>acceptPreroll({...cfg,content:cfg.content.replace(/<label\b[^>]*>[\s\S]*?<\/label>/g,row=>row.includes('Суровость')||row.includes('Мастер боя')?row.replace(/<input\b/, '<input checked'):row)});
+const combined=await prepareRoll(attackParams());assert.equal(combined.expression,'1d20 + 1d12');
+assert.equal(actor.system.combatDie,'d8');assert.equal(abilityAccountingStatus(actor,ownedOrc).remaining,1);
+await finalizeRollEffects(combined,{id:'orc-combined'});await finalizeRollEffects(combined,{id:'orc-combined'});
+assert.equal(abilityAccountingStatus(actor,ownedOrc).used,1);
+const exhausted=applicableRollContributions(actor,attackParams()).find(e=>e.ferocity);assert.match(exhausted.parts[0].warning,/exhausted/);
+await restActor(actor);assert.equal(abilityAccountingStatus(actor,ownedOrc).remaining,1);
+console.log('PASS Orc: Ferocity and Combat Master combination, accounting, idempotence and rest');

@@ -1,0 +1,35 @@
+{
+  "name": "Рывок на защиту",
+  "type": "ability",
+  "_id": "fnri0694d2da3d42",
+  "system": {
+    "description": "> **Требуется:** 2 Вмешательства.  \n> **Свойства:** Вмешательство, Защитное, Движение.  \n> **Цель:** видимый союзник.  \n> **Дистанция:** в пределах вашей Скорости до свободной клетки рядом с целью.\n\nПереместитесь в эту клетку. Затем совершите Направленную защиту цели.",
+    "category": "Способность Защитника",
+    "mechanics": {
+      "isIntervention": true,
+      "intervention": {
+        "requiresDefense": "ac",
+        "effect": {
+          "kind": "directedDefense"
+        },
+        "targeting": "ally"
+      },
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 2
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.defender.rush-defense",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Защитника / Рывок на защиту"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/movement/feet-winged-boots-brown.webp"
+}

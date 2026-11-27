@@ -1,7 +1,7 @@
 import {CREATURE_SIZES} from "./creature-size.mjs";
 import {prepareHpLimit} from "../damage/hp-limit.mjs";
 import {initialSkillAllocation,prepareSkillAllocation} from "./skill-allocation.mjs";
-import {prepareClassBaseStats,prepareSpellRangeBase} from "./classes.mjs";
+import {prepareClassBaseStats,prepareSpellRangeBase,prepareRhythmArmor} from "./classes.mjs";
 import {preparePermanentRacialStats} from "./character-contributions.mjs";
 import { prepareRoleDefenses } from "./roles.mjs";
 import { initialSkillEntries } from "./skills-catalog.mjs";
@@ -48,6 +48,9 @@ function actorSchema() {
     path: text(),
     hp: new F.SchemaField({ current: integer(), max: integer(), temp: integer() }),
     size: new F.StringField({required:false,blank:false,initial:"medium",choices:CREATURE_SIZES}),
+    // Explicit size operation declared by an ActiveEffect; not the current category.
+    sizeChange: text(),
+    sizeState: new F.ObjectField({required:false,initial:()=>({})}),
     speed: number(),
     spellRange: number(),
     combatDie: text(),
@@ -84,6 +87,7 @@ export class CharacterModel extends T {
   prepareDerivedData() {
     super.prepareDerivedData();
     preparePermanentRacialStats(this);
+    prepareRhythmArmor(this);
     prepareRoleDefenses(this);
     prepareConditionDefenses(this);
     prepareConditionSpeed(this);

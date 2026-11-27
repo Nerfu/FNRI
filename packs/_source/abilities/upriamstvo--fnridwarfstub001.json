@@ -1,0 +1,34 @@
+{
+  "name": "Упрямство",
+  "type": "ability",
+  "_id": "fnridwarfstub001",
+  "system": {
+    "description": "> **Частота:** `1 раз в день`.  \n> **Условие:** определена степень направленного против вашей Воли действия, но его эффекты ещё не применены.\n\nПонизьте степень этого действия для себя на `1`.",
+    "category": "Свойство Дварфа",
+    "mechanics": {
+      "racialProperty": {
+        "races": [
+          "dwarf"
+        ]
+      },
+      "degreeReduction": {
+        "targetDefense": "will",
+        "amount": 1
+      },
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    },
+    "frequency": "1 раз в день"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.upriamstvo",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Упрямство"
+    }
+  },
+  "effects": [],
+  "img": "icons/equipment/head/helmet-viking-iron-gray.webp"
+}

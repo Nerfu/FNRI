@@ -14,7 +14,7 @@ export function effectEndingMode(effect){
 }
 export function supportsEndingChoice(effect){
   const f=effect?.flags?.[S]??{};
-  return !effect?.transfer&&!f.periodicDamage&&!f.deathLifecycle&&!f.informationalMarker&&!(['remove','disable'].includes(f.rollInfluence?.onUse))&&!particular.has(f.conditionId)&&![...(effect?.statuses??[])].some(id=>typeof id==='string'&&id.startsWith('fnri7-')&&particular.has(id.slice(6)));
+  return !effect?.transfer&&!f.periodicDamage&&!f.periodicHealing&&!f.zeroHpPreventionUsed&&!f.deathLifecycle&&!f.informationalMarker&&!(['remove','disable'].includes(f.rollInfluence?.onUse))&&!particular.has(f.conditionId)&&![...(effect?.statuses??[])].some(id=>typeof id==='string'&&id.startsWith('fnri7-')&&particular.has(id.slice(6)));
 }
 export function hasParticularDuration(effect){
   const d=effect?.duration??{};

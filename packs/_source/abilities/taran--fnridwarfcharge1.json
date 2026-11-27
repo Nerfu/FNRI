@@ -1,0 +1,40 @@
+{
+  "name": "Таран",
+  "type": "ability",
+  "_id": "fnridwarfcharge1",
+  "system": {
+    "description": "> **Требуется:** 1 Движение.  \n> **Свойства:** Движение, Действие навыка, Манёвр.\n\nПереместитесь по прямой на расстояние от `2` клеток до своей Скорости.\n\nЗатем свободным действием совершите против соседней цели **Толкнуть** или **Сбить с ног**.\n\nЕсли перемещение прекращается раньше, чем вы пройдёте `2` клетки, Манёвр не совершается.",
+    "category": "Свойство Дварфа",
+    "mechanics": {
+      "racialProperty": {
+        "races": [
+          "dwarf"
+        ]
+      },
+      "executions": [
+        {
+          "id": "shove",
+          "label": "Толкнуть",
+          "type": "roll",
+          "standardActionId": "shove"
+        },
+        {
+          "id": "trip",
+          "label": "Сбить с ног",
+          "type": "roll",
+          "standardActionId": "trip"
+        }
+      ]
+    },
+    "cost": "1 Движение",
+    "tags": "Движение, Действие навыка, Манёвр"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.taran",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Таран"
+    }
+  },
+  "effects": [],
+  "img": "icons/creatures/abilities/bull-head-horns-glowing.webp"
+}

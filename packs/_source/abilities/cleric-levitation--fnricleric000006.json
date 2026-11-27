@@ -1,0 +1,56 @@
+{
+  "name": "Левитация",
+  "type": "ability",
+  "_id": "fnricleric000006",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие.  \n> **Свойство:** Заклинание.  \n> **Цель:** вы.  \n> **Длительность:** до конца текущего хода.\n\nПри вашем перемещении пересечённая местность считается обычной местностью.",
+    "category": "Способность Клерика",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "levitate",
+          "type": "effect",
+          "label": "Левитация",
+          "target": "self",
+          "effectId": "fnriclericLevit1"
+        }
+      ]
+    },
+    "tags": "Заклинание",
+    "cost": "1 Воздействие"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.cleric.levitation",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Клерика / Левитация"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnriclericLevit1",
+      "name": "Левитация",
+      "img": "icons/magic/control/buff-flight-wings-blue.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [],
+      "description": "При вашем перемещении пересечённая местность считается обычной местностью.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {
+        "units": "rounds",
+        "value": 0,
+        "expiry": "turnEnd",
+        "expired": false
+      },
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "effectEnding": "particular"
+        }
+      }
+    }
+  ],
+  "img": "icons/magic/control/buff-flight-wings-blue.webp"
+}

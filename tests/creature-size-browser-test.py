@@ -17,7 +17,7 @@ window.foundry={utils:{randomID:()=> 'id'},applications:{api:{HandlebarsApplicat
 window.raw={skills:{},equipment:{},equipmentSlots:{},resources:{},hp:{current:5,max:5},size:'medium'};
 window.actor={id:'a',uuid:'Actor.a',type:'character',system:structuredClone(raw),items:{contents:[]},effects:{contents:[]},getFlag:()=>null,
  prototypeToken:{width:1,height:1},canUserModify:()=>true,toObject:()=>({system:structuredClone(raw)}),
- getDependentTokens:()=>[token],async update(changes){if(changes['system.size'])raw.size=changes['system.size'];if(changes['prototypeToken.width'])Object.assign(this.prototypeToken,{width:changes['prototypeToken.width'],height:changes['prototypeToken.height']});this.system=structuredClone(raw);}};
+ getDependentTokens:()=>[token],async update(changes){if(changes['system.size'])raw.size=changes['system.size'];if(changes['system.sizeState'])raw.sizeState=structuredClone(changes['system.sizeState']);if(changes['prototypeToken.width'])Object.assign(this.prototypeToken,{width:changes['prototypeToken.width'],height:changes['prototypeToken.height']});this.system=structuredClone(raw);}};
 window.token={actor,actorLink:true,width:1,height:1,canUserModify:()=>true,async update(changes){Object.assign(this,changes);}};
 '''
 with sync_playwright() as p:
@@ -33,8 +33,10 @@ with sync_playwright() as p:
           await paint();
         }''')
         select=page.locator('select[name="system.size"]')
-        expect(select).to_have_value('medium');expect(select.locator('option')).to_have_count(4);expect(select.locator('option[value="gigantic"]')).to_have_count(0)
+        expect(select).to_have_value('medium');expect(select.locator('option')).to_have_count(5);expect(select.locator('option[value="gigantic"]')).to_have_count(0)
         select.select_option('large');page.wait_for_function('actor.system.size==="large" && token.width===2 && actor.prototypeToken.height===2')
+        select.select_option('huge');page.wait_for_function('token.width===3 && token.height===3')
+        select.select_option('default');page.wait_for_function('actor.system.size==="medium" && token.width===1');expect(select).to_have_value('medium')
         select.select_option('huge');page.wait_for_function('token.width===3 && token.height===3')
         page.evaluate('async()=>{sheet._configurationLocked=true;await paint()}');expect(select).to_be_disabled()
         page.evaluate('''async()=>{const {FastNRINPCSheet}=await import('fnri/module/sheets/sheets.mjs');actor.type='npc';window.sheet=new FastNRINPCSheet({actor});sheet._configurationLocked=false;await paint()}''')

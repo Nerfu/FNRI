@@ -1,0 +1,47 @@
+{
+  "name": "Иди туда",
+  "type": "ability",
+  "_id": "fnri69be7127c914",
+  "system": {
+    "description": "> **Требуется:** `1 Вмешательство`.  \n> **Требование:** две свободные руки.  \n> **Условие:** союзник объявляет действие со свойством **Область действия**.\n\nДо действия союзника совершите против врага **Переместить** или **Толкнуть**, если этим Манёвром можете переместить его в область действия союзника.",
+    "category": "Способность Бойца",
+    "mechanics": {
+      "isIntervention": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          }
+        ]
+      },
+      "executions": [
+        {
+          "id": "reposition",
+          "type": "roll",
+          "label": "Переместить",
+          "standardActionId": "reposition",
+          "isIntervention": true,
+          "requiresFreeHands": true
+        },
+        {
+          "id": "shove",
+          "type": "roll",
+          "label": "Толкнуть",
+          "standardActionId": "shove",
+          "isIntervention": true,
+          "requiresFreeHands": true
+        }
+      ]
+    },
+    "cost": "1 Вмешательство."
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.fighter.move-enemy",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Бойца / Иди туда"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/movement/arrow-upward-yellow.webp"
+}

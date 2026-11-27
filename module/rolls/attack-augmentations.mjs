@@ -16,6 +16,7 @@
  */
 import {abilityCostPreview,abilityAccountingStatus} from '../data/ability-accounting.mjs';
 import {itemSlot} from '../equipment/equipment.mjs';
+import {creatureNature} from '../data/racial-properties.mjs';
 
 const SCOPE='fast-nri-v14';
 const VALID_ID=/^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
@@ -24,13 +25,17 @@ const tr=key=>game.i18n.localize(`FASTNRI.AttackAugment.${key}`);
 const trimmed=value=>String(value??'').trim();
 const isObject=value=>value&&typeof value==='object'&&!Array.isArray(value);
 
-function validatedDamageParts(raw) {
+function validatedDamageParts(raw,{allowFixed=false}={}) {
   if (!Array.isArray(raw) || !raw.length || raw.length>16) return null;
   const result=[];
   for (const part of raw) {
     if (!isObject(part)) return null;
     const match=DIE.exec(trimmed(part.formula));
-    if (!match) return null;
+    if (!match) {
+      const value=Number(trimmed(part.formula)),damageType=trimmed(part.damageType);
+      if(!allowFixed||!Number.isSafeInteger(value)||value<1||value>1000||String(value)!==trimmed(part.formula)||!damageType||damageType.length>100)return null;
+      result.push({kind:'fixed',value,formula:String(value),damageType});continue;
+    }
     const count=Number(match[1]), faces=Number(match[2]);
     if (!Number.isSafeInteger(count) || !Number.isSafeInteger(faces) || count>32 || faces>1000)
       return null;
@@ -46,10 +51,11 @@ export function attackAugmentRule(item) {
   if (item?.type!=='ability') return null;
   const raw=item.system?.mechanics?.attackAugment;
   if (!isObject(raw) || !VALID_ID.test(raw.id)) return null;
-  const parts=validatedDamageParts(raw.damageParts);
+  const parts=validatedDamageParts(raw.damageParts,{allowFixed:raw.afterDefenses===true});
   if (!parts) return null;
   const requirements=isObject(raw.requirements)?raw.requirements:{};
   return {id:raw.id,label:trimmed(raw.label)||trimmed(item.name),parts,singleTarget:raw.singleTarget===true,afterDefenses:raw.afterDefenses===true,
+    oppositeNatureParts:raw.afterDefenses===true&&raw.oppositeNaturePart?validatedDamageParts([raw.oppositeNaturePart]):null,
     requirements:{attackKind:trimmed(requirements.attackKind),
       weaponContentIds:Array.isArray(requirements.weaponContentIds)
         ? requirements.weaponContentIds.map(trimmed).filter(Boolean) : []}};
@@ -117,7 +123,7 @@ export function selectedAttackAugments(context) {
 export function attackAugmentDamageParts(augments,{redactSources=false}={}) {
   return augments.filter(augment=>!augment.rule.afterDefenses).flatMap((augment,augmentIndex)=>augment.rule.parts.map((part,index)=>({
     id:`augment-${augmentIndex}-${index}`,kind:'die',faces:part.faces,formula:part.formula,
-    damageType:part.damageType,partOrigin:'attackAugment',spellDamage:augment.item.system?.mechanics?.attackAugment?.spellDamage===true || augment.item.flags?.[SCOPE]?.contentId==='fnri7.rulebook.ability.warlock.blade',traits:[],
+    damageType:part.damageType,partOrigin:'attackAugment',spellDamage:augment.item.system?.mechanics?.attackAugment?.spellDamage===true,traits:[],
     ...(augment.rule.singleTarget?{singleTarget:true,targetUuid:augment.targetUuid??null}:{}),
     source:redactSources?null:augment.sourceUuid
   })));
@@ -134,16 +140,26 @@ export function readAttackAugmentDamageParts(raw) {
       throw new Error('Invalid saved attack enhancement');
     return {id:`augment-${index}`,kind:'die',faces,formula:`1d${faces}`,
       damageType:trimmed(part.damageType),partOrigin:'attackAugment',spellDamage:part.spellDamage===true,traits:[],
+      ...(part.ferocityDamage===true?{ferocityDamage:true}:{}),
       ...(part.singleTarget===true?{singleTarget:true,targetUuid:typeof part.targetUuid==='string'?part.targetUuid:null}:{}),
       source:typeof part.source==='string'?part.source:null};
   });
 }
 
 /** Separate post-defense rolls, not part of the original profile. */
-export function postDefenseDamageOffers(augments,{redactSources=false}={}) {
-  return augments.filter(a=>a.rule.afterDefenses).map((a,index)=>({
-    id:`after-${index}`,label:redactSources?null:a.rule.label,targetUuid:a.targetUuid??null,
-    singleTarget:a.rule.singleTarget,parts:a.rule.parts.map(p=>({...p})),
-    sourceUuid:redactSources?null:a.sourceUuid
-  }));
+export function postDefenseDamageOffers(augments,{redactSources=false,actor=null,targets=[]}={}) {
+  return augments.filter(a=>a.rule.afterDefenses).map((a,index)=>{
+    let parts=a.rule.parts.map(p=>({...p}));
+    if(a.rule.oppositeNatureParts){
+      const own=creatureNature(actor);
+      const token=targets.find(t=>(t.document?.uuid??t.uuid)===a.targetUuid && t.document?.hidden!==true && t.hidden!==true);
+      const target=token?.actor??token?.document?.actor;
+      // Unreadable or unrepresented Nature stays a manual correction.
+      const other=target&&(target.isOwner||target.testUserPermission?.(game.user,'OBSERVER'))?creatureNature(target):null;
+      if(own&&other&&own!==other)parts.push(...a.rule.oppositeNatureParts.map(p=>({...p})));
+      if(own)parts=parts.map(p=>({...p,traits:[own==='holy'?'Святой':'Нечестивый']}));
+    }
+    return {id:`after-${index}`,label:redactSources?null:a.rule.label,targetUuid:a.targetUuid??null,
+      singleTarget:a.rule.singleTarget,parts,sourceUuid:redactSources?null:a.sourceUuid};
+  });
 }

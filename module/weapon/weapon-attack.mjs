@@ -1,3 +1,6 @@
+import {hasCondition,minimumCellGap,sameScene} from '../spatial/geometry.mjs';
+import {passiveRule,relativeOffGuard,targetOffGuard,appendCombatDice,combatDamageReferences,combatDamageEntries} from '../rolls/combat-dice-damage.mjs';
+import {currentAttackDegree} from '../abilities/degree-reduction.mjs';
 import {canReadChatContent,chatAudience,currentMessageMode} from '../data/chat-visibility.mjs';
 import {createPrivateAreaSourceMessage} from '../data/private-area-source.mjs';
 import {parseAreaDamageProfile} from '../damage/area-damage-profile.mjs';
@@ -16,14 +19,14 @@ import {spatialAttackContext,invisibleAttackSource} from '../spatial/spatial-con
  */
 import {
   bestiaryAttackExpression, resolveAttackDegree, resolveCheckDegree, naturalAttackingD20, parseStandardPhysicalProfile,
-  standardPhysicalPartsForDegree
+  standardPhysicalPartsForDegree, ferocityAttackDegree, ferocityDamageApplies
 } from '../rolls/attack-core.mjs';
 import {snapshotDamageParts} from '../damage/damage-core.mjs';
 import {parseMagicAttackProfile,magicAttackPartsForDegree,magicCombatAttackExpression} from '../rolls/magic-attack-profile.mjs';
 import {prepareRoll,finalizeRollEffects,visibleRollInfluences,preparedDamageDefinitions,fixedRollComponents,redactActorSourceForAudience,selectedRollParts} from '../rolls/roll-context.mjs';
 import {CHECK_DEFENSES,selectedTargetSnapshot,normalizeAttackKind,effectiveWeaponProperties,explicitInterventionFromCard,messageIntervention,isAreaAttack} from '../rolls/attack-properties.mjs';
 import {itemAttackRules} from '../equipment/item-properties.mjs';
-import {weaponProficiency} from '../equipment/equipment.mjs';
+import {weaponProficiency,itemGrip} from '../equipment/equipment.mjs';
 import {inheritedAttackTraits} from '../data/racial-properties.mjs';
 import {combinedWeaponAttackRules,selectedWeaponTraitIds,
   selectedWeaponPropertyNames,resolveAbilityWeapon,weaponTraitOptions,autoRerollWeaponParts} from '../equipment/weapon-traits.mjs';
@@ -96,6 +99,65 @@ export function attackExpressionForWeapon(item, actor) {
 
 export {selectedTargetSnapshot, naturalAttackingD20};
 
+/** Snapshot explicit owned passive contributions to a proficient weapon attack. */
+export function proficientWeaponContributions(actor,weapon,attackKind){
+  if(weapon?.type!=='weapon'||!weaponProficiency(weapon,actor).proficient)return {};
+  let bonus=0, naturalTwentyMultiplier=0;
+  for(const item of actor?.items?.contents??[]){
+    if(item.type!=='ability'||item.system?.mechanics?.passive!==true)continue;
+    const {proficientWeaponDamage:damage,proficientWeaponCritical:critical}=item.system.mechanics;
+    if(damage?.grip===itemGrip(weapon)&&Number.isSafeInteger(damage.bonus)&&damage.bonus>0)bonus=Math.max(bonus,damage.bonus);
+    if(critical?.attackKind===normalizeAttackKind(attackKind)&&Number.isFinite(critical.naturalTwentyMultiplier)&&critical.naturalTwentyMultiplier>1)
+      naturalTwentyMultiplier=Math.max(naturalTwentyMultiplier,critical.naturalTwentyMultiplier);
+  }
+  return {...(bonus?{weaponDamageBonus:bonus}:{}),...(naturalTwentyMultiplier?{naturalTwentyMultiplier}:{})};
+}
+export function weaponBonusParts(data){
+  const value=data.weaponDamageBonus;
+  return Number.isSafeInteger(value)&&value>0?[{id:'weapon-passive-bonus',kind:'fixed',value,formula:String(value)}]:[];
+}
+
+/** Card-defined damage dice for ordinary directed weapon attacks. */
+export function ordinaryWeaponDamage(actor,weapon,{sourceKind,isIntervention,area}={}){
+  if(sourceKind!=='weapon'||isIntervention||area||weapon?.type!=='weapon')return [];
+  const id=weapon.getFlag?.(SYSTEM_ID,'contentId')??weapon.flags?.[SYSTEM_ID]?.contentId;
+  if(!id)return [];
+  const result=[],seen=new Set();
+  for(const item of actor?.items?.contents??[]){
+    const rule=item.system?.mechanics?.ordinaryWeaponDamage;
+    const key=item.getFlag?.(SYSTEM_ID,'contentId')??item.flags?.[SYSTEM_ID]?.contentId;
+    if(item.type!=='ability'||item.system?.mechanics?.passive!==true||!key||seen.has(key)||!rule?.weaponContentIds?.includes(id)||!Number.isSafeInteger(rule.faces)||rule.faces<2||rule.faces>1000)continue;
+    const degrees=['partial','success','great'].filter(d=>rule.degrees?.includes(d));
+    if(!degrees.length)continue;
+    seen.add(key);result.push({faces:rule.faces,degrees,name:item.name});
+  }
+  return result;
+}
+export function ordinaryWeaponDamageEntries(data,degree){
+  return (data.ordinaryWeaponDamage??[]).flatMap((r,i)=>r.degrees.includes(degree)?[{uuid:`ordinary-weapon-${i}`,sourceType:'item',name:r.name,native:false,nativeChanges:[],actorOwned:false,onUse:'none',parts:[{id:'damage',kind:'modifier',label:r.name,value:`1d${r.faces}`}]}]:[]);
+}
+
+/** Conditional combat-die replacement and voluntary point-blank attack bonus. */
+export function situationalCombatDice(actor,{target,originToken,weapon,attackKind,expression,usesCombatDie=false}={}){
+  if(!target?.actor||isHiddenToken(target)||target.visible===false)return [];
+  const beating=passiveRule(actor,'combatDieAgainstProneOrGrabbed');
+  const vulnerable=!!beating&&hasCondition(target.actor,['prone','grabbed']);
+  const close=passiveRule(actor,'pointBlankCombatDie');
+  const standard=/^1d20\s*\+\s*(1d(?:4|6|8|10|12))$/i.exec(String(expression).trim());
+  const base=String(actor?.system?.combatDie??'').replace(/^d/,'1d');
+  const entry=(item,part)=>({uuid:`situational-combat:${item.uuid??item.id}`,sourceType:'item',name:item.name,native:false,nativeChanges:[],actorOwned:false,onUse:'none',parts:[{id:'combat',label:item.name,...part}]});
+  if(vulnerable&&usesCombatDie&&standard&&standard[1]===base&&base!=='1d12')return [entry(beating,{kind:'replacement',from:base,to:'1d12',minimumCombatDie:true})];
+  if(close&&usesCombatDie&&attackKind==='ranged'&&weaponTraitOptions(weapon).some(t=>t.id==='firearm')&&
+    !weaponProficiency(weapon,actor).proficient&&originToken&&sameScene(originToken,target)&&minimumCellGap(originToken,target)===1&&
+    String(expression).trim()==='1d20'&&/^1d(?:4|6|8|10|12)$/.test(base))
+    return [entry(close,{kind:'modifier',value:vulnerable?'1d12':base,defaultEnabled:false})];
+  return [];
+}
+export function degreeDamageEntries(data,degree){
+  const value=data.damageDiceByDegree?.[degree];
+  return typeof value==='string'&&/^[1-9]\d*d(?:4|6|8|10|12)$/.test(value)?[{uuid:'degree-damage',sourceType:'item',name:data.name,native:false,nativeChanges:[],actorOwned:false,onUse:'none',parts:[{id:'damage',kind:'modifier',label:data.name,value}]}]:[];
+}
+
 /** A single chat pipeline for held weapons, other item attacks and unarmed. */
 export async function sendAttackSnapshot({actor = null, name, profile, damageType = 'физический',
   properties = '', sourceUuid = null, expression, warning = null, sourceKind = 'weapon', profileKind='physical',
@@ -103,7 +165,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   selfDefenseRule=null,isIntervention=false,gripWarning=false,skipPreroll=false,
   formulaForActor=null,usesCombatDie=false,sourceItem=null,weaponItem=null,actionId=null,accountingItem=null,execution=null,audienceMessage=null,targetTokens=null,spatialOrigin=null,
   defenseCheckModifier=0,defenseRemovalOrder='highest',
-  greatSelfDefenseModifier=0,rerollWeaponLowOnce=false,catalystDeclared=false,spellRange=null,declaredSpellWeapon=false,chargedWeaponUuid=null} = {}) {
+  greatSelfDefenseModifier=0,rerollWeaponLowOnce=false,catalystDeclared=false,spellRange=null,declaredSpellWeapon=false,chargedWeaponUuid=null,quickAttack=false} = {}) {
   const validProfile=profileKind==='magic' ? parseMagicAttackProfile(profile).ok :
     profileKind==='physical' && parseStandardPhysicalProfile(profile).ok;
   if (!validProfile) throw new Error('Invalid typed attack profile');
@@ -138,6 +200,20 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     : space.distanceSpaces;
   for(const note of space.warnings) ui.notifications?.warn(note);
   if(skipPreroll&&space.spellRangeWarning)ui.notifications?.warn(space.spellRangeWarning);
+  const singleTarget=!areaDeclared&&declaredTargets.length===1?declaredTargets[0]:null;
+  const relative=relativeOffGuard(actor,singleTarget);
+  const sneaky=profileKind==='physical'&&sourceKind!=='unarmed'&&usedWeapon?.type==='weapon'&&weaponProficiency(usedWeapon,actor).proficient&&passiveRule(actor,'combatDiceDamage');
+  const finishing=sourceItem?.system?.mechanics?.attack?.finishingAttack===true;
+  const extra=(sneaky&&(relative||targetOffGuard(actor,singleTarget)||!!singleTarget&&invisibleAttackSource(actor,spatialOrigin))?1:0)+(finishing?1:0);
+  if(extra&&usesCombatDie&&!areaDeclared){
+    const initial=expression, original=formulaForActor??(()=>initial);
+    formulaForActor=a=>appendCombatDice(original(a),a?.system?.combatDie,extra);
+  }
+  if(singleTarget&&isIntervention&&(quickAttack||sourceItem?.system?.mechanics?.attack?.quickStrike===true||sourceItem?.system?.mechanics?.attack?.quickShot===true)&&passiveRule(singleTarget.actor,'quickAttackWarning')){
+    const originToken=(globalThis.canvas?.tokens?.placeables??[]).find(t=>t.document?.uuid===spatialOrigin?.tokenUuid);
+    if(originToken&&targetOffGuard(singleTarget.actor,originToken))ui.notifications?.warn('Изворотливость: цель не может быть целью Быстрого удара или Быстрого выстрела по правилам.');
+  }
+  if(!areaDeclared&&!extra)prerollEntries.push(...situationalCombatDice(actor,{target:singleTarget,originToken:(globalThis.canvas?.tokens?.placeables??[]).find(t=>(t.document??t).uuid===spatialOrigin?.tokenUuid),weapon:usedWeapon,attackKind:normalizeAttackKind(attackKind),expression,usesCombatDie}));
   const context = await prepareRoll({actor,kind:'attack',formula:expression,formulaForActor,
     skipDialog:skipPreroll,label:name,sourceItem,weaponItem:usedWeapon,
     attackKind:normalizeAttackKind(attackKind),extraEntries:space.entries,prerollEntries,spatialInfo:space,
@@ -168,6 +244,9 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   const racialTraits=inheritedAttackTraits(actor,sourceItem,properties);
   properties=[properties,...racialTraits].filter(Boolean).join(', ');
   const attackAugments=selectedAttackAugments(context);
+  const ferocityEntry=context.selected.find(entry=>entry.ferocity===true&&selectedRollParts(entry).length>0);
+  const ferocity=!!ferocityEntry;
+  const ferocityAfter=ferocityEntry?.combatMasterItem?.system?.mechanics?.ferocityAfterDefenses===true;
   // Resources/equipment may change while the preroll is open. Recheck at
   // confirmation using the SAME advisory card rules, never disable the roll.
   for(const augment of attackAugments) {
@@ -181,17 +260,17 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   // independent recipients must not depend on the current source Actor/Item.
   const physicalReduction=weakenedAttackReduction(actor,{sourceKind,weaponItem:usedWeapon,
     attackKind:normalizeAttackKind(attackKind),profileKind});
-  const attackCircumstances={attackOffGuard:invisibleAttackSource(actor,spatialOrigin)};
+  const attackCircumstances={attackOffGuard:relative||invisibleAttackSource(actor,spatialOrigin)};
   const target = selectedTargetSnapshot(declaredTargets,targetDefense,attackCircumstances);
   const areaSnapshots=areaDeclared?declaredTargets.map(token=>declaredTargets.length===1?target:selectedTargetSnapshot([token],targetDefense,attackCircumstances)):null;
   const roll = await new Roll(expression, context.actor?.getRollData?.() ?? {}).evaluate();
   const natural = naturalAttackingD20(roll);
   const rollResult = {total:roll.total,naturalD20:natural};
-  const degree = target.status === 'one' && natural !== null
+  const degree = ferocityAttackDegree(target.status === 'one' && natural !== null
     ? targetDefense === 'ac'
       ? resolveAttackDegree({...rollResult,ac:target.ac})
       : resolveCheckDegree({...rollResult,difficulty:target.difficulty})
-    : null;
+    : null,ferocity);
   const suggestion = degree?.ok && degree.degree !== 'failure' ? degree.degree : null;
   const mode = audienceMessage ? (audienceMessage.blind ? 'blind' : (audienceMessage.whisper?.length ? 'gm' : 'public')) : currentMessageMode();
   const areaAudience=areaDeclared ? chatAudience(audienceMessage ?? ChatMessage.applyMode({},mode)) : null;
@@ -199,7 +278,11 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   const hideSource=privateAreaSource || (!areaDeclared && !!actor && actor.hasPlayerOwner!==true &&
     (audienceMessage ? redactActorSourceForAudience(actor,audienceMessage) : ['public','ic'].includes(mode)));
   const damageAdditions=attackAugmentDamageParts(attackAugments,{redactSources:hideSource});
-  const postDefenseDamage=postDefenseDamageOffers(attackAugments,{redactSources:hideSource});
+  if(ferocity&&!ferocityAfter)damageAdditions.push({id:'ferocity-damage',kind:'die',faces:6,formula:'1d6',damageType,partOrigin:'attackAugment',ferocityDamage:true,traits:[],source:null});
+  const postDefenseDamage=postDefenseDamageOffers(attackAugments,{redactSources:hideSource,actor,targets:declaredTargets});
+  if(ferocityAfter)postDefenseDamage.push({id:`after-${postDefenseDamage.length}`,label:hideSource?null:ferocityEntry.name,
+    targetUuid:target.uuid??null,singleTarget:true,ferocity:true,sourceUuid:hideSource?null:ferocityEntry.sourceUuid,
+    parts:[{kind:'die',faces:8,formula:'1d8',damageType,traits:properties.split(/[,;]+/).map(s=>s.trim()).filter(Boolean)}]});
   // Do not expose hidden GM-controlled token coordinates/UUIDs in a public
   // ChatMessage flag; the caster's selected point remains private in that case.
   const hiddenProjection=spatialOrigin?.kind==='projection' && (spatialOrigin.hidden===true ||
@@ -222,9 +305,9 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     // Resolve once from the declaration snapshot.  Publishing raw AC or
     // defense thresholds as public ChatMessage flags leaks target statistics.
     // Later intervention recalculations only need the original degree.
-    const initial=target.status==='one' ? (CHECK_DEFENSES.includes(targetDefense) ?
+    const initial=ferocityAttackDegree(target.status==='one' ? (CHECK_DEFENSES.includes(targetDefense) ?
       resolveCheckDegree({...rollResult,difficulty:target.difficulty}) :
-      resolveAttackDegree({...rollResult,ac:target.ac})) : null;
+      resolveAttackDegree({...rollResult,ac:target.ac})) : null,ferocity);
     return {key:target.uuid??`unresolved-${index}`,name:target.name??`Цель ${index+1}`,
       status:target.status,uuid:target.uuid??null,
       initialDegree:initial?.ok?initial.degree:null,...(target.attackOffGuard?{attackOffGuard:true}:{})};
@@ -234,6 +317,11 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       ...(parsedAreaDamageProfile?.ok?{damageProfile:parsedAreaDamageProfile.profile}:{}),
       ...(parsedAreaDamageProfile?.ok===false?{damageProfileInvalid:true}:{})}}:{}),
     version:1, name, sourceUuid:privateAreaSource?null:sourceUuid, sourceKind,
+    ...(finishing?{finishingAttack:true}:{}),
+    ...(sneaky&&!isArea&&usesCombatDie?{combatDamageReferences:combatDamageReferences(roll,context.base,context)}:{}),
+    ordinaryWeaponDamage:ordinaryWeaponDamage(actor,usedWeapon,{sourceKind,isIntervention,area:isArea}),
+    ...(sourceItem?.system?.mechanics?.attack?.damageDiceByDegree?{damageDiceByDegree:sourceItem.system.mechanics.attack.damageDiceByDegree}:{}),
+    ...(profileKind==='physical'&&sourceKind!=='unarmed'?proficientWeaponContributions(actor,usedWeapon,attackKind):{}),
     ...(physicalReduction?{physicalReduction}:{}),
     ...(publicOrigin?.tokenUuid || publicOrigin?.kind==='projection' ? {spatialOrigin:{kind:publicOrigin.kind,
       tokenUuid:publicOrigin.tokenUuid,sceneId:publicOrigin.sceneId,
@@ -243,7 +331,10 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       name:privateAreaSource?null:augment.rule.singleTarget?augment.rule.label:augment.item.name,sourceUuid:hideSource?null:augment.sourceUuid,
       ...(augment.rule.singleTarget?{singleTarget:true,targetUuid:augment.targetUuid??null}: {})
     })),damageAdditions}:{}),
+    ...(ferocity?{ferocity:true,damageAdditions}:{}),
+    ...(execution?.attack?.healLargestDamageDie===true?{healLargestDamageDie:true}:{}),
     ...(postDefenseDamage.length?{postDefenseDamage}:{}),
+    ...(sourceItem?.system?.mechanics?.culmination===true?{culmination:true}:{}),
     profile:profileKind==='magic' ? {failure:profile.failure,partial:profile.partial,
       success:profile.success,great:profile.great} : {A:profile.A,B:profile.B,C:profile.C},
     ...(profileKind==='magic'?{profileKind:'magic'}:{}), damageType, properties,
@@ -279,9 +370,9 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   if(isArea){
     const full=damageFormulaForDegree(data.profile,'great',{profileKind:data.profileKind??'physical'});
     if(!full.ok)throw Error('Invalid full area damage profile');
-    const baseParts=[...full.parts.map(part=>({...part,profilePart:part.id})),...readAttackAugmentDamageParts(data.damageAdditions??[])];
+    const baseParts=[...full.parts.map(part=>({...part,profilePart:part.id})),...readAttackAugmentDamageParts(data.damageAdditions??[]),...weaponBonusParts(data)];
     const formula=baseParts.map(p=>p.formula).join(' + ');
-    areaDamageContext=await prepareRoll({actor,kind:'damage',formula,skipDialog:skipPreroll,
+    areaDamageContext=await prepareRoll({actor,kind:'damage',attackDamage:true,formula,skipDialog:skipPreroll,
       label:`${name} · общий урон`,sourceItem,
       weaponItem:usedWeapon});
     if(areaDamageContext===null)return null;
@@ -291,6 +382,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       areaDamageContext.actor?.getRollData?.()??{}).evaluate();
     const defs=preparedDamageDefinitions(baseParts,areaDamageContext);
     const evaluated=snapshotDamageParts(damageRoll,defs,{damageType,properties});
+    if(data.culmination)for(const part of evaluated)if(part.value>0)part.damageType=damageType;
     const autoHistory=await autoRerollWeaponParts(evaluated,data.autoRerollTraits,profileKind);
     const savedParts=hideSource?evaluated.map(part=>({...part,source:null})):evaluated;
     const penaltyComponents=savedParts.filter(part=>part.value<0);
@@ -315,6 +407,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       defenseCheckModifier,greatSelfDefenseModifier,defenseRemovalOrder,
       damageType,properties,criticalThreshold:Number(criticalThreshold)||20,
       naturalCritMultiplier:Number(criticalMultiplier)>1?Number(criticalMultiplier):2,
+      ...(data.naturalTwentyMultiplier?{naturalTwentyMultiplier:data.naturalTwentyMultiplier}:{}),
       cancelled:false,adjustments:{penalty:-penaltyComponents.reduce((sum,p)=>sum+p.value,0),
         resistance:0,vulnerability:0,...(data.physicalReduction===2?{physicalReduction:2}:{})},penaltyComponents,parts:storedParts,history:autoHistory,revision:0}};
   }
@@ -382,7 +475,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
 }
 
 export async function sendWeaponAttack(item, actor = item?.parent?.documentName === 'Actor' ? item.parent : null,
-  {gripWarning=false,skipPreroll=false,actionId=null,accountingItem=null,isIntervention=false,targetTokens=null}={}) {
+  {gripWarning=false,skipPreroll=false,actionId=null,accountingItem=null,isIntervention=false,targetTokens=null,quickAttack=false}={}) {
   if (!isPhysicalWeaponCard(item)) throw new Error('No standard physical weapon profile');
   const {expression, warning} = attackExpressionForWeapon(item,actor);
   return sendAttackSnapshot({actor, name:item.name, profile:item.system.damageProfile,
@@ -393,7 +486,7 @@ export async function sendWeaponAttack(item, actor = item?.parent?.documentName 
     usesCombatDie:!String(item.system.rollFormula??'').trim() && actor?.type!=='npc',
     targetDefense:item.system.mechanics?.attack?.targetDefense || 'ac',
     selfDefenseRule:item.system.mechanics?.attack?.selfDefense ?? null,
-    isIntervention:isIntervention || explicitInterventionFromCard(item),targetTokens,
+    isIntervention:isIntervention || explicitInterventionFromCard(item),targetTokens,quickAttack,
     criticalMultiplier:item.system.mechanics?.attack?.criticalMultiplier ?? null,
     criticalThreshold:item.system.mechanics?.attack?.criticalThreshold ?? 20,
     ...itemAttackRules(item)});
@@ -410,18 +503,21 @@ export function isPhysicalOtherItemAttack(item,actor=item?.parent?.documentName=
     (!!String(expression).trim() || !!weapon);
 }
 
-export async function sendOtherItemAttack(item, actor, {skipPreroll=false,actionId=null,accountingItem=null,execution=null,audienceMessage=null,targetTokens=null,spatialOrigin=null,originTokens=null,isIntervention=false,spellWeaponId=undefined,charged=false}={}) {
+export async function sendOtherItemAttack(item, actor, {skipPreroll=false,actionId=null,accountingItem=null,execution=null,audienceMessage=null,targetTokens=null,spatialOrigin=null,originTokens=null,isIntervention=false,spellWeaponId=undefined,charged=false,chosenPhysicalWeapon=null,quickAttack=false}={}) {
   if (!execution && !isPhysicalOtherItemAttack(item,actor)) throw new Error('No applicable item attack');
   // The execution may specialize a card's attack; never rewrite the Item.
   const rule = spellExecutionRule(item,execution?{...execution,type:'attack'}:null)??{...(item.system.mechanics?.attack??{}),...(execution?.attack??{})};
   if(!['physical','magic'].includes(rule.kind))throw new Error('Unknown attack profile kind');
+  if(rule.requiresHeldItem&&!actor.system?.equipment?.leftHand&&!actor.system?.equipment?.rightHand)ui.notifications?.warn('По правилам требуется удерживаемое оружие или предмет.');
   const magical=rule.kind==='magic';
-  const weapon=magical?null:resolveAbilityWeapon(item,actor);
+  const unarmed=!magical && rule.unarmed===true;
+  const weapon=magical||unarmed?null:(chosenPhysicalWeapon??resolveAbilityWeapon(item,actor));
   const profile=rule.damageProfile??weapon?.system?.damageProfile;
   const valid=magical?parseMagicAttackProfile(profile).ok:parseStandardPhysicalProfile(profile).ok;
   if(!valid)throw new Error('Invalid attack execution profile');
   const explicitFormula=String(execution?.formula??rule.rollFormula??item.system.rollFormula??'').trim();
-  const formulaForActor=prepared=>explicitFormula || (magical?
+  // Explicit card-defined unarmed attack uses the same combat-die check, not a held weapon.
+  const formulaForActor=prepared=>explicitFormula || (magical||unarmed?
     magicCombatAttackExpression(prepared).expression :
     (weapon ? attackExpressionForWeapon(weapon,prepared).expression : ''));
   const expression=formulaForActor(actor);
@@ -431,6 +527,11 @@ export async function sendOtherItemAttack(item, actor, {skipPreroll=false,action
   const allowProjection=String(rule.properties??item.system.tags??'').split(/[,;]+/)
     .some(property=>property.trim().toLowerCase()==='заклинание');
   spatialOrigin ??= actor ? resolveSpellOrigin(actor,{controlled:originTokens,allowProjection}) : null;
+  if(Number.isFinite(rule.attackRange)){
+    const target=(targetTokens??[...(game.user?.targets??[])]);
+    const distance=spatialAttackContext({origin:spatialOrigin,targetTokens:target,attackKind:rule.attackKind}).distanceSpaces;
+    if(target.length===1&&!isHiddenToken(target[0])&&target[0].visible!==false&&Number.isFinite(distance)&&distance>rule.attackRange)ui.notifications?.warn(`Цель за пределами дистанции ${rule.attackRange}.`);
+  }
   // Only range-authored spell executions enter the new declaration path.
   // Legacy/non-directed executions retain their existing handling for now.
   const rangeDeclared=allowProjection&&directedSpellRange(actor,rule)!==null;
@@ -442,17 +543,17 @@ export async function sendOtherItemAttack(item, actor, {skipPreroll=false,action
   const spellWeapon=selected.weapon;
   if(charged&&(!explicit||!weaponTraitOptions(spellWeapon).some(t=>t.id==='charged')))return null;
   const catalystDeclared=magical&&allowProjection&&weaponTraitOptions(spellWeapon).some(option=>option.id==='catalyst');
-  return sendAttackSnapshot({actor,name:item.name,profile,profileKind:magical?'magic':'physical',
+  return sendAttackSnapshot({actor,name:unarmed?String(rule.name||item.name):item.name,profile,profileKind:magical?'magic':'physical',
     damageType:rule.damageType || weapon?.system?.damageType || (magical?'магический':'физический'),
     properties,sourceUuid:item.uuid??null,expression,formulaForActor,catalystDeclared,
     spellRange:directedSpellRange(actor,rule,spellWeapon,{advisory:explicit}),
     declaredSpellWeapon:explicit,chargedWeaponUuid:charged?spellWeapon.uuid:null,
-    usesCombatDie:!explicitFormula && actor?.type!=='npc' && (magical || !String(weapon?.system?.rollFormula??'').trim()),
-    warning:magical&&!explicitFormula?magicCombatAttackExpression(actor).warning:null,
+    usesCombatDie:!explicitFormula && actor?.type!=='npc' && (magical || unarmed || !String(weapon?.system?.rollFormula??'').trim()),
+    warning:(magical||unarmed)&&!explicitFormula?magicCombatAttackExpression(actor).warning:null,
     skipPreroll,sourceItem:item,weaponItem:spellWeapon??weapon,actionId,accountingItem,execution,audienceMessage,targetTokens,spatialOrigin,
-    sourceKind:item.type==='ability'?'ability':'other',attackKind:rule.attackKind ?? weapon?.system?.attackKind ?? (magical?'ranged':'melee'),
+    sourceKind:unarmed?'unarmed':item.type==='ability'?'ability':'other',attackKind:rule.attackKind ?? weapon?.system?.attackKind ?? (magical?'ranged':'melee'),
     targetDefense:rule.targetDefense ?? 'ac',selfDefenseRule:rule.selfDefense ?? null,
-    isIntervention:isIntervention || (execution?.isIntervention ?? explicitInterventionFromCard(item)),
+    isIntervention:isIntervention || (execution?.isIntervention ?? explicitInterventionFromCard(item)),quickAttack,
     criticalMultiplier:rule.criticalMultiplier ?? weapon?.system?.mechanics?.attack?.criticalMultiplier ?? null,
     criticalThreshold:rule.criticalThreshold ?? weapon?.system?.mechanics?.attack?.criticalThreshold ?? 20,
     ...(!magical?itemAttackRules(item):{})});
@@ -473,7 +574,10 @@ export function damageFormulaForDegree(profile, degree, {profileKind='physical'}
  */
 export async function sendWeaponDamage(message, degree, {rerollLowWeaponDice=false,skipPreroll=false}={}) {
   if (!canReadChatContent(message)) return null;
-  const data = message?.getFlag?.(SYSTEM_ID, 'weaponAttack') ?? message?.flags?.[SYSTEM_ID]?.weaponAttack;
+  const original = message?.getFlag?.(SYSTEM_ID, 'weaponAttack') ?? message?.flags?.[SYSTEM_ID]?.weaponAttack;
+  const edit=message.getFlag?.(SYSTEM_ID,'rollEdit');
+  const lucky=edit?.components?.find(p=>p.kind==='die'&&p.faces===20&&!p.added&&!p.excluded&&edit.history?.some(h=>h.id===p.id&&h.gameReroll===true&&h.rule==='luck'));
+  const data=original&&lucky&&Number.isInteger(lucky.value)&&lucky.value>=1&&lucky.value<=20?{...original,naturalD20:lucky.value,naturalTwenty:lucky.value===20}:original;
   if (!data || data.version !== 1) throw new Error('Missing weapon attack snapshot');
   if (!game.user?.isGM && !message.isAuthor) throw new Error('Only message author or GM may roll its damage');
   const area= data.areaAttack?.version===1;
@@ -486,9 +590,9 @@ export async function sendWeaponDamage(message, degree, {rerollLowWeaponDice=fal
   const legacyAutoReroll=data.profileKind!=='magic' && data.rerollWeaponLowOnce===true &&
     rerollLowWeaponDice===true;
   // Legacy macro opts into the same tracked automatic reroll as the UI.
-  const augmentParts=readAttackAugmentDamageParts(data.damageAdditions??[]);
-  const rolledParts=[...selected.parts,...augmentParts].map(part=>
-    part.id.startsWith('augment-') ? {...part} : {...part,profilePart:part.id});
+  const augmentParts=readAttackAugmentDamageParts(data.damageAdditions??[]).filter(part=>
+    !part.ferocityDamage||area||ferocityDamageApplies(degree));
+  const rolledParts=[...selected.parts.map(part=>({...part,profilePart:part.id})),...augmentParts,...weaponBonusParts(data)];
   const rolledFormula=rolledParts.map(part=>part.formula).join(' + ');
   const actor = data.actorUuid ? await fromUuid(data.actorUuid) : null;
   const sourceItem = data.sourceUuid ? await fromUuid(data.sourceUuid) : null;
@@ -497,7 +601,7 @@ export async function sendWeaponDamage(message, degree, {rerollLowWeaponDice=fal
   const damageContext = await prepareRoll({actor:actor?.documentName === 'Actor' ? actor : null,
     sourceItem:sourceItem?.documentName === 'Item' ? sourceItem : null,
     weaponItem:sourceWeapon?.type==='weapon'?sourceWeapon:null,
-    kind:'damage',formula:rolledFormula,skipDialog:skipPreroll,label:`${data.name} · урон`});
+    kind:'damage',attackDamage:true,formula:rolledFormula,prerollEntries:[...ordinaryWeaponDamageEntries(data,degree),...combatDamageEntries(data,degree,edit),...degreeDamageEntries(data,degree)],skipDialog:skipPreroll,label:`${data.name} · урон`});
   if (damageContext === null) return null;
   const definitions=preparedDamageDefinitions(rolledParts,damageContext);
   if (typeof Roll.validate === 'function' && !Roll.validate(damageContext.expression))
@@ -512,6 +616,7 @@ export async function sendWeaponDamage(message, degree, {rerollLowWeaponDice=fal
   // A and B are separate evaluated dice; C is a separate fixed component.
   // Fail explicitly rather than fabricate individual values from an aggregate.
   const evaluated=snapshotDamageParts(roll,definitions,{damageType:data.damageType,properties:data.properties});
+  if(data.culmination)for(const part of evaluated)if(part.value>0)part.damageType=data.damageType;
   const autoHistory=await autoRerollWeaponParts(evaluated,{...data.autoRerollTraits,
     ...(legacyAutoReroll?{sweeping:true}:{})},data.profileKind??'physical');
   // Rulebook: negative contributions are penalties AFTER immunities/defenses.
@@ -531,6 +636,8 @@ export async function sendWeaponDamage(message, degree, {rerollLowWeaponDice=fal
       attackTotal:Number.isFinite(correctedTotal)?correctedTotal:data.attackTotal,
       naturalD20:data.naturalD20,profileKind:data.profileKind??'physical'}}:{}),
     name:data.name,degree,effectDegree:degree,profile:data.profile,
+    ...(data.ferocity?{ferocity:true}:{}),
+    ...(data.healLargestDamageDie?{healLargestDamageDie:true}:{}),
     ...(data.postDefenseDamage?{postDefenseDamage:data.postDefenseDamage}:{}),
     ...(Array.isArray(data.attackAugments)?{attackAugments:data.attackAugments.map(a=>a.name)}:{}),
     ...(data.profileKind==='magic'?{profileKind:'magic'}:{}),sourceUuid:data.sourceUuid,
@@ -552,8 +659,9 @@ export async function sendWeaponDamage(message, degree, {rerollLowWeaponDice=fal
     ...(data.spatialOrigin ? {spatialOrigin:data.spatialOrigin} : {}),
     damageType:data.damageType,properties:data.properties,naturalTwenty:!!data.naturalTwenty,
     naturalCritMultiplier:Number(data.criticalMultiplier) > 1 ? Number(data.criticalMultiplier) : 2,
+    ...(data.naturalTwentyMultiplier?{naturalTwentyMultiplier:data.naturalTwentyMultiplier}:{}),
     criticalThreshold:threshold,criticalTriggered:triggered,
-    manualCritical:null,manualCritMultiplier:Number(data.criticalMultiplier)>1?Number(data.criticalMultiplier):2,cancelled:false,
+    manualCritical:null,manualCritMultiplier:Math.max(Number(data.criticalMultiplier)||2,data.naturalD20===20?Number(data.naturalTwentyMultiplier)||2:2),cancelled:false,
     adjustments:{penalty:damagePenalty,resistance:0,vulnerability:0,
       ...(data.physicalReduction===2?{physicalReduction:2}:{})},
     penaltyComponents,parts,history:autoHistory,revision:0};
@@ -578,6 +686,19 @@ export async function sendWeaponDamage(message, degree, {rerollLowWeaponDice=fal
 
 /** Foundry v14 public hook: message and HTML element, not a jQuery wrapper. */
 export function registerWeaponChatControls() {
+  const refreshReduction=entry=>{
+    const record=entry.getFlag?.(SYSTEM_ID,'degreeChange');
+    if(record?.kind!=='attack')return;
+    const source=game.messages?.get(record.sourceMessageId);
+    if(!canReadChatContent(source))return;
+    const degree=currentAttackDegree(source,{recommendation:true});
+    for(const el of globalThis.document?.querySelectorAll?.('.chat-message')??[]){
+      if(el.dataset.messageId!==source.id)continue;
+      for(const button of el.querySelectorAll('[data-fnri-degree]'))button.classList.toggle('fnri-weapon-suggested',button.dataset.fnriDegree===degree);
+    }
+  };
+  Hooks.on('createChatMessage',refreshReduction);
+  Hooks.on('deleteChatMessage',refreshReduction);
   Hooks.on('renderChatMessageHTML', (message, html) => {
     const data = message.getFlag?.(SYSTEM_ID,'weaponAttack') ?? message.flags?.[SYSTEM_ID]?.weaponAttack;
     if (!data || data.version !== 1 || message.getFlag?.(SYSTEM_ID,'weaponDamage')?.areaAttack ||
@@ -603,12 +724,13 @@ export function registerWeaponChatControls() {
     }
     const row=document.createElement('div');
     row.className='fnri-weapon-chat-buttons';
+    const recommended=data.targetDefense==='will'?currentAttackDegree(message,{recommendation:true}):data.suggestedDegree;
     for (const degree of (data.areaAttack?.version===1?['great']:DEGREES)) {
       const button=document.createElement('button');
       button.type='button';
       button.dataset.fnriDegree=degree;
       button.className='fnri-weapon-chat-button';
-      if (data.suggestedDegree === degree) button.classList.add('fnri-weapon-suggested');
+      if (recommended === degree) button.classList.add('fnri-weapon-suggested');
       button.textContent=data.areaAttack?.version===1?'Бросить общий урон':local(degree);
       // Unrelated buttons remain fully usable; visual highlight is advisory.
       button.addEventListener('click',async event=>{

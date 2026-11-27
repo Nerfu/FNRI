@@ -4,7 +4,7 @@
 import {canReadChatContent,chatAudience} from '../data/chat-visibility.mjs';
 import {postDefenseChoices,publishPostDefenseDamage} from './post-defense-damage.mjs';
 import {selectAreaDamageParts} from './area-damage-profile.mjs';
-import {ATTACK_DEGREES,resolveAttackDegree,resolveCheckDegree,naturalAttackingD20} from '../rolls/attack-core.mjs';
+import {ATTACK_DEGREES,resolveAttackDegree,resolveCheckDegree,naturalAttackingD20,ferocityDamageApplies} from '../rolls/attack-core.mjs';
 import {CHECK_DEFENSES, messageIntervention} from '../rolls/attack-properties.mjs';
 import {prepareRoll,finalizeRollEffects,redactActorSourceForAudience,defenseConditionSummary} from '../rolls/roll-context.mjs';
 import {counteractionFormula} from './counteraction.mjs';
@@ -53,29 +53,30 @@ function interventionsFor(root){
   });
 }
 const parts=card=>(card.parts??[]).filter(p=>!p.pending&&!p.excluded&&!p.immune&&Number.isFinite(p.value));
-function profileFor(card,degree,{actor=null,covers=[],targetUuid=null}={}){
+function profileFor(card,degree,{actor=null,covers=[],targetUuid=null,choices=[]}={}){
   if(card.areaAttack?.damageProfileInvalid===true)
     return {degree,damage:null,profileComplete:false,profileReason:'invalid-card-area-profile',
       includedPartIds:[],excludedPartIds:[]};
   // A targeted augmentation is part of the one shared roll, but only of
   // the chosen recipient's damage. Unassigned additions remain manual.
-  const valid=parts(card).filter(p=>p.value>=0&&(!p.singleTarget||p.targetUuid&&p.targetUuid===targetUuid));
+  const valid=parts(card).filter(p=>p.value>=0&&(!p.singleTarget||p.targetUuid&&p.targetUuid===targetUuid)&&
+    (!p.ferocityDamage||ferocityDamageApplies(degree)));
   // Immunity removes parts before a defense or profile can choose a die.
   // The profile still describes the size of the original shared damage pool.
   const fullDefenses=actor?previewDeclaredDamageDefenses(actor,card):null;
   // The canon defines default area profiles only for two or three dice.
   // Full success and failure are unambiguous; do not invent removal steps
   // for an expanded pool in intermediate degrees without a card profile.
-  const extra=valid.some(p=>p.singleTarget);
+  const extra=valid.some(p=>p.singleTarget||p.ferocityDamage);
   const explicit=card.areaAttack?.damageProfile??null;
   const expanded=extra&&!explicit&&valid.length>3;
   const immune=new Set(fullDefenses?.immunePartIds??[]);
   const selection=expanded&&['great','failure'].includes(degree)?{ok:true,
     includedPartIds:degree==='great'?valid.filter(p=>!immune.has(p.id)).map(p=>p.id):[],
     excludedPartIds:degree==='failure'?valid.filter(p=>!immune.has(p.id)).map(p=>p.id):[]}:
-    selectAreaDamageParts(valid,degree,explicit,{immunePartIds:fullDefenses?.immunePartIds});
+    selectAreaDamageParts(valid,degree,explicit,{immunePartIds:fullDefenses?.immunePartIds,choices});
   if(!selection.ok)return {degree,damage:null,profileComplete:false,
-    profileReason:selection.reason,includedPartIds:[],excludedPartIds:[]};
+    profileReason:selection.reason,includedPartIds:[],excludedPartIds:[],decisions:selection.decisions??[]};
   const ids=new Set(selection.includedPartIds);
   const masked=applyCoverExclusions({...card,parts:card.parts.map(p=>({...p,
     excluded:p.excluded||!ids.has(p.id)}))},covers);
@@ -91,7 +92,7 @@ function profileFor(card,degree,{actor=null,covers=[],targetUuid=null}={}){
   return {degree,damage:calculateDamage(masked).total,card:masked,
     defenseComplete:defenses?.complete??null,defensesApplied:defenses?.complete===true,
     profileComplete:true,includedPartIds:selection.includedPartIds,
-    excludedPartIds:selection.excludedPartIds};
+    excludedPartIds:selection.excludedPartIds,decisions:selection.decisions??[]};
 }
 
 function rootId(message){
@@ -106,7 +107,24 @@ function baseOf(root){
   return {card,area:card.areaAttack};
 }
 
-function liveAreaRows(root) {
+/** Explicit profile decisions belong to a recipient, degree and shared roll revision.
+ * Publish them in the existing area-result message, never edit another user's roll. */
+const profileKey=(uuid,degree)=>JSON.stringify([uuid,degree]);
+function areaProfileChoices(root){
+  const revision=baseOf(root)?.card.revision??0, choices=new Map();
+  const linked=orderedInterventions(records().filter(m=>canRead(m)&&sameCoverAudience(m,root)&&
+    m.getFlag?.(ID,'areaResult')?.rootMessageId===root.id));
+  for(const message of linked)for(const row of message.getFlag(ID,'areaResult').results){
+    if(row.profileRevision===revision&&Array.isArray(row.profileChoices))
+      choices.set(profileKey(row.tokenUuid,row.degree),row.profileChoices);
+  }
+  return choices;
+}
+function recipientProfile(root,degree,options={},selections=areaProfileChoices(root)){
+  return profileFor(baseOf(root).card,degree,{...options,choices:selections.get(profileKey(options.targetUuid,degree))??[]});
+}
+
+export function liveAreaRows(root) {
   return resolveAreaResults(root,interventionsFor(root).map(message=>message.getFlag(ID,'areaIntervention')));
 }
 
@@ -115,6 +133,18 @@ function areaAnswered(root, token) {
 }
 
 const sameAreaCoverSource = (message,root) => sameCoverAudience(message,root) && !messageIntervention(root);
+
+/** Reconstruct only the existing ally's target profile, omitting its own
+ * transfer record. No new intervention, adjacency check or resource spend. */
+export function areaCoverSnapshot(message,ally,{omitMessageId=null}={}){
+  const root=game.messages?.get(rootId(message)),base=baseOf(root);
+  if(!canRead(message)||!canRead(root)||!sameAreaCoverSource(message,root)||!base||base.card.cancelled||base.card.parts.some(p=>p.pending))return null;
+  const uuid=ally.document?.uuid??ally.uuid;
+  const degree=liveAreaRows(root)?.find(row=>row.tokenUuid===uuid)?.degree;
+  const covers=coverRecords(root,uuid).filter(r=>r.messageId!==omitMessageId);
+  if(!degree||covers.some(r=>r.allyKey!==coverActorKey(ally.actor)||r.sourceRevision!==(base.card.revision??0)))return null;
+  return recipientProfile(root,degree,{actor:ally.actor,covers,targetUuid:uuid}).card??null;
+}
 
 export function areaCoverCandidates(message, defender) {
   const root=game.messages?.get(rootId(message));
@@ -129,7 +159,7 @@ export function areaCoverCandidates(message, defender) {
     const covers=coverRecords(root,ally.document.uuid);
     if (!degree || covers.some(cover=>cover.allyKey!==coverActorKey(ally.actor) ||
       cover.sourceRevision!==(base.card.revision??0))) return [];
-    const profile=profileFor(base.card,degree,{actor:ally.actor,covers,targetUuid:ally.document.uuid});
+    const profile=recipientProfile(root,degree,{actor:ally.actor,covers,targetUuid:ally.document.uuid});
     return profile.damage>0 && coverAllyDice(profile.card).length ? [{ally,card:profile.card}] : [];
   });
 }
@@ -153,7 +183,7 @@ export function resolveAreaResults(root,interventions=[]){
   const base=baseOf(root);
   if(!base)return null;
   const {card,area}=base;
-  const check=areaCheckState(root);
+  const check=areaCheckState(root), selections=areaProfileChoices(root);
   return area.targets.map(t=>{
     // New snapshots retain only a degree, not private target AC/defense
     // values. A legacy work-in-progress snapshot may still hold thresholds.
@@ -167,12 +197,12 @@ export function resolveAreaResults(root,interventions=[]){
     for(const intervention of related){
       if(!degree||!intervention.success)continue;
       if(intervention.naturalD20===20 && intervention.naturalTwentyCancels!==false){degree='failure';continue;}
-      const offset=intervention.kindKey==='card' || intervention.kindKey==='followUp' ?
+      const offset=['card','followUp','degreeReduction'].includes(intervention.kindKey) ?
         (Number.isInteger(intervention.degreeReduction)?intervention.degreeReduction:1) :
         (intervention.safe===true?2:1);
       degree=ATTACK_DEGREES[Math.max(0,ATTACK_DEGREES.indexOf(degree)-offset)];
     }
-    const profile=degree?profileFor(card,degree,{targetUuid:t.uuid}):null;
+    const profile=degree?recipientProfile(root,degree,{targetUuid:t.uuid},selections):null;
     return {key:t.key,name:t.name,tokenUuid:t.uuid,initial:ATTACK_DEGREES.includes(t.initialDegree)?t.initialDegree:
       (calculation?.ok?calculation.degree:null),
       degree,damage:profile?.damage??null,profileComplete:profile?.profileComplete!==false,
@@ -319,15 +349,78 @@ export async function applyAreaInterventions(message){
   const ids=linked.map(m=>m.id).sort();
   const data={version:1,rootMessageId:id,interventionIds:ids,results};
   return ChatMessage.create({speaker:baseOf(root).card.areaOutcomeRedacted?{alias:'Fast NRI'}:root.speaker,
-    content:`<strong>${esc(baseOf(root).card.name)}</strong> · результат с учётом Вмешательств`,
+    content:`<strong>${esc(baseOf(root).card.name)}</strong> · ${entries.some(entry=>entry.kindKey==='degreeReduction')?esc(game.i18n.localize('FASTNRI.DegreeReduction.result')):'результат с учётом Вмешательств'}`,
     ...chatAudience(root),flags:{[ID]:{areaResult:data}}});
 }
 function resultsFor(message){
   const current=active(message),id=rootId(current),root=game.messages?.get(id);
-  if(!current||!root||!canReadChatContent(current)||!canReadChatContent(root))return null;
+  if(!current||!root||!canReadChatContent(current)||!canReadChatContent(root)||!sameCoverAudience(current,root))return null;
   const result=snapshotOf(current);
-  return {root,rows:result?.version===1&&!areaCheckState(root)?.changed?result.results:resolveAreaResults(root,[])};
+  if(result?.version!==1||areaCheckState(root)?.changed)return {root,rows:resolveAreaResults(root,[])};
+  const selections=areaProfileChoices(root);
+  return {root,rows:result.results.map(row=>{
+    const choices=selections.get(profileKey(row.tokenUuid,row.degree))??[];
+    if(!row.degree||!choices.length&&!Array.isArray(row.profileChoices))return row;
+    const profile=recipientProfile(root,row.degree,{targetUuid:row.tokenUuid},selections);
+    return {...row,damage:profile.damage,profileComplete:profile.profileComplete,
+      includedPartIds:profile.includedPartIds,excludedPartIds:profile.excludedPartIds,profileReason:profile.profileReason??null};
+  })};
 }
+/** Independent HP application can use a published amount even if its source
+ * was removed or the check changed; this is not automatic linked damage. */
+export function areaResultRows(message){
+  const current=active(message);if(!canRead(current))return null;
+  const stored=snapshotOf(current)?.results,resolved=resultsFor(current);
+  return stored&&(!resolved||areaCheckState(resolved.root)?.changed)?stored:resolved?.rows??null;
+}
+export function areaComponentChoices(message){
+  // Profile correction is a GM tool, not a player-side ability choice.
+  if(!game.user?.isGM)return [];
+  if(!message?.getFlag?.(ID,'weaponDamage')?.areaAttack&&!snapshotOf(message))return [];
+  const resolved=resultsFor(message);if(!resolved||areaCheckState(resolved.root)?.changed)return [];
+  const {root,rows}=resolved,card=baseOf(root).card;
+  if(card.cancelled||card.parts.some(p=>p.pending))return [];
+  const controlled=globalThis.canvas?.tokens?.controlled??[], selections=areaProfileChoices(root);
+  return rows.flatMap(row=>{
+    const token=controlled.find(t=>t.document?.uuid===row.tokenUuid&&t.document?.hidden!==true);
+    const actor=actorForToken(token);
+    if(!row.degree||!canWrite(actor))return [];
+    const options={targetUuid:row.tokenUuid,actor}, profile=recipientProfile(root,row.degree,options,selections);
+    const previous=selections.get(profileKey(row.tokenUuid,row.degree))??[];
+    const covers=coverRecords(root,row.tokenUuid);
+    return (profile.decisions??[]).flatMap(decision=>{
+      const candidates=decision.candidates.filter(id=>id!==decision.currentId).flatMap(id=>{
+        const choices=previous.slice(0,decision.stepIndex);choices[decision.stepIndex]=id;
+        const next=profileFor(card,row.degree,{...options,choices});
+        // Do not silently invalidate an existing transfer. The receipt can
+        // still be edited through its own existing component-choice command.
+        if(covers.length&&(!next.card||!applyCoverExclusions(next.card,covers)))return [];
+        const p=card.parts.find(p=>p.id===id);
+        return [{id:p.id,formula:p.formula,value:p.value,damageType:p.damageType,traits:p.traits??[],choices}];
+      });
+      return candidates.length?[{index:`area:${row.key}:${decision.stepIndex}`,name:`${row.name} · ${decision.stepIndex+1}`,currentId:decision.currentId,sourceRevision:card.revision??0,candidates}]:[];
+    });
+  });
+}
+export async function publishAreaComponentChoice(message,index,partId){
+  const choice=areaComponentChoices(message).find(c=>c.index===index);
+  const candidate=choice?.candidates.find(p=>p.id===partId);if(!candidate)return null;
+  const resolved=resultsFor(message);if(!resolved)return null;
+  const {root,rows}=resolved,card=baseOf(root).card;
+  const row=rows.find(r=>index.startsWith(`area:${r.key}:`));if(!row)return null;
+  const profile=profileFor(card,row.degree,{targetUuid:row.tokenUuid,choices:candidate.choices});
+  const changed={...row,damage:profile.damage,profileComplete:profile.profileComplete,
+    includedPartIds:profile.includedPartIds,excludedPartIds:profile.excludedPartIds,profileReason:profile.profileReason??null,
+    profileRevision:card.revision??0,profileChoices:candidate.choices};
+  // Retain the result's own degrees; only the chosen target changes.
+  const results=rows.filter(r=>!hiddenTarget(r.tokenUuid)).map(r=>r===row?changed:
+    Object.fromEntries(Object.entries(r).filter(([k])=>!['profileChoices','profileRevision'].includes(k))));
+  const data={version:1,rootMessageId:root.id,interventionIds:snapshotOf(message)?.interventionIds??[],results};
+  return ChatMessage.create({speaker:card.areaOutcomeRedacted?{alias:'Fast NRI'}:root.speaker,
+    content:`<strong>${esc(card.name)}</strong> · ${esc(game.i18n.localize('FASTNRI.Damage.chooseOtherDie'))}`,
+    ...chatAudience(root),flags:{[ID]:{areaResult:data}}});
+}
+
 async function selectedRecipients(message,{manual=false}={}){
   const all=[...(globalThis.canvas?.tokens?.controlled??[])];
   const root=resultsFor(message)?.root,allowed=new Set(baseOf(root)?.area.targets.map(t=>t.uuid)??[]);
@@ -387,9 +480,9 @@ export async function applyAreaDamage(message,{degree=null,effect=false,both=fal
     if(!useDegree){ui.notifications?.warn(`Не определена степень для ${token.name}.`);continue;}
     let report=null;
     if(!effect||both){
-      const calculation=profileFor(card,useDegree,{actor,covers,targetUuid:token.document?.uuid});
+      const calculation=recipientProfile(resolved.root,useDegree,{actor,covers,targetUuid:token.document?.uuid});
       if(calculation.profileComplete===false){
-        ui.notifications?.warn(`${token.name}: профиль урона этой степени не задан. Расчёт не применён.`);
+        ui.notifications?.warn(`${token.name}: ${calculation.profileReason==='ambiguous-area-die-tie'||calculation.profileReason==='invalid-area-choice'?game.i18n.localize(game.user?.isGM?'FASTNRI.Damage.chooseOtherDie':'FASTNRI.Damage.areaChoiceAskGM'):'профиль урона этой степени не задан.'} Расчёт не применён.`);
         continue;
       }
       if(calculation.defenseComplete===false)
@@ -484,7 +577,7 @@ function areaButtons(message,anchor){
   const intervention=message.getFlag(ID,'areaIntervention');
   const result=snapshotOf(message);
   if(card?.areaAttack?.version===1 || result?.version===1){actions.append(button('Вмешаться',event=>rollAreaIntervention(message,{skipPreroll:!!event?.shiftKey})));}
-  if(intervention?.version===1){actions.append(button('Применить вмешательства',()=>applyAreaInterventions(message)));}
+  if(intervention?.version===1){actions.append(button(intervention.kindKey==='degreeReduction'?game.i18n.localize('FASTNRI.DegreeReduction.result'):'Применить вмешательства',()=>applyAreaInterventions(message)));}
   if(intervention?.followUpVersion===1 && intervention.success===true) {
     const group=document.createElement('span');
     group.dataset.fnriAreaFollowUps=message.id;
@@ -546,7 +639,7 @@ export function renderAreaChat(message,html){
         }
       }
     }
-    const rows=result?.version===1?(areaCheckState(root)?.changed?result.results.map(row=>({...row,degree:null,damage:null})):result.results):resolveAreaResults(message,[]);
+    const rows=result?.version===1?(areaCheckState(root)?.changed?result.results.map(row=>({...row,degree:null,damage:null})):resultsFor(message)?.rows??[]):resolveAreaResults(message,[]);
     for(const degree of ATTACK_DEGREES.slice().reverse()){
       const matches=rows.filter(r=>r.degree===degree);
       if(!matches.length)continue;
@@ -562,7 +655,7 @@ export function renderAreaChat(message,html){
     note.textContent=game.i18n.format('FASTNRI.AreaIntervention.reduction',{
       target:intervention.targetName,amount:intervention.degreeReduction});
     panel.append(note);
-  } else if(intervention?.version===1){const note=document.createElement('small');note.textContent=
+  } else if(intervention?.version===1 && intervention.kindKey!=='degreeReduction'){const note=document.createElement('small');note.textContent=
     `${intervention.kind}: ${intervention.targetName} · ${intervention.success?'успех':'провал'}`+
     (intervention.knockedDown?' · '+game.i18n.localize('FASTNRI.AreaIntervention.knockedDown'):'');panel.append(note);}
   areaButtons(message,panel);anchor.append(panel);return true;

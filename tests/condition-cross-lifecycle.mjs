@@ -58,3 +58,12 @@ const log=console.error;const errors=[];console.error=(...args)=>errors.push(arg
 try{rolls.push(15,15);await combat._onEndTurn(cb,{round:2});}finally{console.error=log;}
 assert.equal(errors.length,1);assert.match(errors[0][0],/periodic damage end-turn failed/);assert.deepEqual(a.effects.contents.map(e=>e.id),['prone','grabbed']);assert.equal(rolls.length,0);
 console.log('PASS A2.5 cross lifecycle: uniform inactive sources, combined conditions, native hook order, replay and isolated failure (mocks)');
+
+// Updated Orc marker is shared by normal and automatic periodic HP paths.
+const orc=actor('Actor.orc');orc.system.hp={current:2,max:10,temp:9};
+orc.items.contents=[{type:'ability',name:'Неукротимость',uuid:'Actor.orc.Item.orc',img:'icons/magic/life/heart-cross-strong-flame-green.webp',system:{mechanics:{preventZeroHpMarker:true}}}];
+orc.createEmbeddedDocuments=async(type,rows)=>rows.map(row=>{const e={...row,id:'marker',parent:orc,getFlag(s,k){return this.flags?.[s]?.[k]}};orc.effects.contents.push(e);return e;});
+const orcCb={id:'orc',actor:orc};const effect=periodic('orcTick',{parent:orc});orc.effects.contents=[effect];
+await combat._onEndTurn(orcCb,{round:2});assert.equal(orc.system.hp.current,1);assert.equal(orc.system.hp.temp,9);assert.equal(orc.effects.contents.length,1);assert.equal(orc.effects.contents[0].getFlag(S,'zeroHpPreventionUsed'),true);
+orc.effects.contents.push(periodic('orcTick2',{parent:orc}));await combat._onEndTurn(orcCb,{round:3});assert.equal(orc.system.hp.current,0);
+console.log('PASS updated Orc marker on periodic damage and second lethal hit');

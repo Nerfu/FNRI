@@ -1,3 +1,4 @@
+import {protectiveCombatDice} from '../rolls/roll-contributions.mjs';
 import {interventionWarnings} from '../data/intervention-availability.mjs';
 import {declareAction,canExecuteAction} from '../rolls/action-declaration.mjs';
 import {standaloneIntervention} from './standalone-intervention.mjs';
@@ -20,7 +21,7 @@ export function counteractionFormula(actor, stat, {allowMissingDefense=false}={}
   const combat = /^(?:1)?d[1-9]\d*$/i.test(die) ? (die.startsWith('1') ? die : '1'+die) : '';
   const npc = actor.type === 'npc' && Number.isFinite(actor.system?.attackModifier)
     ? actor.system.attackModifier : 0;
-  return `1d20 + (${value})${combat ? ' + '+combat : npc ? ` + (${npc})` : ''}`;
+  return `1d20 + (${value})${combat ? ' + '+protectiveCombatDice(actor,combat) : npc ? ` + (${npc})` : ''}`;
 }
 
 /** One target, one current result. The caller supplies that target explicitly. */

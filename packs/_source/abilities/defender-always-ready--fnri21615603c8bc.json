@@ -1,0 +1,21 @@
+{
+  "name": "Всегда готов",
+  "type": "ability",
+  "_id": "fnri21615603c8bc",
+  "system": {
+    "description": "**Вмешательства.** Ваш начальный запас Вмешательств и запас при каждом обновлении ресурсов равен `2` вместо `1`.\n\n**Засада.** Если ваша сторона попала в засаду, вы начинаете бой с `1` Вмешательством вместо `0`.\n\n**Защитная подготовка.** В проверках действий со свойством **Защитное** используйте `2d6` вместо Куба боя.",
+    "category": "Способность Защитника",
+    "mechanics": {
+      "passive": true,
+      "defensiveCombatDice": "2d6"
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.defender.always-ready",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Защитника / Всегда готов"
+    }
+  },
+  "effects": [],
+  "img": "icons/equipment/shield/heater-steel-sword-yellow-black.webp"
+}

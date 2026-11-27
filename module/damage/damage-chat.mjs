@@ -2,8 +2,8 @@ import {canReadChatContent} from '../data/chat-visibility.mjs';
 import {renderAreaChat} from './area-attack.mjs';
 import {directedPostDefenseChoices,publishPostDefenseDamage} from './post-defense-damage.mjs';
 /** A single view over version-2 damage snapshots, including linked interventions. */
-import {damageDisplay} from './damage-core.mjs';
-import {applyCardDamage,renderHpReport} from './hp-actions.mjs';
+import {damageDisplay,largestDamageDieHealing} from './damage-core.mjs';
+import {applyCardDamage,renderHpReport,applyHp,chooseHpRecipient} from './hp-actions.mjs';
 import {initiateIntervention} from './interventions.mjs';
 import {messageIntervention} from '../rolls/attack-properties.mjs';
 import {highlightDiceResults,highlightCheckTotal} from './dice-highlights.mjs';
@@ -46,13 +46,13 @@ export function renderDamageCard(message,html) {
   }
   const lines=element('div','fnri-damage-parts');
   for(const part of card.parts??[]) {
-    const p=element('span','fnri-damage-part',`${part.formula??part.id}: ${part.pending?l('unrolledDie'):part.value}`);
+    const p=element('span','fnri-damage-part',`${part.formula??part.id}: ${part.pending?l('unrolledDie'):part.value}${part.noReroll?' · '+l('cannotReroll'):''}`);
     if(part.excluded||part.immune)p.classList.add('fnri-damage-excluded');
     else if(part.kind==='die' && Number.isInteger(part.faces)) {
       if(part.value===1)p.classList.add('fnri-die-min');
       if(part.value===part.faces)p.classList.add('fnri-die-max');
     }
-    p.title=[part.damageType,...(part.traits??[])].filter(Boolean).join(' · ');
+    p.title=[part.damageType,...(part.traits??[]),...(part.noReroll?[l('cannotReroll')]:[])].filter(Boolean).join(' · ');
     lines.append(p);
   }
   container.append(lines);
@@ -95,6 +95,16 @@ export function renderDamageCard(message,html) {
     row.append(apply,crit);
   }
   container.append(row);
+  const healing=largestDamageDieHealing(card);
+  if(healing!==null){
+    container.append(element('div','fnri-damage-attack',`${l('heal')}: ${healing}`));
+    container.append(actionButton(`${l('heal')} (${healing})`,async()=>{
+      const recipient=await chooseHpRecipient();if(!recipient)return;
+      const current=game.messages?.get(message.id);if(!canReadChatContent(current))return;
+      const amount=largestDamageDieHealing(current.getFlag(ID,'weaponDamage'));
+      if(amount!==null)await applyHp({kind:'heal',amount,sourceMessage:current,...recipient,independent:true});
+    }));
+  }
   for(const choice of directedPostDefenseChoices(message))
     container.append(actionButton(choice.label,()=>publishPostDefenseDamage(choice,()=>directedPostDefenseChoices(message))));
   anchor.append(container);
@@ -112,13 +122,15 @@ export function registerDamageChatControls() {
   Hooks.on('updateChatMessage',msg=>refreshDamageMessage(msg));
   const refreshLinked=msg=>{
     const card=msg.getFlag?.(ID,'weaponDamage');
-    const rootId=card?.postDefenseOrigin?.rootMessageId??(card?.postDefenseDamage?.length?card.attackMessageId:null)??
+    const areaChoice=msg.getFlag?.(ID,'areaResult');
+    const choiceRoot=areaChoice?.results?.some(row=>Array.isArray(row.profileChoices))?areaChoice.rootMessageId:null;
+    const rootId=choiceRoot??card?.postDefenseOrigin?.rootMessageId??(card?.postDefenseDamage?.length?card.attackMessageId:null)??
       msg.getFlag?.(ID,'areaIntervention')?.rootMessageId;
     if(!rootId)return;
     for(const related of game.messages?.contents??[]){
       if(related.id===msg.id)continue;
       const c=related.getFlag?.(ID,'weaponDamage');
-      if((related.id===rootId&&c?.postDefenseDamage?.length)||
+      if((related.id===rootId&&(c?.postDefenseDamage?.length||choiceRoot))||
         (c?.attackMessageId===rootId&&c?.postDefenseDamage?.length)||
         related.getFlag?.(ID,'areaResult')?.rootMessageId===rootId)refreshDamageMessage(related);
     }

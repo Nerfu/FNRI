@@ -1,0 +1,116 @@
+{
+  "name": "Большой зверь",
+  "type": "ability",
+  "_id": "fnridruid0000013",
+  "system": {
+    "description": "> **Размер:** Большой.  \n> **Скорость:** `6`.\n\nВ этой форме вы не можете использовать Вмешательства.\n\nПри принятии формы потеряйте `1` доступное Вмешательство. Если Вмешательство было потеряно, получите дополнительное Воздействие в текущий ход.\n\nВ начале каждого следующего хода, проведённого в этой форме, получите дополнительное Воздействие.\n\n**Особая атака:**\n\n> **Свойства особой атаки:** Атака, Ближняя атака.\n\n| Степень | Урон |\n|---|---:|\n| Провал | `0` |\n| Частичный успех | `1d6` |\n| Успех | `1d6+1d8` |\n| Большой успех | `1d6+1d8+3` |",
+    "category": "Способность Друида",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "form",
+          "type": "effect",
+          "label": "Принять форму",
+          "target": "self",
+          "effectId": "fnridruidBear001"
+        },
+        {
+          "id": "attack",
+          "label": "Особая атака Большого зверя",
+          "type": "attack",
+          "attack": {
+            "kind": "physical",
+            "targetDefense": "ac",
+            "attackKind": "melee",
+            "damageType": "физический",
+            "properties": "Атака, Ближняя атака",
+            "damageProfile": {
+              "A": "1d6",
+              "B": "1d8",
+              "C": 3
+            },
+            "unarmed": true,
+            "name": "Особая атака Большого зверя"
+          }
+        }
+      ]
+    },
+    "tags": "Атака, Ближняя атака"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.druid.large-beast",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Друида / Большой зверь"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnridruidBear001",
+      "name": "Большой зверь",
+      "img": "icons/creatures/abilities/bear-roar-bite-brown.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [],
+      "description": "> **Размер:** Большой.  \n> **Скорость:** `6`.\n\nВ этой форме вы не можете использовать Вмешательства.\n\nПри принятии формы потеряйте `1` доступное Вмешательство. Если Вмешательство было потеряно, получите дополнительное Воздействие в текущий ход.\n\nВ начале каждого следующего хода, проведённого в этой форме, получите дополнительное Воздействие.\n\n**Особая атака:**\n\n> **Свойства особой атаки:** Атака, Ближняя атака.\n\n| Степень | Урон |\n|---|---:|\n| Провал | `0` |\n| Частичный успех | `1d6` |\n| Успех | `1d6+1d8` |\n| Большой успех | `1d6+1d8+3` |",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": [
+          {
+            "key": "system.speed",
+            "type": "override",
+            "phase": "initial",
+            "priority": 0,
+            "value": "6"
+          },
+          {
+            "key": "system.ac.partial",
+            "type": "add",
+            "phase": "initial",
+            "priority": 0,
+            "value": "2"
+          },
+          {
+            "key": "system.ac.success",
+            "type": "add",
+            "phase": "initial",
+            "priority": 0,
+            "value": "2"
+          },
+          {
+            "key": "system.ac.great",
+            "type": "add",
+            "phase": "initial",
+            "priority": 0,
+            "value": "2"
+          },
+          {
+            "key": "system.sizeChange",
+            "type": "override",
+            "phase": "initial",
+            "priority": 0,
+            "value": "large"
+          }
+        ]
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "effectEnding": "particular",
+          "effectGroup": "druidForm",
+          "suppressHeldProtection": true,
+          "endsAtZeroHp": true,
+          "damageDefenses": {
+            "resistances": [
+              {
+                "trait": "universal",
+                "value": 3
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "img": "icons/creatures/abilities/bear-roar-bite-brown.webp"
+}

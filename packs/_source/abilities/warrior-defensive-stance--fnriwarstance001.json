@@ -1,0 +1,64 @@
+{
+  "name": "Защитная стойка",
+  "type": "ability",
+  "_id": "fnriwarstance001",
+  "system": {
+    "description": "> **Требуется:** `1 Воздействие`.  \n> **Длительность:** до начала вашего следующего хода.\n\nПолучите **Универсальную устойчивость 2**. Пока вы удерживаете Щит, значение этой Устойчивости равно `4`.",
+    "category": "Способность Воина",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "stance",
+          "type": "effect",
+          "label": "Защитная стойка",
+          "effectId": "fnriwarstanceae1",
+          "target": "self"
+        }
+      ]
+    },
+    "cost": "1 Воздействие"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.warrior.defensive-stance",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Воина / Защитная стойка"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnriwarstanceae1",
+      "name": "Защитная стойка",
+      "img": "icons/equipment/shield/heater-steel-grey.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [],
+      "description": "> **Требуется:** `1 Воздействие`.  \n> **Длительность:** до начала вашего следующего хода.\n\nПолучите **Универсальную устойчивость 2**. Пока вы удерживаете Щит, значение этой Устойчивости равно `4`.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {
+        "units": "rounds",
+        "value": 1,
+        "expiry": "turnStart",
+        "expired": false
+      },
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "effectEnding": "particular",
+          "damageDefenses": {
+            "resistances": [
+              {
+                "trait": "universal",
+                "value": 2,
+                "heldShieldValue": 4
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "img": "icons/equipment/shield/heater-steel-grey.webp"
+}

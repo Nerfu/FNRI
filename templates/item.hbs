@@ -7,6 +7,12 @@
       {{#if deprecated}}<p class="fnri-deprecated">{{localize "FASTNRI.Hints.deprecated"}}</p>{{/if}}
     </div>
   </header>
+  {{#if classWeaponChoice}}
+  <section class="fnri-panel">
+    <div class="fnri-row-head"><strong>{{item.name}}</strong><span>{{classWeaponName}}</span></div>
+    {{#if editable}}<button type="button" data-action="chooseClassWeapon">{{item.name}}</button>{{/if}}
+  </section>
+  {{/if}}
   {{#if isProjectionAbility}}
   <section class="fnri-panel fnri-projection-links">
     <h3>{{localize "FASTNRI.Projection.linkedActors"}}</h3>

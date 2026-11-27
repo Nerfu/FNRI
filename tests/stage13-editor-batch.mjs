@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {appendDamageComponents,calculateDamage,biggestDamageParts} from '../module/damage/damage-core.mjs';
 import {addDamageToMessage,rollMarkedDice,discardPendingDice,pendingDiceIds,
-  setBulkExcluded,resolvePendingOnClose,renderRollEditorContent,rollEditorPage} from '../module/damage/roll-editor.mjs';
+  setBulkExcluded,resolvePendingOnClose,renderRollEditorContent,rollEditorPage,executeRollEditorAction} from '../module/damage/roll-editor.mjs';
 const ID='fast-nri-v14';
 globalThis.game={user:{id:'gm',isGM:true},i18n:{localize:s=>s.split('.').at(-1)}};
 let rollCalls=0,rollFormulas=[];
@@ -67,7 +67,23 @@ assert.equal(card().history.filter(x=>x.action==='discardPending').length,1);
 const historyLength=card().history.length;
 await assert.rejects(rollMarkedDice(msg,['bonus']),/Select|Dice|select/i);
 assert.equal(card().history.length,historyLength);
+// Explicit GM correction bypasses the gameplay restriction, not its marker.
+card().parts[0].noReroll=true;
+const original=card().parts[0].original;
+const html=renderRollEditorContent(msg,{selectedIds:new Set(['old'])});
+assert.match(html,/data-fnri-editor-op="reroll:0"/);
+assert.match(html,/rerollMarked \(1\)/);
+nextResults.push(3);
+await executeRollEditorAction(msg,{partId:'old',action:'reroll'});
+assert.equal(card().parts[0].value,3);
+nextResults.push(4,2);
+assert.equal((await rollMarkedDice(msg,['old','gm-1'])).count,2);
+assert.equal(card().parts[0].value,4);
+assert.equal(card().parts[0].original,original);
+assert.equal(card().parts[0].noReroll,true);
+assert.equal(msg.rolls[0].total,5);
 game.user.isGM=false;
+await assert.rejects(executeRollEditorAction(msg,{partId:'old',action:'reroll'}));
 await assert.rejects(addDamageToMessage(msg,{kind:'die',faces:6,count:2}));
 await assert.rejects(rollMarkedDice(msg,['old']));
 console.log('PASS stage 13: pending dice, one combined Roll, bulk selection, close resolve/discard, 603 dice, no silent contribution');

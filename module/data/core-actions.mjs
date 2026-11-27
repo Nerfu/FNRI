@@ -5,6 +5,10 @@ export const BASE_UNARMED_ATTACK = Object.freeze({
   properties: 'Воздействие, Атака, Ближняя атака'
 });
 
+export const FIGHTER_UNARMED_ATTACK = Object.freeze({
+  ...BASE_UNARMED_ATTACK, id:'fighter', damageProfile:Object.freeze({A:'1d6',B:'1d12',C:4})
+});
+
 /** Read-only system action: not an Item, does not occupy an Actor slot.
  * It is exposed in both Actor sheet types and in intervention selection.
  */

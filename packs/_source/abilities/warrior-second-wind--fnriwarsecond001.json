@@ -1,0 +1,36 @@
+{
+  "name": "Второе дыхание",
+  "type": "ability",
+  "_id": "fnriwarsecond001",
+  "system": {
+    "description": "> **Требуется:** свободное действие.  \n> **Частота:** `1 раз в день`.  \n> **Условие:** вы находитесь на `0 HP`, но ещё не погибли.\n\nВосстановите `4d4 HP`, снимите счётчик смерти и останьтесь Сбитым с ног.",
+    "category": "Способность Воина",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "heal",
+          "type": "roll",
+          "label": "Второе дыхание",
+          "formula": "4d4",
+          "rollKind": "heal",
+          "requiresZeroHpAlive": true
+        }
+      ],
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    },
+    "frequency": "1 раз в день",
+    "cost": "свободное действие"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.warrior.second-wind",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Воина / Второе дыхание"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/life/heart-cross-strong-flame-blue.webp"
+}

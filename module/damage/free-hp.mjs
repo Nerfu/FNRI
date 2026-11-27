@@ -2,7 +2,7 @@
 import {canReadChatContent} from '../data/chat-visibility.mjs';
 import {applyHp,chooseHpRecipient} from './hp-actions.mjs';
 import {calculateDamage} from './damage-core.mjs';
-import {resolveAreaResults} from './area-attack.mjs';
+import {areaResultRows} from './area-attack.mjs';
 import {previewDeclaredDamageDefenses} from './periodic-damage.mjs';
 import {chooseRollChoice,rollChoices,getEditorParts,editableMessage,rollSnapshot} from './roll-editor.mjs';
 import {isPotionMessage,recordPotionReceipt,potionText} from '../data/potion-resource.mjs';
@@ -14,7 +14,7 @@ const live=m=>game.messages?.get(m?.id)??null;
 const checked=v=>[true,'on','true','1',1].includes(v);
 export function selectableDice(view){
   if(!canReadChatContent(view)||!editableMessage(view))return [];
-  return getEditorParts(view).filter(p=>p.kind==='die'&&!p.pending&&!p.excluded&&Number.isFinite(p.value));
+  return getEditorParts(view).filter(p=>(p.kind==='die'||p.kind==='fixed'&&p.value>0&&(p.coefficient??1)>0)&&!p.pending&&!p.excluded&&Number.isFinite(p.value));
 }
 // Only explicitly stored source penalties are safe to reuse across targets.
 // The dialog exposes this value so the participants can redistribute it.
@@ -99,8 +99,7 @@ export async function openFreeHp(message){return guarded(message,async()=>{
     if(!selection)return;
     if(selection.row!=='manual')initial=itemRows[Number(selection.row)]??null;
   }
-  const area=flag(message,'areaResult');
-  const areaRows=area?.results??(flag(message,'weaponDamage')?.areaAttack?.version===1?resolveAreaResults(message,[]):null);
+  const areaRows=isArea(message)?areaResultRows(message):null;
   if(!initial&&areaRows){
     const rows=areaRows.filter(r=>Number.isFinite(r.damage));
     if(rows.length){
@@ -116,6 +115,20 @@ export async function openFreeHp(message){return guarded(message,async()=>{
   if(!input||String(input.amount??'').trim()==='')return;
   return applyIndependentHp(message,{kind:input.kind,amount:Number(input.amount),recipient,ignoreTempHp:initial?.ignoreTempHp===true});
 });}
+// DialogV2 may submit an empty select despite the HTML required attribute.
+// Validate the actual payload before invoking the strict calculation function.
+export function partialDiceOptions(input){
+  if(!['damage','heal'].includes(input?.kind))return {error:'selectPartialHpChannel'};
+  const opts={kind:input.kind,damageType:String(input.damageType??'')};
+  for(const k of ['penalty','resistance','vulnerability','modifier']){
+    const raw=input[k];
+    if(raw!=null && typeof raw!=='number' && typeof raw!=='string')return {error:'invalidPartialAdjustments'};
+    const value=Number(raw??0);
+    if(!Number.isFinite(value)||(k!=='modifier'&&value<0))return {error:'invalidPartialAdjustments'};
+    opts[k]=value;
+  }
+  return {opts};
+}
 function fingerprint(view){return JSON.stringify({parts:selectableDice(view),card:flag(view,'weaponDamage'),edit:flag(view,'rollEdit')});}
 export async function openPartialDice(message){return guarded(message,async()=>{
   const choice=await chooseRollChoice(message);if(!choice)return;
@@ -123,7 +136,10 @@ export async function openPartialDice(message){return guarded(message,async()=>{
   const parts=selectableDice(view);if(!parts.length){ui.notifications?.warn(l('selectDiceFirst'));return;}
   const snapshot=fingerprint(view);
   const recipient=await chooseHpRecipient();if(!recipient)return;
-  const content=`<p>${esc(recipient.name)}</p>${channels(flag(view,'weaponDamage')?'damage':null,['damage','heal'])}<fieldset><legend>${esc(l('component'))}</legend>${parts.map((p,i)=>`<label><input type="checkbox" name="die${i}" checked> ${esc(p.formula)}: ${esc(p.value)} ${esc(p.damageType??'')}</label>`).join('')}</fieldset><label>${esc(l('damageType'))}<input name="damageType" type="text"></label>${['penalty','resistance','vulnerability','modifier'].map(k=>`<label>${esc(l(k==='modifier'?'totalCorrection':k))}<input type="number" name="${k}" value="${k==='penalty'?esc(sourceDicePenalty(view)):0}" step="1" ${k==='modifier'?'':'min="0"'}></label>`).join('')}<p>${esc(l('partialDiceHint'))}</p>`;
+  const itemRow=(flag(message,'itemUseResult')?.results??[]).find(r=>!r.manual&&r.rollIndex!=null&&String(r.rollIndex)===choice.id);
+  const knownKind=flag(view,'weaponDamage')?'damage':itemRow?.kind==='healHp'?'heal':
+    rollChoices(message).length===1?readyHp(message)?.kind:null;
+  const content=`<p>${esc(recipient.name)}</p>${channels(knownKind,['damage','heal'])}<fieldset><legend>${esc(l('component'))}</legend>${parts.map((p,i)=>`<label><input type="checkbox" name="die${i}" checked> ${esc(p.formula)}: ${esc(p.value)} ${esc(p.damageType??'')}</label>`).join('')}</fieldset><label>${esc(l('damageType'))}<input name="damageType" type="text"></label>${['penalty','resistance','vulnerability','modifier'].map(k=>`<label>${esc(l(k==='modifier'?'totalCorrection':k))}<input type="number" name="${k}" value="${k==='penalty'?esc(sourceDicePenalty(view)):0}" step="1" ${k==='modifier'?'':'min="0"'}></label>`).join('')}<p>${esc(l('partialDiceHint'))}</p>`;
   const dialog=foundry.applications.api.DialogV2;
   const input=await dialog.input({window:{title:l('applyPartialDice')},content,ok:{label:l('partialPreview')},rejectClose:false});
   if(!input)return;
@@ -132,7 +148,9 @@ export async function openPartialDice(message){return guarded(message,async()=>{
   const currentView=()=>{const m=live(message);return canReadChatContent(m)?rollChoices(m).find(c=>c.id===choice.id)?.message:null;};
   const fresh=currentView();
   if(!fresh||fingerprint(fresh)!==snapshot){ui.notifications?.warn(l('error'));return;}
-  const opts={kind:input.kind,damageType:String(input.damageType??''),...Object.fromEntries(['penalty','resistance','vulnerability','modifier'].map(k=>[k,Number(input[k]??0)]))};
+  const parsed=partialDiceOptions(input);
+  if(parsed.error){ui.notifications?.warn(l(parsed.error));return;}
+  const {opts}=parsed;
   const result=calculateSelectedDice(fresh,ids,recipient.actor,opts);
   const explanation=[`${l(input.kind)}: ${result.total}`,result.immunePartIds?.length?`${l('partialImmuneDice')}: ${result.immunePartIds.length}`:'',result.resistance?`${l('resistance')}: ${result.resistance}`:'',result.vulnerability?`${l('vulnerability')}: ${result.vulnerability}`:'',result.multiplier>1?`×${result.multiplier}`:'',!result.complete?l('partialDefenseIncomplete'):''].filter(Boolean);
   const ok=await dialog.confirm({window:{title:l('applyPartialDice')},content:`<p>${esc(recipient.name)}</p>${explanation.map(x=>`<p>${esc(x)}</p>`).join('')}`,rejectClose:false});

@@ -17,6 +17,7 @@ function instruction(raw){
   }
   return {kind:typeof r.kind==='string'?r.kind:'',
     minEffectDegree:typeof r.minEffectDegree==='string'?r.minEffectDegree:'',
+    ...(typeof r.maxEffectDegree==='string'?{maxEffectDegree:r.maxEffectDegree}:{}),
     value:Number.isSafeInteger(r.value)?r.value:null,
     durationTicks:Number.isSafeInteger(r.durationTicks)?r.durationTicks:null,
     end:{skipCheck:r.end?.skipCheck===true,

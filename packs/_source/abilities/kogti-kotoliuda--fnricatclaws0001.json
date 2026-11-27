@@ -1,0 +1,40 @@
+{
+  "name": "Когти",
+  "type": "ability",
+  "_id": "fnricatclaws0001",
+  "system": {
+    "description": "Вы получаете доступную безоружную ближнюю атаку **«Когти»**. Для неё нужна хотя бы одна свободная рука.\n\n| Степень | Физический урон |\n|---|---:|\n| Провал | `0` |\n| Частичный успех | `1d6` |\n| Успех | `1d8+1d6` |\n| Большой успех | `1d6+1d8+6` |\n\n**Свойство:** Смертельное.",
+    "category": "Свойство Котолюда",
+    "mechanics": {
+      "passive": true,
+      "racialProperty": {
+        "races": [
+          "catfolk"
+        ]
+      },
+      "unarmedAttack": {
+        "mode": "option",
+        "name": "Когти",
+        "damageType": "физический",
+        "damageProfile": {
+          "A": "1d6",
+          "B": "1d8",
+          "C": 6
+        },
+        "properties": "Воздействие, Атака, Ближняя атака, Смертельное",
+        "requiresFreeHand": true
+      },
+      "attack": {
+        "greatSelfDefenseModifier": -10
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.kogti-kotoliuda",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Когти"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/strike-slashes-orange.webp"
+}

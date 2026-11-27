@@ -1,0 +1,21 @@
+{
+  "name": "Удар исподтишка",
+  "type": "ability",
+  "_id": "fnrirogue0000002",
+  "system": {
+    "description": "Ваши атаки оружием, которым вы владеете, по застигнутой врасплох цели используют на `1` Куб боя больше.\n\nПри Успехе вашей атаки оружием, которым вы владеете, каждый использованный в этой атаке Куб боя также считается отдельным кубом урона того же типа, что и основной урон атаки. Используйте уже выпавший на нём результат, не бросая куб повторно.",
+    "category": "Способность Разбойника",
+    "mechanics": {
+      "passive": true,
+      "combatDiceDamage": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.rogue.sneak-attack",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Разбойника / Удар исподтишка"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/strike-dagger-blood-red.webp"
+}

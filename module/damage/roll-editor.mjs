@@ -23,7 +23,7 @@ export function editableMessage(msg) {
  * Non-additive expressions retain the original correction semantics until
  * their individual-die coefficients can be established without guessing.
  */
-function additiveDieCoefficients(roll) {
+function additiveDieCoefficients(roll, numeric=[]) {
   if (!Array.isArray(roll?.terms)) return null;
   const weights=new Map();
   const visit=(terms,outer=1)=>{
@@ -40,7 +40,9 @@ function additiveDieCoefficients(roll) {
         weights.set(term,factor);
       } else if (Array.isArray(term?.roll?.terms)) {
         if (!visit(term.roll.terms,factor)) return false;
-      } else if ((term?.dice?.length??0)>0) {
+      } else if (Number.isFinite(term?.number)) {
+        numeric.push(term.number*factor);
+      } else {
         return false;
       }
     }
@@ -53,16 +55,28 @@ function additiveDieCoefficients(roll) {
 export function rollSnapshot(msg) {
   const roll=msg.rolls?.[0];
   if (!roll || !Number.isFinite(roll.total)) throw new Error('Original Roll is unavailable');
-  const weights=additiveDieCoefficients(roll);
+  const numeric=[];
+  const weights=additiveDieCoefficients(roll,numeric);
   let i=0;
   const pieces=(roll.dice??[]).flatMap(d=>(d.results??[])
     .filter(r=>r.active!==false).map(r=>({id:`die-${++i}`,kind:'die',faces:d.faces,
       original:r.result,value:r.result,excluded:false,formula:`1d${d.faces}`,
       coefficient:weights?.get(d)??1})));
   const fixed=(get(msg,'fixedRollComponents')??[]).filter(p=>p?.kind==='fixed' && Number.isFinite(p.value))
-    .map((p,i)=>({...p,id:`fixed-${i}`,original:Number(p.original),value:Number(p.value),excluded:false}));
+    .map((p,i)=>({...p,id:`fixed-${i}`,original:Number.isFinite(p.original)?p.original:p.value,value:p.value,excluded:false}));
+  // Read numeric terms, not the difference between total and dice: nonlinear
+  // formulas and hidden contributions cannot be split into invented cubes.
+  // Explicit modifier metadata already represents some of these terms.
+  if(weights && numeric.reduce((sum,n)=>sum+n,0)+pieces.reduce((sum,p)=>sum+p.value*p.coefficient,0)===roll.total){
+    const remaining=[...numeric];
+    const matches=fixed.every(p=>{const index=remaining.indexOf(p.original);if(index<0)return false;remaining.splice(index,1);return true;});
+    if(matches)for(const n of remaining.filter(n=>n!==0))fixed.push({id:`fixed-${fixed.length}`,kind:'fixed',original:n,value:n,formula:n>0?`+${n}`:String(n),excluded:false});
+  }
   return {version:1,originalTotal:roll.total,components:[...pieces,...fixed],offset:0,
     currentTotal:roll.total,manualTotalOnly:!!roll.terms?.length && !weights,history:[]};
+}
+export function readRollEdit(msg) {
+  return get(msg,'rollEdit')??rollSnapshot(msg);
 }
 export function computedRollTotal(state) {
   return state.originalTotal + (state.offset??0) + state.components.reduce((sum,p)=>
@@ -80,14 +94,14 @@ export async function applyRollCorrection(msg,{partId,action,value}={}) {
         throw new Error('Invalid damage adjustment');
       next=copy(card);old=next.adjustments?.[key]??0;
       next.adjustments??={};next.adjustments[key]=value;current=value;
-    } else ({next,old,current}=changePart(card,partId,action,value));
+    } else ({next,old,current}=changePart(card,partId,action,value,{gmOverride:true}));
     next.history=[...(next.history??[]),{by:game.user.id,at:Date.now(),action,
       id:partId,before:old,after:current}];
     next.revision=(next.revision??0)+1;
     await msg.update({[`flags.${ID}.weaponDamage`]:next});
     return {previous:calculateDamage(before),current:calculateDamage(next)};
   }
-  const state=copy(get(msg,'rollEdit') ?? rollSnapshot(msg));
+  const state=copy(readRollEdit(msg));
   if (partId==='offset') {
     if(action!=='set'||!Number.isFinite(value)) throw new Error('Invalid total correction');
     const old=state.offset??0;state.offset=value;
@@ -119,13 +133,13 @@ export async function addDamageToMessage(msg,{kind,faces,count=1,value=0,damageT
   if(!own(msg) || !editableMessage(msg))throw new Error('Only GM may edit system rolls');
   const card=get(msg,'weaponDamage');
   if(card?.version!==2) {
-    const state=copy(get(msg,'rollEdit')??rollSnapshot(msg));
+    const state=copy(readRollEdit(msg));
     if(kind==='die' && (!Number.isInteger(faces)||faces<2||faces>1000||!Number.isInteger(count)||count<1||count>1000))throw Error('Invalid dice addition');
     if(!['die','fixed'].includes(kind)||kind==='fixed'&&!Number.isFinite(value))throw Error('Invalid addition');
     const roll=kind==='die'?await new Roll(`${count}d${faces}`).evaluate():null;
     const values=roll?(roll.dice??[]).flatMap(d=>d.results.filter(r=>r.active!==false).map(r=>r.result)):[value];
     if(roll&&(values.length!==count||values.some(v=>!Number.isInteger(v)||v<1||v>faces)))throw Error('Invalid dice results');
-    const latest=copy(get(msg,'rollEdit')??rollSnapshot(msg));
+    const latest=copy(readRollEdit(msg));
     const occupied=new Set(latest.components.map(p=>p.id));let n=1;
     const added=values.map(v=>{while(occupied.has(`added-${n}`))n++;const id=`added-${n++}`;occupied.add(id);return {id,kind,faces,formula:kind==='die'?`1d${faces}`:String(v),original:0,initial:v,value:v,added:true,excluded:false,damageType,traits:[...traits]};});
     if(!own(msg))throw Error('Only GM may edit system rolls');
@@ -165,7 +179,7 @@ export async function rollMarkedDice(msg,partIds) {
   // A Roll is asynchronous. Capture the selected dice's initial state, then
   // merge the results into CURRENT flags, never a stale full damage card.
   const originalDice=marked.map(p=>({id:p.id,kind:p.kind,faces:p.faces,
-    value:p.value,original:p.original,pending:!!p.pending,
+    value:p.value,original:p.original,noReroll:!!p.noReroll,pending:!!p.pending,
     excluded:!!p.excluded,immune:!!p.immune}));
   // Adjacent terms of the same size are grouped to keep enormous formulas compact.
   const groups=[];
@@ -189,7 +203,7 @@ export async function rollMarkedDice(msg,partIds) {
   const unchanged=originalDice.every(before=>{
     const now=latestById.get(before.id);
     return now?.kind===before.kind && now.faces===before.faces &&
-      now.value===before.value && now.original===before.original &&
+      now.value===before.value && now.original===before.original && !!now.noReroll===before.noReroll &&
       !!now.pending===before.pending && !!now.excluded===before.excluded &&
       !!now.immune===before.immune;
   });
@@ -313,7 +327,7 @@ export async function setMessageCritical(msg,mode='auto',multiplier=2) {
 export function getEditorParts(msg) {
   const card=get(msg,'weaponDamage');
   if(card?.version===2)return card.parts;
-  return (get(msg,'rollEdit') ?? rollSnapshot(msg)).components;
+  return (readRollEdit(msg)).components;
 }
 
 /** A real Foundry Roll, followed by one flag update. Never mutate the source Roll. */
@@ -331,14 +345,14 @@ export async function executeRollEditorAction(msg,{partId,action,value}={}) {
   // Unrelated edits are retained because applyRollCorrection reads the latest flags.
   const before=part.value;
   const originalPart={kind:part.kind,faces:part.faces,original:part.original,coefficient:part.coefficient,
-    value:part.value,pending:!!part.pending,excluded:!!part.excluded,immune:!!part.immune};
+    value:part.value,noReroll:!!part.noReroll,pending:!!part.pending,excluded:!!part.excluded,immune:!!part.immune};
   const roll=await new Roll(`1d${part.faces}`).evaluate();
   const current=roll?.total;
   if (!Number.isInteger(current) || current < 1 || current > part.faces)
     throw new Error('Invalid new dice result');
   const latest=getEditorParts(msg).find(p=>p.id===partId);
   if(!latest || Object.entries(originalPart).some(([key,val])=>
-    (['pending','excluded','immune'].includes(key)?!!latest[key]:latest[key])!==val))
+    (['pending','excluded','immune','noReroll'].includes(key)?!!latest[key]:latest[key])!==val))
     throw new Error(l('error'));
   await applyRollCorrection(msg,{partId,action,value:current});
   return {action,partId,before,current};
@@ -428,7 +442,7 @@ export function renderRollEditorContent(msg,{feedback='',page=0,query='',interve
     return `<div class="fnri-editor-adjust-row"><span>${esc(l(k))}: ${esc(amount)}</span>`+
       button(`adjustment:${k}`,l('set'))+`</div>`;
   }).join(''):'';
-  const offset=!isDamage?`${(get(msg,'rollEdit')??rollSnapshot(msg)).manualTotalOnly?`<p>${esc(l('manualFormulaCorrection'))}</p>`:''}<div class="fnri-editor-adjust-row"><span>${esc(l('totalCorrection'))}: `+
+  const offset=!isDamage?`${(readRollEdit(msg)).manualTotalOnly?`<p>${esc(l('manualFormulaCorrection'))}</p>`:''}<div class="fnri-editor-adjust-row"><span>${esc(l('totalCorrection'))}: `+
     `${esc(get(msg,'rollEdit')?.offset??0)}</span>${button('offset',l('set'))}</div>`:'';
   const interventionState=typeof interventionDraft==='boolean'?interventionDraft:messageIntervention(msg);
   const criticalState=typeof criticalDraft==='boolean'?criticalDraft:criticalCheckboxState(msg);

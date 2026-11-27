@@ -1,0 +1,24 @@
+{
+  "name": "Владение оружием",
+  "type": "ability",
+  "_id": "fnrid08ca0c4bc95",
+  "system": {
+    "description": "при создании персонажа выберите одно оружие `1 уровня`, занимающее `1` руку, — вы также владеете им.  ",
+    "category": "Способность Клерика",
+    "mechanics": {
+      "passive": true,
+      "weaponProficiency": {
+        "chooseAdditional": true,
+        "weaponContentIds": []
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.cleric.weapon-proficiency",
+      "source": "Fast NRI 7.0 rulebook.md / Часть II / Клерик / Владение оружием"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/sword-winged-holy-orange.webp"
+}

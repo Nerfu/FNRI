@@ -14,6 +14,7 @@
   },
   "FASTNRI": {
     "CreatureSize": {
+      "default": "Default size",
       "label": "Size",
       "small": "Small",
       "medium": "Medium",
@@ -506,6 +507,8 @@
       "privateRecovery": "Periodic damage was processed. Private result details are unavailable after a reload."
     },
     "Damage": {
+      "replaceSurvivingDie": "Replace the highest remaining damage die result with 1",
+      "cannotReroll": "No reroll",
       "defenseSuccess": "Success",
       "defenseFailure": "Failure",
       "damageReducedBy": "Damage reduced by",
@@ -652,6 +655,10 @@
       "recipientActor": "Actor",
       "tokenNotSelected": "No token selected",
       "applyFreeHp": "Apply HP",
+      "chooseOtherDie": "Choose another die",
+      "areaChoiceAskGM": "Ambiguous profile: ask the GM to choose or apply damage manually.",
+      "selectPartialHpChannel": "Choose damage or healing",
+      "invalidPartialAdjustments": "Check numeric adjustments",
       "applyPartialDice": "Apply selected dice",
       "hpChannel": "HP channel",
       "selectRoll": "Select roll",
@@ -837,7 +844,15 @@
       "other": "Other",
       "effective": "Effective value"
     },
+    "DegreeReduction": {
+      "failure": "Failure",
+      "partial": "Partial Success",
+      "success": "Success",
+      "great": "Great Success",
+      "result": "Result"
+    },
     "AbilityChat": {
+      "manualWeaponAttack": "No eligible held weapon identified. Resolve the attack manually.",
       "spellDistance": "Range: {distance} spaces",
       "noSpellWeapon": "Without spellcasting weapon",
       "notHeld": "Not held",
@@ -870,7 +885,9 @@
       "expiredTemporaryHp": "Temporary HP from this use have already expired. The original deadline is retained; adjust HP manually if needed.",
       "projectionActorsLabel": "Linked Actors",
       "projectionActorMissing": "No linked Actor",
-      "shadowShield": "Shadow Shield"
+      "shadowShield": "Shadow Shield",
+      "requiresZeroHpAlive": "Ability condition: 0 HP, character is still alive.",
+      "chargeManualAccounting": "Record the charge resource cost manually."
     },
     "AttackAugment": {
       "wrongAttackKind": "This ability requires a melee attack",

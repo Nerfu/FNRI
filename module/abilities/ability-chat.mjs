@@ -1,3 +1,9 @@
+import {chooseByButtons} from '../rolls/button-choice.mjs';
+import {availableUnarmedActions,sendUnarmedAttack} from '../rolls/unarmed.mjs';
+import {normalizeAttackKind} from '../rolls/attack-properties.mjs';
+import {isPhysicalWeaponCard} from '../weapon/weapon-attack.mjs';
+import {deathStateOf} from '../damage/death-lifecycle.mjs';
+import {createPeriodicHealing} from '../damage/periodic-healing.mjs';
 /**
  * Fast NRI 7.0 — agreed card-first ability flow (Foundry 14).
  *
@@ -10,12 +16,16 @@
  */
 import {abilityAccountingStatus,abilityCostPreview,finishCardAccounting,queueActorWrite,chargedWeaponRemaining} from '../data/ability-accounting.mjs';
 import {applyHp} from '../damage/hp-actions.mjs';
+import {magicCombatAttackExpression} from '../rolls/magic-attack-profile.mjs';
+import {publishDamageCharges,applyDamageCharge} from './damage-charges.mjs';
+import {degreeReductionRule,executeDegreeReduction,degreeIncreaseRule,executeDegreeIncrease} from './degree-reduction.mjs';
 import {abilityTempHpExpiry} from './temporary-hp-cast.mjs';
 import {canReadChatContent} from '../data/chat-visibility.mjs';
 import {createPrivateAreaSourceMessage,privateAreaSourceFor,createSpellResultMessage} from '../data/private-area-source.mjs';
 import {declareAction,actionText,actionAudience} from '../rolls/action-declaration.mjs';
 import {cardRollKind} from '../rolls/roll-contributions.mjs';
 import {postRoll,itemFormula} from '../rolls/checks.mjs';
+import {rollStandardAction,standardAction} from '../rolls/standard-actions.mjs';
 import {redactActorSourceForAudience} from '../rolls/roll-context.mjs';
 import {isAreaAttack,effectiveWeaponProperties,CHECK_DEFENSES} from '../rolls/attack-properties.mjs';
 import {resolveAbilityWeapon} from '../equipment/weapon-traits.mjs';
@@ -27,7 +37,7 @@ import {spellWeaponOptions,directedSpellRange,spellExecutionRule} from '../spati
 import {weaponTraitOptions} from '../equipment/weapon-traits.mjs';
 
 const ID='fast-nri-v14';
-const TYPES=new Set(['roll','attack','temporaryHp','effect','projection']);
+const TYPES=new Set(['roll','attack','temporaryHp','effect','projection','damageCharges','clearEffects']);
 const EXECUTION_ID=/^[A-Za-z0-9_-]{1,64}$/;
 const esc=x=>String(x??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -209,6 +219,8 @@ export async function executeAbilityFromChat(message,executionId,{skipPreroll=fa
       ...(charged?{chargedWeaponUuid:weapon.uuid}:{})};
     if(variant.warnings.length)ui.notifications?.warn(variant.warnings.join(' · '));
   } else if(spellWeaponId!==undefined||charged)return null;
+  if(execution.requiresZeroHpAlive===true&&(actor.system?.hp?.current!==0||deathStateOf(actor).dead===true))
+    ui.notifications?.warn(text('requiresZeroHpAlive'));
   const chargedWeaponUuid=spellCast?.chargedWeaponUuid??null;
   // Keep the same accounting identity on every result, including manual
   // and effect executions, so recovery cannot charge the wrong price.
@@ -226,18 +238,57 @@ export async function executeAbilityFromChat(message,executionId,{skipPreroll=fa
   if(spatialInfo?.spellRangeWarning&&(!rolled||skipPreroll))ui.notifications?.warn(spatialInfo.spellRangeWarning);
   const rollSpellOptions=spellCast?{spellCast,weaponItem:chosenWeapon,declaredSpellWeapon:true,spatialInfo}:{};
   switch(execution.type){
+    case 'damageCharges': return publishDamageCharges({actor,item,execution,source});
+    case 'clearEffects': {
+      const result=await declareAction({actor,item,label:execution.label,description:item.system.description,source,execution});
+      if(result && typeof execution.effectGroup==='string' && execution.effectGroup) await queueActorWrite(actor,async()=>{
+        const ids=(actor.effects?.contents??[]).filter(e=>e.flags?.[ID]?.effectGroup===execution.effectGroup).map(e=>e.id);
+        if(ids.length)await actor.deleteEmbeddedDocuments('ActiveEffect',ids);
+      });
+      return result;
+    }
     case 'manual': {
+      if(degreeReductionRule(item))return executeDegreeReduction({actor,item,execution,source});
+      if(degreeIncreaseRule(item))return executeDegreeIncrease({actor,item,execution,source,spellCast,publishResult});
       const label=chosenWeapon?`${item.name} · ${spellLabel}`:item.name,formula=itemFormula(item);
       if(formula)return postRoll({formula,label,actor,kind:cardRollKind(item,execution),sourceItem:item,execution,
         isIntervention:execution.isIntervention,skipPreroll,audienceMessage:source,targetTokens:[],...rollSpellOptions});
-      return declareAction({actor,item,label,description:item.system?.description??'',source,execution,
+      const result=await declareAction({actor,item,label,description:item.system?.description??'',source,execution,
         isIntervention:execution.isIntervention,spellCast});
+      if(result&&item.system?.mechanics?.periodicHealing)await createPeriodicHealing(actor,item,result);
+      return result;
     }
     case 'attack': {
+      const attackRule=item.system?.mechanics?.attack;
+      let chosenPhysicalWeapon=null;
+      if(attackRule?.quickStrike===true||attackRule?.finishingAttack===true){
+        const held=new Set([actor.system?.equipment?.leftHand,actor.system?.equipment?.rightHand].filter(Boolean));
+        const options=(actor.items?.contents??[]).filter(w=>held.has(w.id)&&isPhysicalWeaponCard(w)&&(!attackRule.quickStrike||normalizeAttackKind(w.system.attackKind)==='melee')).map(w=>({value:`weapon:${w.id}`,label:w.name,weapon:w}));
+        if(attackRule.quickStrike)options.push(...availableUnarmedActions(actor).map(a=>({value:`unarmed:${a.key}`,label:a.name,unarmed:a.key})));
+        options.push({value:'manual',label:game.i18n.localize('FASTNRI.AbilityChat.manualWeaponAttack')});
+        const choice=await chooseByButtons({title:item.name,rows:options,confirmLabel:game.i18n.localize('FASTNRI.Damage.select')});
+        if(!choice)return null;
+        if(choice.value==='manual')return declareAction({actor,item,label:item.name,description:item.system.description,source,execution,isIntervention:execution.isIntervention});
+        if(choice.unarmed)return sendUnarmedAttack(actor,{choice:choice.unarmed,accountingItem:item,isIntervention:true,quickAttack:true,skipPreroll,targetTokens:clickTargets,audienceMessage:source});
+        chosenPhysicalWeapon=choice.weapon;
+      }
+      if(item.system?.mechanics?.culmination===true){
+        const held=new Set([actor.system?.equipment?.leftHand,actor.system?.equipment?.rightHand].filter(Boolean));
+        if(held.size>1)ui.notifications?.warn('Кульминация: по правилам нельзя удерживать ничего, кроме используемого оружия.');
+      }
+      const allowedWeapons=attackRule?.weaponContentIds;
+      if(Array.isArray(allowedWeapons)){
+        const weapon=resolveAbilityWeapon(item,actor);
+        const contentId=weapon?.getFlag?.(ID,'contentId')??weapon?.flags?.[ID]?.contentId;
+        if(!allowedWeapons.includes(contentId)){
+          ui.notifications?.warn(game.i18n.localize('FASTNRI.AbilityChat.manualWeaponAttack'));
+          return declareAction({actor,item,label:item.name,description:item.system.description,source,execution,isIntervention:execution.isIntervention});
+        }
+      }
       // A selected Projection changes ONLY the spatial origin of this attack;
       // the Actor used to roll and spend resources remains the caster.
       return sendOtherItemAttack(item,actor,{execution,skipPreroll,audienceMessage:source,
-        targetTokens:clickTargets,originTokens:clickControlled,spellWeaponId,charged});
+        targetTokens:clickTargets,originTokens:clickControlled,spellWeaponId,charged,chosenPhysicalWeapon});
     }
     case 'projection': {
       // Execution is a normal resource/accounting event. Actor creation and
@@ -257,9 +308,25 @@ export async function executeAbilityFromChat(message,executionId,{skipPreroll=fa
       return result;
     }
     case 'roll': {
-      const formula=String(execution.formula??itemFormula(item)).trim();
-      if(!formula)throw Error(text('missingFormula'));
-      return postRoll({formula,label:`${item.name} · ${spellLabel}`,actor,
+      if(execution.standardActionId){
+        const action=standardAction(execution.standardActionId);
+        if(!action?.skillId || rule)throw Error(text('missingFormula'));
+        if(execution.requiresFreeHands && (actor.system?.equipment?.leftHand||actor.system?.equipment?.rightHand))ui.notifications?.warn('По правилам требуются две свободные руки.');
+        const result=await rollStandardAction(actor,action.id,{sourceItem:item,execution,audienceMessage:source,
+          label:`${item.name} · ${spellLabel}`,skipPreroll,targetTokens:clickTargets});
+        if(result.message&&['success','great'].includes(result.result?.degree)&&execution.successHealingFormula){
+          await postRoll({actor,formula:execution.successHealingFormula,label:`${item.name} · Исцеление`,
+            kind:'heal',skipPreroll,audienceMessage:result.message});
+        }
+        return result.roll;
+      }
+      const formulaForActor=execution.combatCheck===true?a=>magicCombatAttackExpression(a).expression:execution.combatDie===true?a=>{const die=String(a?.system?.combatDie??'').trim();return /^(?:1)?d[1-9]\d*$/i.test(die)?(die.startsWith('1')?die:'1'+die):'';}:null;
+      const formula=formulaForActor?formulaForActor(actor):String(execution.formula??itemFormula(item)).trim();
+      if(!formula){
+        if(formulaForActor)return declareAction({actor,item,label:item.name,description:item.system.description,source,execution});
+        throw Error(text('missingFormula'));
+      }
+      return postRoll({formula,formulaForActor,label:`${item.name} · ${spellLabel}`,actor,
         kind:cardRollKind(item,execution),sourceItem:item,execution,isIntervention:execution.isIntervention,
         skipPreroll,audienceMessage:source,
         targetDefense:execution.targetDefense??item.system?.mechanics?.attack?.targetDefense,
@@ -270,7 +337,7 @@ export async function executeAbilityFromChat(message,executionId,{skipPreroll=fa
       // result with an explicit amount. Dice formulas still use native Roll.
       if(Number.isSafeInteger(execution.amount) && execution.amount>0){
         const expiry=abilityTempHpExpiry(actor,execution,{combat:game.combat,
-          worldTime:game.time?.worldTime});
+          worldTime:game.time?.worldTime,sourceToken:clickControlled.filter(t=>t.actor?.uuid===actor.uuid).length===1?clickControlled.find(t=>t.actor?.uuid===actor.uuid):null});
         const result=await publishResult({
           speaker:ChatMessage.getSpeaker({actor}),...inheritingAudience(source),
           content:`<strong>${esc(item.name)}</strong> · ${esc(spellLabel)}`+
@@ -303,7 +370,7 @@ export async function executeAbilityFromChat(message,executionId,{skipPreroll=fa
         flags:{[ID]:{
           abilityExecution:executionFlag,
           abilityResult:{version:1,kind:'effect',sourceItemUuid:item.uuid,actorUuid:actor.uuid,
-            executionId:execution.id,effectId:effect.id}
+            executionId:execution.id,effectId:effect.id,...(execution.target==='self'?{target:'self'}:{})}
         }}
       });
       if(result)await finishCardAccounting({actor,item,message:result,execution,isIntervention:execution.isIntervention,chargedWeaponUuid});
@@ -440,6 +507,14 @@ export function registerAbilityChat(){
     const result=message.getFlag?.(ID,'abilityResult');
     if(publication?.version===1){
       void renderAbilityPublication(message,html).catch(error=>console.warn('Fast NRI | ability message display failed',error));
+    }
+    if(result?.version===1 && result.kind==='damageCharges'){
+      if(html.querySelector('[data-fnri-ability-apply]'))return;
+      const controls=document.createElement('div');controls.dataset.fnriAbilityApply='';
+      controls.className='fnri-ability-chat-options';
+      for(const [index,charge] of result.charges.entries())
+        addButton(controls,`${game.i18n.localize('FASTNRI.Damage.apply')} ${index+1} · ${charge.parts.reduce((sum,p)=>sum+p.value,0)}`,()=>applyDamageCharge(message,index));
+      (html.querySelector('.message-content')??html).append(controls);
     }
     if(result?.version===1 && ['temporaryHp','effect'].includes(result.kind)){
       // All readers may see the result, but Actor ownership is checked on apply.

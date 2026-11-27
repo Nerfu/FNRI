@@ -1,0 +1,88 @@
+{
+  "name": "Поджог",
+  "type": "ability",
+  "_id": "fnriwizard000005",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие и 1 Волшебная сила.  \n> **Свойства:** Заклинание, Атака, Дистанционная атака, Огонь.  \n> **Цель:** одно существо в дистанции заклинаний.  \n> **Проверка:** `1d20 + Куб боя` против КЗ цели.\n\nГорение этого заклинания — Периодический эффект со свойствами **Магический, Огонь**.\n\nСовершите проверку и примените эффект достигнутой степени.\n\n| Степень успеха | Эффект |\n|---|---|\n| Провал | Эффекта нет. |\n| Частичный успех | `1d8` магического урона и Горение `1`. |\n| Успех | `2d8` магического урона и Горение `1d6`. |\n| Большой успех | `3d8` магического урона и Горение `1d8`. |",
+    "category": "Способность Волшебника",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "attack",
+          "label": "Поджог",
+          "type": "attack",
+          "attack": {
+            "kind": "magic",
+            "targetDefense": "ac",
+            "attackKind": "ranged",
+            "spellRange": "current",
+            "spellEnergy": "wizard",
+            "damageType": "магический",
+            "properties": "Заклинание, Атака, Дистанционная атака, Огонь",
+            "damageProfile": {
+              "failure": "0",
+              "partial": "1d8",
+              "success": "2d8",
+              "great": "3d8"
+            },
+            "outcomes": [
+              {
+                "kind": "periodicDamage",
+                "minEffectDegree": "partial",
+                "maxEffectDegree": "partial",
+                "formula": "1",
+                "periodicName": "Горение",
+                "traits": [
+                  "Магический",
+                  "Огонь"
+                ]
+              },
+              {
+                "kind": "periodicDamage",
+                "minEffectDegree": "success",
+                "maxEffectDegree": "success",
+                "formula": "1d6",
+                "periodicName": "Горение",
+                "traits": [
+                  "Магический",
+                  "Огонь"
+                ]
+              },
+              {
+                "kind": "periodicDamage",
+                "minEffectDegree": "great",
+                "maxEffectDegree": "great",
+                "formula": "1d8",
+                "periodicName": "Горение",
+                "traits": [
+                  "Магический",
+                  "Огонь"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "accounting": {
+        "resourceCosts": [
+          {
+            "resourceKey": "class_wizard",
+            "kind": "class",
+            "amount": 1,
+            "resourceName": "Волшебная сила"
+          }
+        ]
+      }
+    },
+    "tags": "Заклинание, Атака, Дистанционная атака, Огонь",
+    "cost": "1 Воздействие и 1 Волшебная сила"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.wizard.ignite",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Волшебника / Поджог"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/fire/flame-burning-creature-skeleton.webp"
+}

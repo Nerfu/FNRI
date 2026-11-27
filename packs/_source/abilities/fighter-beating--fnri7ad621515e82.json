@@ -1,0 +1,21 @@
+{
+  "name": "Избиение",
+  "type": "ability",
+  "_id": "fnri7ad621515e82",
+  "system": {
+    "description": "Если цель **Захвачена** или **Сбита с ног**, повышайте Куб боя ваших атак по ней до `d12`.",
+    "category": "Способность Бойца",
+    "mechanics": {
+      "passive": true,
+      "combatDieAgainstProneOrGrabbed": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.fighter.beating",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Бойца / Избиение"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/unarmed-punch-fist-yellow-red.webp"
+}

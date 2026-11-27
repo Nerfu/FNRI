@@ -1,7 +1,7 @@
 /** Fast NRI 7.0 — isolated, serializable damage calculations. Never mutates a Roll.
  * No implicit immunities/resistances: resolved values are supplied by cards/GM.
  */
-import {resolveDirectedEffectDegree,standardPhysicalPartsForDegree} from '../rolls/attack-core.mjs';
+import {resolveDirectedEffectDegree,standardPhysicalPartsForDegree,ferocityDamageApplies} from '../rolls/attack-core.mjs';
 import {magicAttackPartsForDegree} from '../rolls/magic-attack-profile.mjs';
 import {CHECK_DEFENSES} from '../rolls/attack-properties.mjs';
 import {tempHpMax,planTempHpLayers} from './temporary-hp-layers.mjs';
@@ -27,6 +27,7 @@ export function snapshotDamageParts(roll, definitions, {damageType='физиче
       faces:def.sign === -1 ? null : (def.faces ?? null),
       formula:def.formula, original:value, value, excluded:false,
       ...(def.profilePart ? {profilePart:def.profilePart} : {}),
+      ...(def.ferocityDamage===true?{ferocityDamage:true}:{}),
       ...(def.spellDamage===true?{spellDamage:true}:{}),
       ...(def.singleTarget===true?{singleTarget:true,targetUuid:def.targetUuid??null}:{}),
       damageType:def.damageType || damageType, traits:def.partOrigin==='attackAugment' ? [] : (def.traits?.length ? [...def.traits] : [...traits]),
@@ -47,7 +48,7 @@ export function criticalDamageRule(card) {
   const multiplier=Number(card?.naturalCritMultiplier ?? card?.criticalMultiplier);
   const validMultiplier=Number.isFinite(multiplier) && multiplier>1 ? multiplier : 2;
   const natural=Number(card?.naturalD20);
-  return {threshold,multiplier:validMultiplier,
+  return {threshold,multiplier:natural===20&&Number(card?.naturalTwentyMultiplier)>1?Math.max(validMultiplier,Number(card.naturalTwentyMultiplier)):validMultiplier,
     triggered:!CHECK_DEFENSES.includes(card?.targetDefense) &&
       Number.isInteger(natural) && natural>=threshold && natural<=20};
 }
@@ -97,6 +98,11 @@ export function calculateDamage(card, {critical}={}) {
 }
 
 /** Both displayed values use the same surviving components, penalties and defenses. */
+export function largestDamageDieHealing(card) {
+  if(card?.healLargestDamageDie!==true||card.cancelled||card.parts?.some(p=>p.pending))return null;
+  return Math.max(0,...(card.parts??[]).filter(p=>['die','fixed'].includes(p.kind)&&!p.excluded&&!p.immune&&finite(p.value)&&p.value>0).map(p=>p.value));
+}
+
 export function damageChoices(card) {
   return {normal:calculateDamage(card,{critical:false}),
     critical:calculateDamage(card,{critical:true}),
@@ -129,10 +135,11 @@ export function damageDisplay(card) {
   return {...values,active,expression:`${expression} = ${critical.total}`};
 }
 
-export function changePart(card, id, action, newValue=null) {
+export function changePart(card, id, action, newValue=null, {gmOverride=false}={}) {
   const next=copy(card);
   const part=next.parts?.find(p=>p.id===id);
   if (!part) throw new Error('Damage component not found');
+  if(action==='reroll' && part.noReroll && !gmOverride)throw new Error('Damage component cannot be rerolled');
   const old={value:part.value,excluded:!!part.excluded,pending:!!part.pending};
   if (action==='exclude') part.excluded=true;
   else if (action==='restore') part.excluded=false;
@@ -243,8 +250,14 @@ export function counteractionOutcome({card, defenseTotal, naturalD20} = {}) {
   const degree = success ? resolveDirectedEffectDegree({
     attackDegree:card.degree,successfulDefenses:1,fullyCancelled:naturalD20 === 20
   }).effectDegree : card.degree;
-  const next = copy(card);
-  if (!success) return {success,degree,next};
+  if (!success) return {success,degree,next:copy(card)};
+  return {success,degree,next:damageAtReducedDegree(card,degree)};
+}
+
+/** Reuse evaluated damage components for an explicitly reduced degree. */
+export function damageAtReducedDegree(card,degree) {
+  const next=copy(card);
+  if(card.ferocity&&card.postDefenseDamage?.some(o=>o.ferocity)&&degree==='partial')degree='failure';
   const retained = card.profileKind==='magic' ? magicAttackPartsForDegree(card.profile,degree) :
     standardPhysicalPartsForDegree(card.profile,degree);
   if (degree !== 'failure' && !retained.ok) throw Error('Missing damage profile for counteraction');
@@ -252,13 +265,32 @@ export function counteractionOutcome({card, defenseTotal, naturalD20} = {}) {
   for (const part of next.parts ?? []) {
     const slot = part.profilePart ?? (['A','B','C'].includes(part.id) ||
       (card.profileKind==='magic' && /^M[1-9]\d*$/.test(part.id)) ? part.id : null);
-    if (slot && !slots.has(slot)) part.excluded = true;
+    if ((slot && !slots.has(slot)) || (part.ferocityDamage&&!ferocityDamageApplies(degree))) part.excluded = true;
   }
   next.originalDegree = card.originalDegree ?? card.degree;
   next.degree = degree;
   next.effectDegree = degree;
   next.cancelled = Boolean(card.cancelled || degree === 'failure');
-  return {success,degree,next};
+  return next;
+}
+
+/** For an increase of an evaluated, unmodified profile, retain all existing
+ * components. A non-nested profile needs manual resolution, not a reroll. */
+export function damageDegreeIncreaseParts(card,amount=1) {
+  const from=['failure','partial','success','great'].indexOf(card?.degree);
+  if(from<0||from===3||!Number.isInteger(amount)||amount<1||!Number.isInteger(card.naturalD20)||card.naturalD20<=1||card.naturalD20>20||card.areaAttack||card.postDefenseOrigin||card.intervention||card.ferocity||card.cancelled||card.effectDegree!==card.degree||card.parts?.some(p=>p.pending||p.excluded||p.immune))return null;
+  const after=['failure','partial','success','great'][Math.min(3,from+amount)];
+  const profile=card.profileKind==='magic'?magicAttackPartsForDegree:standardPhysicalPartsForDegree;
+  const previous=profile(card.profile,card.degree),next=profile(card.profile,after);
+  if(!previous.ok||!next.ok||!Array.isArray(card.parts))return null;
+  const match=(part,definition)=>part?.kind===definition.kind&&(part.kind==='die'?part.faces===definition.faces:part.original===definition.value);
+  const bySlot=new Map();
+  for(const part of card.parts){if(!part.profilePart)continue;if(bySlot.has(part.profilePart))return null;bySlot.set(part.profilePart,part);}
+  if(bySlot.size!==previous.parts.length||previous.parts.some(d=>!match(bySlot.get(d.id),d)))return null;
+  if(previous.parts.some(d=>!match(bySlot.get(d.id),next.parts.find(n=>n.id===d.id))))return null;
+  const missing=next.parts.filter(d=>!bySlot.has(d.id));
+  if(missing.some(d=>card.parts.some(p=>p.id===d.id)))return null;
+  return {after,definitions:missing.map(d=>({...d,profilePart:d.id}))};
 }
 
 export function planHpChange(hp,amount,kind='damage',layerOptions={}) {
@@ -286,6 +318,7 @@ export function planHpChange(hp,amount,kind='damage',layerOptions={}) {
     layerAfter=layers.after;
     after.temp=layers.to;
   }
+  if(kind==='damage'&&layerOptions.preventZero===true&&current>0&&after.current===0&&max>=1)after.current=1;
   return {kind,before:{current,temp},after,damageThroughTemp,
     ...(layerAfter?{tempHpState:layerAfter,beforeTempHpState:layerBefore}:{}),
     delta:{current:after.current-current,temp:after.temp-temp},requested:n,

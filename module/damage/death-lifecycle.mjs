@@ -1,3 +1,4 @@
+import {actorClassDefinition,CLASSES,classResourceEntry} from '../data/classes.mjs';
 /**
  * Stage 3C.4 — one character 0-HP lifecycle for the existing HP, Item and
  * periodic channels. Mechanical rules come ONLY from Fast NRI 7.0.
@@ -65,6 +66,13 @@ export async function reconcileDeathEffects(actor) {
   const created=[];
   const removed=[];
   if (shouldBeUnconscious) {
+    if(actorClassDefinition(actor)===CLASSES.bard){
+      const rhythm=classResourceEntry(actor,CLASSES.bard);
+      if(rhythm && Number.isFinite(rhythm[1].current) && rhythm[1].current!==0)
+        await actor.update({[`system.resources.${rhythm[0]}.current`]:0},{fnriDeathLifecycle:'managed'});
+    }
+    const ending=(actor.effects?.contents??[]).filter(e=>e.flags?.[SCOPE]?.endsAtZeroHp===true).map(e=>e.id);
+    if(ending.length){await actor.deleteEmbeddedDocuments('ActiveEffect',ending);removed.push(...ending);}
     const create=[];
     for (const id of ['unconscious','prone']) {
       if (generated(actor,id).length) continue;

@@ -1,0 +1,52 @@
+{
+  "name": "Засада",
+  "type": "ability",
+  "_id": "fnrirogue0000003",
+  "system": {
+    "description": "С начала боя до конца первого раунда вы Невидимы и не можете быть целью враждебного направленного действия.\n\nЭффект заканчивается после завершения вашей первой атаки.\n\nНенаправленные эффекты действуют на вас по обычным правилам.",
+    "category": "Способность Разбойника",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "effect",
+          "type": "effect",
+          "label": "Засада",
+          "effectId": "fnrirogueambush1",
+          "target": "self"
+        }
+      ]
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.rogue.ambush",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Разбойника / Засада"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnrirogueambush1",
+      "name": "Засада",
+      "img": "icons/equipment/head/hood-cowl-mask-purple.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [
+        "fnri7-invisible"
+      ],
+      "description": "С начала боя до конца первого раунда вы Невидимы и не можете быть целью враждебного направленного действия.\n\nЭффект заканчивается после завершения вашей первой атаки.\n\nНенаправленные эффекты действуют на вас по обычным правилам.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "effectEnding": "particular",
+          "conditionId": "invisible"
+        }
+      }
+    }
+  ],
+  "img": "icons/equipment/head/hood-cowl-mask-purple.webp"
+}

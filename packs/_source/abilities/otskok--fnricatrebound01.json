@@ -1,0 +1,38 @@
+{
+  "name": "Отскок",
+  "type": "ability",
+  "_id": "fnricatrebound01",
+  "system": {
+    "description": "> **Частота:** `1 раз в день`.\n\nПосле Успеха Уворота можете снизить степень атаки против себя ещё на `1`.",
+    "category": "Свойство Котолюда",
+    "mechanics": {
+      "racialProperty": {
+        "races": [
+          "catfolk"
+        ]
+      },
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      },
+      "areaFollowUps": [
+        {
+          "id": "rebound",
+          "after": "dodge",
+          "degreeReduction": 1,
+          "warnExhausted": true
+        }
+      ]
+    },
+    "frequency": "1 раз в день"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.otskok",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Отскок"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/movement/figure-running-gray.webp"
+}

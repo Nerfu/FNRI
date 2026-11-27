@@ -134,6 +134,7 @@ export function grantTempHpPlan(actor,value,{id=randomId(),source={},expiry={}}=
 export async function grantTempHp(actor,value,options={}) {
   const plan=grantTempHpPlan(actor,value,options);
   await actor.update(plan.patch,{fnriJournal:{kind:'temp',reason:'Temporary HP layer'},fnriTempHp:'managed'});
+  if(plan.after.layers[plan.id]?.expiry?.marker==='shadowShield')await reconcileTempHpEffects(actor);
   return plan;
 }
 /** Expire one source without changing any other layer. Can be called by
@@ -151,25 +152,30 @@ export async function removeTempHpLayer(actor,id) {
  * updates from stock Actor sheets. Managed writes include the state flag and
  * are not reinterpreted as separate manual grants.
  */
-const shieldEffectId=effect=>effect.getFlag?.(TEMP_HP_SCOPE,'shieldLayer')??effect.flags?.[TEMP_HP_SCOPE]?.shieldLayer;
+export const shieldEffectId=effect=>effect?.getFlag?.(TEMP_HP_SCOPE,'shieldLayer')??effect?.flags?.[TEMP_HP_SCOPE]?.shieldLayer;
+const visibleShield=layer=>layer?.expiry?.marker==='shadowShield' && layer.remaining>0;
 export async function reconcileTempHpEffects(actor) {
   const layers=readTempHpState(actor).layers;
   const effects=Array.from(actor.effects?.contents??[]);
-  const stale=effects.filter(e=>shieldEffectId(e)&&!layers[shieldEffectId(e)]);
+  const stale=effects.filter(e=>shieldEffectId(e)&&!visibleShield(layers[shieldEffectId(e)]));
   if(stale.length)await actor.deleteEmbeddedDocuments('ActiveEffect',stale.map(e=>e.id),{fnriShieldSync:true});
   for(const layer of Object.values(layers)){
-    if(!layer.expiry.recipientTurnEnd||effects.some(e=>shieldEffectId(e)===layer.id))continue;
+    if(!visibleShield(layer))continue;
+    if(effects.some(e=>shieldEffectId(e)===layer.id))continue;
     await actor.createEmbeddedDocuments('ActiveEffect',[{name:game.i18n.localize('FASTNRI.AbilityChat.shadowShield'),img:'icons/svg/shield.svg',type:'base',showIcon:2,disabled:false,transfer:false,duration:{},system:{changes:[]},flags:{[TEMP_HP_SCOPE]:{shieldLayer:layer.id}}}],{fnriShieldSync:true});
   }
 }
-export async function settleTempHpTurnEnd(combat,combatant,context={}) {
-  if(!game.user?.isGM||!combat?.started||context.skipped||!combatant?.actor)return;
-  const actor=combatant.actor;
+/** Own panel/sheet: remove the authoritative layer before the marker. A core
+ * deletion instead uses the hook below. Never queue a second write inside a
+ * queued write, and never affect another source of temporary HP. */
+export async function deleteShieldEffect(actor,effect){
+  const id=shieldEffectId(effect);
+  if(!id)return false;
   return queueActorWrite(actor,async()=>{
-    for(const layer of Object.values(readTempHpState(actor).layers)){
-      if(layer.expiry.recipientTurnEnd)await removeTempHpLayer(actor,layer.id);
-    }
-    await reconcileTempHpEffects(actor);
+    if(!actor.isOwner && !actor.canUserModify?.(game.user,'update') && !game.user?.isGM)return false;
+    if(readTempHpState(actor).layers[id])await removeTempHpLayer(actor,id);
+    else if(actor.effects?.contents?.some(e=>e.id===effect.id))await actor.deleteEmbeddedDocuments('ActiveEffect',[effect.id],{fnriShieldSync:true});
+    return true;
   });
 }
 export function registerTempHpManualEdits() {
@@ -188,6 +194,13 @@ export function registerTempHpManualEdits() {
     const before=readTempHpState(actor);
     const updated=planManualTempHpEdit(before,value,{id:randomId()});
     foundry.utils.setProperty(changed,TEMP_HP_FLAG,updated);
+    if(nested!==undefined)changed.system.hp.temp=tempHpMax(updated);
+    else changed['system.hp.temp']=tempHpMax(updated);
+  });
+  Hooks.on('updateActor',(actor,changed,options,userId)=>{
+    if(options?.fnriTempHp==='managed'||game.user?.id!==userId)return;
+    if(changed?.system?.hp?.temp===undefined && changed?.['system.hp.temp']===undefined)return;
+    void queueActorWrite(actor,()=>reconcileTempHpEffects(actor)).catch(error=>console.warn('Fast NRI | Shield HP sync needs retry',error));
   });
 }
 
@@ -218,7 +231,7 @@ export function planTempHpExpiration(state,{combatId=null,combatantId=null,round
 function actorsWithTempHp(extra=[]) {
   const actors=new Map();
   const add=actor=>{
-    if(actor?.uuid&&actor.getFlag?.(TEMP_HP_SCOPE,'tempHpState'))actors.set(actor.uuid,actor);
+    if(actor?.uuid&&(actor.getFlag?.(TEMP_HP_SCOPE,'tempHpState')??actor.flags?.[TEMP_HP_SCOPE]?.tempHpState))actors.set(actor.uuid,actor);
   };
   for(const actor of extra)add(actor);
   for(const actor of game.actors?.contents??[])add(actor);
@@ -233,14 +246,16 @@ export async function settleTempHpTurnStart(combat,combatant,context={}) {
   const actors=actorsWithTempHp([combatant.actor,...Array.from(combat.turns??[],row=>row.actor)]);
   let ownResult=null;
   for(const actor of actors.values()){
-    const current=readTempHpState(actor);
-    const result=planTempHpExpiration(current,args);
-    if(actor.uuid===combatant.actor?.uuid)ownResult=result;
-    if(!result.removed.length)continue;
-    if(!equalTempHpState(readTempHpState(actor),current))continue;
-    await actor.update({'system.hp.temp':result.temp,...tempHpStateUpdate(actor,result.after)},
-      {fnriTempHp:'managed',fnriJournal:{kind:'temp',reason:'Temporary HP duration expired'}});
-    await reconcileTempHpEffects(actor);
+    await queueActorWrite(actor,async()=>{
+      const current=readTempHpState(actor);
+      const result=planTempHpExpiration(current,args);
+      if(actor.uuid===combatant.actor?.uuid)ownResult=result;
+      if(!result.removed.length)return;
+      if(!equalTempHpState(readTempHpState(actor),current))return;
+      await actor.update({'system.hp.temp':result.temp,...tempHpStateUpdate(actor,result.after)},
+        {fnriTempHp:'managed',fnriJournal:{kind:'temp',reason:'Temporary HP duration expired'}});
+      await reconcileTempHpEffects(actor);
+    });
   }
   return ownResult;
 }

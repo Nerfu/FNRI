@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {isDeepStrictEqual} from 'node:util';
-import {applyIndependentHp,calculateSelectedDice,openPartialDice,openFreeHp,readyHp,selectableDice} from '../module/damage/free-hp.mjs';
+import {applyIndependentHp,calculateSelectedDice,openPartialDice,openFreeHp,readyHp,selectableDice,partialDiceOptions} from '../module/damage/free-hp.mjs';
 import {applyHp,revertHpReport} from '../module/damage/hp-actions.mjs';
 import {readTempHpState,tempHpMax,settleTempHpTurnStart} from '../module/damage/temporary-hp-layers.mjs';
 import {applyResultToSelectedActor} from '../module/abilities/ability-chat.mjs';
@@ -25,22 +25,29 @@ globalThis.ChatMessage={getSpeaker:()=>({}),applyMode:data=>data,async create(da
 const dice=[{id:'fire',kind:'die',faces:6,formula:'1d6',value:5,original:5,damageType:'magical',traits:['fire']},{id:'physical',kind:'die',faces:6,formula:'1d6',value:4,original:4,damageType:'physical',immune:true},{id:'fixed',kind:'fixed',value:20,original:20,formula:'20',damageType:'physical'},{id:'excluded',kind:'die',faces:6,value:6,original:6,excluded:true},{id:'pending',kind:'die',faces:6,value:null,pending:true}];
 const source=message('damage',{weaponDamage:{version:2,parts:dice,adjustments:{resistance:99,vulnerability:99,penalty:99},naturalD20:20,revision:1,history:[],sourceActorUuid:other.uuid,damageRules:{}}},{whisper:['player','gm']});
 const snapshot=structuredClone(source.flags);
-assert.deepEqual(selectableDice(source).map(p=>p.id),['fire','physical']);
+assert.deepEqual(selectableDice(source).map(p=>p.id),['fire','physical','fixed']);
 let calc=calculateSelectedDice(source,['fire','physical'],owner);
 assert.deepEqual(calc.immunePartIds,['fire']);assert.equal(calc.resistance,2);assert.equal(calc.vulnerability,1);assert.equal(calc.multiplier,2);assert.equal(calc.total,7,'new target immunity/resistance/vulnerability apply only to chosen dice, critical once');
 assert.equal(calculateSelectedDice(source,['fire'],owner).total,0,'only chosen die is immune');
 assert.equal(calculateSelectedDice(source,['physical'],owner,{kind:'heal',modifier:1,penalty:1}).total,5,'no damage defenses or critical applied to healing');
 assert.equal(calculateSelectedDice(source,['physical'],owner,{modifier:1,critical:false}).total,4,'manual modifier and new target defenses, no fixed original or previous target modifiers');
 assert.equal(calculateSelectedDice(source,[],owner).total,0);
+assert.equal(calculateSelectedDice(source,['fixed'],owner,{critical:false}).total,19);
+assert.equal(calculateSelectedDice(source,['fixed'],owner,{kind:'heal'}).total,20);
 const withPenalty=message('sourcePenalty',{weaponDamage:{...source.flags[ID].weaponDamage,penaltyComponents:[{value:-1}]}});
 assert.equal(calculateSelectedDice(withPenalty,['physical'],owner,{critical:false}).total,2,'explicit source penalty survives, old target adjustments do not');
 assert.equal(calculateSelectedDice(withPenalty,['physical'],owner,{critical:false,penalty:0}).total,3,'participants can allocate the penalty manually');
 assert.deepEqual(source.flags,snapshot,'calculations do not mutate source');
 // Run real dialog handlers. Selection is pre-checked, result shown BEFORE applying.
-let previews=0;dialogInput=async cfg=>{assert.match(cfg.content,/name="die0" checked/);assert.match(cfg.content,/name="die1" checked/);assert.doesNotMatch(cfg.content,/name="die2"/);return {kind:'damage',die0:true,die1:true};};
+let previews=0;dialogInput=async cfg=>{assert.match(cfg.content,/name="die0" checked/);assert.match(cfg.content,/name="die1" checked/);assert.match(cfg.content,/name="die2" checked> 20: 20/);return {kind:'damage',die0:true,die1:true};};
 dialogConfirm=async cfg=>{previews++;assert.match(cfg.content,/damage: 7/);assert.equal(owner.system.hp.current,50);return true;};
 const r=await openPartialDice(source);assert.equal(previews,1);assert.ok(r);assert.equal(owner.system.hp.current,43);assert.equal(other.system.hp.current,50);assert.equal(r.getFlag(ID,'hpReport').requested,7);assert.equal(r.getFlag(ID,'hpReport').independent,true);assert.deepEqual(r.whisper,source.whisper);assert.deepEqual(source.flags,snapshot);assert.equal(owner.system.resources.power.value,3);assert.equal(other.system.resources.power.value,3);
 assert.equal(await revertHpReport(r),true);assert.equal(owner.system.hp.current,50);assert.equal(await revertHpReport(r),null,'undo only once');
+// Positive fixed bonus alone is a real selectable component, not a manual correction.
+dialogInput=async cfg=>{assert.match(cfg.content,/name="die2" checked> 20: 20/);return {kind:'heal',die2:true};};
+dialogConfirm=async cfg=>{assert.match(cfg.content,/heal: 20/);return true;};
+const fixedOnly=await openPartialDice(source);assert.equal(fixedOnly.getFlag(ID,'hpReport').requested,20);assert.equal(owner.system.hp.current,60);assert.equal(await revertHpReport(fixedOnly),true);assert.equal(owner.system.hp.current,50);
+dialogInput=async()=>({kind:'damage',die0:true,die1:true});
 // Cancellation and stale GM edits never mutate HP.
 dialogConfirm=async()=>false;assert.equal(await openPartialDice(source),undefined);assert.equal(owner.system.hp.current,50);
 dialogConfirm=async()=>{source.flags[ID].weaponDamage.parts[1].value=5;return true;};assert.equal(await openPartialDice(source),undefined);assert.equal(owner.system.hp.current,50);source.flags=structuredClone(snapshot);
@@ -110,24 +117,39 @@ canvas.tokens.controlled=[];assert.equal(await applyDrainRestoration(drain,'hp')
 canvas.tokens.controlled=[t];drain.isContentVisible=false;assert.equal(await applyDrainRestoration(drain,'hp'),null);
 console.log('PASS Warlock: selected Shield, fixed caster deadline across Actors/scenes, ordinary layer survives, independent Drain healing, repeat/undo, privacy and resource isolation');
 
-// Revised Shield: actual embedded effect, recipient end turn, deletion and undo.
-const {settleTempHpTurnEnd,settleTempHpWorldTime,registerTempHpManualEdits}=await import('../module/damage/temporary-hp-layers.mjs');
+// Actual shield duration, Actor layer and marker; direct/native deletion and undo.
+const {settleTempHpWorldTime,registerTempHpManualEdits,shieldEffectId}=await import('../module/damage/temporary-hp-layers.mjs');
+const {abilityTempHpExpiry}=await import('../module/abilities/temporary-hp-cast.mjs');
+const {applyPanelClick,panelEffectData}=await import('../module/effects/effects-panel-core.mjs');
+const {readFileSync:readShield}=await import('node:fs');
+const shieldCard=JSON.parse(readShield(new URL('../packs/_source/abilities/sotvorenie-tenevoi-shchit--fci1lk224xzk7pvt.json',import.meta.url),'utf8'));
+const execution=shieldCard.system.mechanics.executions[0];
+assert.equal(execution.duration.kind,'nextOwnTurn');
 const hooks={};globalThis.Hooks={on:(name,fn)=>{hooks[name]=fn;}};registerTempHpManualEdits();
-owner.createEmbeddedDocuments=async function(type,rows){assert.equal(type,'ActiveEffect');return rows.map(row=>{const e={...structuredClone(row),id:`effect${++counter}`,parent:this,getFlag(s,k){return this.flags?.[s]?.[k];}};this.effects.contents.push(e);return e;});};
+owner.createEmbeddedDocuments=async function(type,rows){assert.equal(type,'ActiveEffect');return rows.map(row=>{const e={...structuredClone(row),id:`effect${++counter}`,parent:this,getFlag(s,k){return this.flags?.[s]?.[k];},async update(changes){return patch(this,changes);}};e.uuid=`${this.uuid}.ActiveEffect.${e.id}`;this.effects.contents.push(e);return e;});};
 owner.deleteEmbeddedDocuments=async function(type,ids,options={}){assert.equal(type,'ActiveEffect');const gone=this.effects.contents.filter(e=>ids.includes(e.id));this.effects.contents=this.effects.contents.filter(e=>!ids.includes(e.id));for(const e of gone)await hooks.deleteActiveEffect(e,options,game.user.id);return gone;};
-const shield3=message('shield-recipient-end',{abilityResult:{version:1,kind:'temporaryHp',amount:5,expiry:{recipientTurnEnd:true}}});
+game.combat.turns=[caster,receiver];game.combat.round=2;game.combat.turn=0;
+const castExpiry=abilityTempHpExpiry(other,execution,{combat:game.combat,worldTime:100});
+assert.deepEqual(castExpiry,{worldTime:700,turnStart:{combatId:'combat',combatantId:'caster',notBeforeRound:3},marker:'shadowShield'});
+game.combat.turn=1;assert.equal(abilityTempHpExpiry(other,execution,{combat:game.combat,worldTime:100}).turnStart.notBeforeRound,3);
+game.combat.turns=[receiver,caster];game.combat.turn=0;assert.equal(abilityTempHpExpiry(other,execution,{combat:game.combat,worldTime:100}).turnStart.notBeforeRound,2);
+game.combat.turns=[caster,receiver];game.combat.turn=0;
+const shield3=message('shield-caster-start',{abilityResult:{version:1,kind:'temporaryHp',amount:5,expiry:castExpiry}});
 assert.ok(await applyResultToSelectedActor(shield3));assert.equal(owner.effects.contents.length,1);assert.equal(owner.system.hp.temp,5);
-let layer=owner.effects.contents[0].getFlag(ID,'shieldLayer');assert.equal(readTempHpState(owner).layers[layer].expiry.recipientTurnEnd,true);
-game.user={id:'gm',isGM:true};game.combat.turns=[caster,receiver];
-await settleTempHpTurnEnd(game.combat,caster);assert.equal(owner.system.hp.temp,5);
-await settleTempHpTurnStart(game.combat,receiver);assert.equal(owner.system.hp.temp,5);
-await settleTempHpTurnEnd(game.combat,receiver,{skipped:true});assert.equal(owner.system.hp.temp,5);
-await settleTempHpTurnEnd(game.combat,receiver);assert.equal(owner.system.hp.temp,2);assert.equal(owner.effects.contents.length,0);
+let layer=shieldEffectId(owner.effects.contents[0]);assert.deepEqual(readTempHpState(owner).layers[layer].expiry,castExpiry);assert.equal(panelEffectData(owner)[0].shieldRemaining,5);
+game.user={id:'gm',isGM:true};
+await settleTempHpTurnStart(game.combat,caster,{round:2});assert.equal(owner.system.hp.temp,5);
+await settleTempHpTurnStart(game.combat,receiver,{round:3});assert.equal(owner.system.hp.temp,5);
+await settleTempHpTurnStart(game.combat,caster,{round:3,skipped:true});assert.equal(owner.system.hp.temp,5);
+await settleTempHpTurnStart(game.combat,caster,{round:3});assert.equal(owner.system.hp.temp,2);assert.equal(owner.effects.contents.length,0);
 const sr=await applyResultToSelectedActor(shield3);assert.ok(sr);assert.equal(owner.effects.contents.length,1);
 assert.equal(await revertHpReport(sr),true);assert.equal(owner.system.hp.temp,2);assert.equal(owner.effects.contents.length,0);
 assert.ok(await applyResultToSelectedActor(shield3));const effect=owner.effects.contents[0];await owner.deleteEmbeddedDocuments('ActiveEffect',[effect.id]);assert.equal(owner.system.hp.temp,2);assert.equal(owner.effects.contents.length,0);
+assert.ok(await applyResultToSelectedActor(shield3));assert.equal(await applyPanelClick(owner,owner.effects.contents[0],2),'deleted-actor');assert.equal(owner.system.hp.temp,2);assert.equal(owner.effects.contents.length,0);
+assert.ok(await applyResultToSelectedActor(shield3));const damageShield=await applyHp({kind:'damage',amount:3,token:t});assert.ok(damageShield);assert.equal(owner.system.hp.temp,2);assert.equal(panelEffectData(owner)[0].shieldRemaining,2);assert.equal(owner.effects.contents[0].flags[ID].effectState,undefined);
+const depletion=await applyHp({kind:'damage',amount:2,token:t});assert.ok(depletion);assert.equal(owner.system.hp.temp,0);assert.equal(owner.effects.contents.length,0);assert.equal(await revertHpReport(depletion),true);assert.equal(owner.system.hp.temp,2);assert.equal(panelEffectData(owner)[0].shieldRemaining,2);
 assert.ok(await applyResultToSelectedActor(shield3));await settleTempHpWorldTime(owner,701);assert.equal(owner.system.hp.temp,0);assert.equal(owner.effects.contents.length,0);
-console.log('PASS revised Shield: recipient end, skipped turn, native effect deletion, undo, independent layers, time cap');
+console.log('PASS revised Shield: caster next start, skipped turn, native and panel removal, undo, remaining HP, independent layers, time cap');
 
 // Control Warlock: linked Drain damage -> one recovery card -> independent HP
 // and original caster's resource. Load the actual compendium contract.
@@ -174,3 +196,18 @@ const secret=message('secretPotion',{itemUseResult:{potion:true}},{isContentVisi
 assert.equal(await recordPotionReceipt(owner,source),null);
 await restActor(owner);assert.equal(owner.system.potionsUsed,0);assert.equal((await recordPotionReceipt(owner,potion)).duplicate,true);
 console.log('PASS recipient potion accounting, repeat protection, manual receipt, warnings, Stable and Rest');
+
+// Actual DialogV2 payloads: empty channel must not become Invalid HP adjustments.
+assert.deepEqual(partialDiceOptions({kind:'',penalty:'0'}),{error:'selectPartialHpChannel'});
+assert.deepEqual(partialDiceOptions({kind:'heal',penalty:'0',resistance:'',vulnerability:null,modifier:'-1'}),{opts:{kind:'heal',damageType:'',penalty:0,resistance:0,vulnerability:0,modifier:-1}});
+assert.deepEqual(partialDiceOptions({kind:'damage',resistance:'bad'}),{error:'invalidPartialAdjustments'});
+assert.deepEqual(partialDiceOptions({kind:'damage',resistance:-1}),{error:'invalidPartialAdjustments'});
+const hpBeforeInvalid=owner.system.hp.current;
+game.user={id:'player',isGM:false};canvas.tokens.controlled=[t];
+dialogInput=async()=>({kind:'',die0:true});dialogConfirm=async()=>{throw Error('must not preview invalid input');};
+assert.equal(await openPartialDice(native),undefined);assert.equal(notices.at(-1),'FASTNRI.Damage.selectPartialHpChannel');assert.equal(owner.system.hp.current,hpBeforeInvalid);
+dialogInput=async()=>({kind:'damage',die0:true,penalty:'invalid'});assert.equal(await openPartialDice(native),undefined);assert.equal(notices.at(-1),'FASTNRI.Damage.invalidPartialAdjustments');assert.equal(owner.system.hp.current,hpBeforeInvalid);
+const healingRoll=message('knownHeal',{itemUseResult:{results:[{kind:'healHp',rollIndex:0}]}}, {rolls:[{formula:'1d6',total:4,dice:[{faces:6,results:[{result:4,active:true}]}]}]});
+dialogInput=async cfg=>{assert.match(cfg.content,/value="heal" selected/);return {kind:'heal',die0:true,penalty:'',resistance:'0',vulnerability:'0',modifier:'0'};};
+dialogConfirm=async()=>true;assert.ok(await openPartialDice(healingRoll));
+console.log('PASS partial HP channel validation and numeric form payloads');

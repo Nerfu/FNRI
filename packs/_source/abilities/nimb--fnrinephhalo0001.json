@@ -1,0 +1,25 @@
+{
+  "name": "Нимб",
+  "type": "ability",
+  "_id": "fnrinephhalo0001",
+  "system": {
+    "description": "> **Требование:** Святой.\n\nВ начале своего хода можете свободным действием включить или выключить Нимб.\n\nВключённый Нимб создаёт Яркий свет в пределах `8` клеток и Тусклый свет ещё на `8` клеток. Свет распространяется только в клетки, к которым есть линия эффекта от вас.",
+    "category": "Свойство Нефалема",
+    "mechanics": {
+      "racialProperty": {
+        "nature": "holy",
+        "races": [
+          "nephalem"
+        ]
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.nimb",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Нимб"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/symbols/ring-circle-smoke-blue.webp"
+}

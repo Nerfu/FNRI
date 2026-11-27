@@ -1,0 +1,72 @@
+{
+  "name": "Вперёд!",
+  "type": "ability",
+  "_id": "fnri189e46cb8795",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие.  \n> **Свойство:** Вдохновление.  \n> **Длительность:** до начала следующего хода Барда.\n\nБард и союзники, получившие эффект, получают `+1d4` к атакам и добавляют `1d4` к урону своих атак.",
+    "category": "Способность Барда",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "inspire",
+          "type": "effect",
+          "label": "Вперёд!",
+          "effectId": "fnri74a120955975",
+          "target": "selected"
+        }
+      ]
+    },
+    "tags": "Вдохновление",
+    "cost": "1 Воздействие"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.bard.forward",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Барда / Вперёд!"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnri74a120955975",
+      "name": "Вперёд!",
+      "img": "icons/tools/instruments/horn-flared-wood.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [],
+      "description": "> **Требуется:** 1 Воздействие.  \n> **Свойство:** Вдохновление.  \n> **Длительность:** до начала следующего хода Барда.\n\nБард и союзники, получившие эффект, получают `+1d4` к атакам и добавляют `1d4` к урону своих атак.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "effectEnding": "particular",
+          "effectGroup": "bardInspiration",
+          "rollContributions": [
+            {
+              "label": "Вперёд!",
+              "kind": "modifier",
+              "value": "1d4",
+              "kinds": [
+                "attack"
+              ]
+            },
+            {
+              "label": "Вперёд!",
+              "kind": "modifier",
+              "value": "1d4",
+              "kinds": [
+                "damage"
+              ],
+              "attackDamageOnly": true
+            }
+          ],
+          "effectGroupScope": "sourceActor"
+        }
+      }
+    }
+  ],
+  "img": "icons/tools/instruments/horn-flared-wood.webp"
+}

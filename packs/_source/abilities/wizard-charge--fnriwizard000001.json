@@ -1,0 +1,43 @@
+{
+  "name": "Заряд",
+  "type": "ability",
+  "_id": "fnriwizard000001",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие.  \n> **Свойства:** Заклинание, Атака, Дистанционная атака.  \n> **Цель:** одно существо в дистанции заклинаний.  \n> **Проверка:** `1d20 + Куб боя` против КЗ цели.\n\n| Степень | Урон |\n|---|---|\n| Провал | — |\n| Частичный успех | `1d4` магического урона. |\n| Успех | `2d4` магического урона. |\n| Большой успех | `3d4` магического урона. |",
+    "category": "Способность Волшебника",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "attack",
+          "label": "Заряд",
+          "type": "attack",
+          "attack": {
+            "kind": "magic",
+            "targetDefense": "ac",
+            "attackKind": "ranged",
+            "spellRange": "current",
+            "spellEnergy": "wizard",
+            "damageType": "магический",
+            "properties": "Заклинание, Атака, Дистанционная атака",
+            "damageProfile": {
+              "failure": "0",
+              "partial": "1d4",
+              "success": "2d4",
+              "great": "3d4"
+            }
+          }
+        }
+      ]
+    },
+    "tags": "Заклинание, Атака, Дистанционная атака",
+    "cost": "1 Воздействие"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.wizard.charge",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Волшебника / Заряд"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/light/projectile-smoke-blue-light.webp"
+}

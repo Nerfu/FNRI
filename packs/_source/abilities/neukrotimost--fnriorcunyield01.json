@@ -1,0 +1,28 @@
+{
+  "name": "Неукротимость",
+  "type": "ability",
+  "_id": "fnriorcunyield01",
+  "system": {
+    "description": "> **Частота:** `1 раз в день`.  \n> **Условие:** ваши HP должны опуститься до `0`.\n\nВместо этого они опускаются до `1`.",
+    "category": "Свойство Орка",
+    "mechanics": {
+      "racialProperty": {
+        "races": [
+          "orc"
+        ]
+      },
+      "passive": true,
+      "preventZeroHp": true,
+      "preventZeroHpMarker": true
+    },
+    "frequency": "1 раз в день"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.neukrotimost",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Неукротимость"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/life/heart-cross-strong-flame-green.webp"
+}

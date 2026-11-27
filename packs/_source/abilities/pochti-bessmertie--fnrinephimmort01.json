@@ -1,0 +1,35 @@
+{
+  "name": "Почти бессмертие",
+  "type": "ability",
+  "_id": "fnrinephimmort01",
+  "system": {
+    "description": "> **Требуется:** свободное действие.  \n> **Частота:** `1 раз в день`.  \n> **Условие:** у вас меньше `3 HP`.\n\nПолучите **Периодическое исцеление 1** на три срабатывания.",
+    "category": "Свойство Нефалема",
+    "mechanics": {
+      "racialProperty": {
+        "races": [
+          "nephalem"
+        ]
+      },
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      },
+      "periodicHealing": {
+        "value": 1,
+        "durationTicks": 3
+      }
+    },
+    "cost": "свободное действие",
+    "frequency": "1 раз в день"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.pochti-bessmertie",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Почти бессмертие"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/life/heart-cross-strong-purple-orange.webp"
+}

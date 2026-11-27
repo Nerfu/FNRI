@@ -10,6 +10,11 @@ const fail = (reason, detail = null) => ({ ok: false, reason, detail });
 const pass = result => ({ ok: true, ...result });
 const clampDegree = value => Math.max(0, Math.min(3, value));
 
+export function ferocityAttackDegree(result,enabled=false) {
+  return enabled&&result?.ok&&result.degree==='partial'?{...result,degree:'failure',degreeIndex:0}:result;
+}
+export const ferocityDamageApplies=degree=>degree==='success'||degree==='great';
+
 export function bestiaryAttackExpression(actor) {
   const modifier = actor?.system?.attackModifier;
   if (actor?.type !== 'npc' || !finite(modifier)) return null;

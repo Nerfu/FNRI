@@ -1,0 +1,51 @@
+{
+  "name": "Наставление",
+  "type": "ability",
+  "_id": "fnricleric000007",
+  "system": {
+    "description": "> **Требуется:** 1 Вмешательство и 1 Божественная сила.  \n> **Свойства:** Заклинание, Вмешательство.  \n> **Условие:** после определения степени и урона, но до применения результатов.  \n> **Цель:** одно существо в дистанции заклинаний, совершившее направленную атаку.\n\nПовысьте определённую степень атаки на `1`, максимум до Большого успеха. Натуральная `1` не повышается.",
+    "category": "Способность Клерика",
+    "mechanics": {
+      "degreeIncrease": {
+        "amount": 1
+      },
+      "isIntervention": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          },
+          {
+            "kind": "class",
+            "resourceKey": "class_divine",
+            "resourceName": "Божественная сила",
+            "amount": 1
+          }
+        ]
+      },
+      "executions": [
+        {
+          "id": "guidance",
+          "type": "manual",
+          "label": "Наставление",
+          "spell": {
+            "spellEnergy": "divine",
+            "spellRange": "current",
+            "target": "selected"
+          }
+        }
+      ]
+    },
+    "tags": "Заклинание, Вмешательство",
+    "cost": "1 Вмешательство и 1 Божественная сила"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.cleric.guidance",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Клерика / Наставление"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/holy/prayer-hands-glowing-yellow.webp"
+}

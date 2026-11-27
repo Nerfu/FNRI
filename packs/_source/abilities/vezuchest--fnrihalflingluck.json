@@ -1,0 +1,34 @@
+{
+  "name": "Везучесть",
+  "type": "ability",
+  "_id": "fnrihalflingluck",
+  "system": {
+    "description": "> **Частота:** `1 раз в день`.\n\nКогда на `d20` вашей проверки выпадает натуральная `1`, перебросьте его. Новый результат обязателен.",
+    "category": "Свойство Полурослика",
+    "mechanics": {
+      "racialProperty": {
+        "races": [
+          "halfling"
+        ]
+      },
+      "passive": true,
+      "reroll": {
+        "naturalOneD20": true
+      },
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    },
+    "frequency": "1 раз в день"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.vezuchest",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Везучесть"
+    }
+  },
+  "effects": [],
+  "img": "icons/commodities/flowers/clover.webp"
+}

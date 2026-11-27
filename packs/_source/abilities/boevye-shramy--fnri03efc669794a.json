@@ -3,7 +3,7 @@
   "type": "ability",
   "_id": "fnri03efc669794a",
   "system": {
-    "description": "Получите Куб навыка Запугивание d6.",
+    "description": "Получите Куб навыка **Запугивание `d6`**.\n\n> **Частота:** `1 раз в день`.  \n> **Условие:** вы применяете Самозащиту.\n\nПосле разрешения Самозащиты можете заменить значение одного оставшегося Куба урона на `1`. Этот Куб урона нельзя перебросить.",
     "category": "Свойство Орка",
     "mechanics": {
       "passive": true,
@@ -19,6 +19,15 @@
             "skill": "intimidation"
           }
         ]
+      },
+      "selfDefenseDamageReplacement": {
+        "value": 1,
+        "noReroll": true
+      },
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
       }
     }
   },

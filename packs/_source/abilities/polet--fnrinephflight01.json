@@ -1,0 +1,31 @@
+{
+  "name": "Полёт",
+  "type": "ability",
+  "_id": "fnrinephflight01",
+  "system": {
+    "description": "> **Требование:** Святой.  \n> **Частота:** 1 раз за бой.\n\nПри Перемещении все клетки пересечённой местности, в которые вы входите, считаются для вас обычной местностью.",
+    "category": "Свойство Нефалема",
+    "mechanics": {
+      "racialProperty": {
+        "nature": "holy",
+        "races": [
+          "nephalem"
+        ]
+      },
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    },
+    "frequency": "1 раз за бой"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.polet",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Полёт"
+    }
+  },
+  "effects": [],
+  "img": "icons/magic/control/buff-flight-wings-runes-blue.webp"
+}

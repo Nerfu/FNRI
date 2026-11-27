@@ -148,3 +148,65 @@ assert.equal(sparked.getFlag(ID,'hpReport').multiplier,1);assert.equal(await rev
 actor.flags[ID].damageDefenses={immunities:['магический'],vulnerabilities:[{trait:'магический',value:10}]};
 const immune=await applyCardDamage(spark);assert.equal(immune.getFlag(ID,'hpReport').requested,0);
 console.log('PASS post-defense damage: per-recipient mitigation, no critical, independent HP and undo');
+
+// C1 Orc: an optional confirmed prevention changes the final HP receipt,
+// not the incoming roll, and charges once after successful publication.
+const {readFileSync}=await import('node:fs');
+const {abilityAccountingStatus}=await import('../module/data/ability-accounting.mjs');
+const {planResponsiveDamage}=await import('../module/damage/responsive-healing.mjs');
+const orcCard=JSON.parse(readFileSync(new URL('../packs/_source/abilities/neukrotimost--fnriorcunyield01.json',import.meta.url),'utf8'));
+delete orcCard.system.mechanics.preventZeroHpMarker;orcCard.system.mechanics.accounting={frequency:{uses:1}}; // legacy embedded card
+const relentless={...orcCard,id:orcCard._id,uuid:`${actor.uuid}.Item.${orcCard._id}`};
+actor.items={contents:[relentless]};actor.system.hp.current=3;actor.type='character';
+let accepted=true,asked=0;
+foundry.applications.api.DialogV2.confirm=async cfg=>{assert.equal(cfg.window.title,'Неукротимость');asked++;return accepted;};
+const nonLethal=await applyHp({kind:'damage',amount:1,actor,ignoreTempHp:true,independent:true});
+assert.equal(asked,0);assert.equal(actor.system.hp.current,2);
+const lethal=await applyHp({kind:'damage',amount:100,actor,ignoreTempHp:true,independent:true});
+assert.equal(asked,1);assert.equal(actor.system.hp.current,1);
+assert.equal(lethal.getFlag(ID,'hpReport').after.current,1);
+assert.equal(lethal.getFlag(ID,'hpReport').hitPointsDamage,1);
+assert.equal(actor.getFlag(ID,'deathState'),undefined);
+assert.equal(abilityAccountingStatus(actor,relentless).used,1);
+assert.equal(await revertHpReport(lethal),true);assert.equal(actor.system.hp.current,2);
+assert.equal(abilityAccountingStatus(actor,relentless).used,1,'undo HP alone does not undo a declared ability use');
+accepted=false;actor.type='npc';
+const declined=await applyHp({kind:'damage',amount:100,actor,independent:true});
+assert.equal(declined.getFlag(ID,'hpReport').after.current,0);assert.equal(asked,2);
+assert.equal(abilityAccountingStatus(actor,relentless).used,1);
+await applyHp({kind:'damage',amount:100,actor,independent:true});assert.equal(asked,2,'already zero is not a drop to zero');
+assert.equal(planResponsiveDamage({current:3,max:10,temp:0},10,2,{preventZero:true}).damagePhase.after.current,1);
+console.log('PASS Orc: lethal HP prevention, decline, accounting, undo, reactive healing and already-zero');
+
+// Updated card: automatic marker, no duplicate frequency and no dialog.
+const updatedCard=JSON.parse(readFileSync(new URL('../packs/_source/abilities/neukrotimost--fnriorcunyield01.json',import.meta.url),'utf8'));
+actor.items={contents:[{...updatedCard,id:updatedCard._id,uuid:`${actor.uuid}.Item.${updatedCard._id}`} ]};
+actor.effects.contents=[];actor.createEmbeddedDocuments=async(type,rows)=>rows.map(row=>{const e={...row,id:`e${++seq}`,parent:actor,getFlag(s,k){return this.flags?.[s]?.[k]}};actor.effects.contents.push(e);return e;});
+actor.deleteEmbeddedDocuments=async(type,ids)=>{actor.effects.contents=actor.effects.contents.filter(e=>!ids.includes(e.id));};
+actor.system.hp.current=3;actor.type='npc';const beforeDialogs=asked;
+const saved=await applyHp({kind:'damage',amount:100,actor,ignoreTempHp:true,independent:true});
+assert.equal(saved.getFlag(ID,'hpReport').after.current,1);assert.equal(asked,beforeDialogs);
+assert.equal(actor.effects.contents.filter(e=>e.getFlag(ID,'zeroHpPreventionUsed')).length,1);
+assert.equal(abilityAccountingStatus(actor,actor.items.contents[0]),null);
+assert.equal((await applyHp({kind:'damage',amount:100,actor,ignoreTempHp:true,independent:true})).getFlag(ID,'hpReport').after.current,0);
+console.log('PASS new Orc: automatic prevention marker, no confirmation or daily counter, second lethal hit');
+
+// Wizard: one result without targets, three independent HP buttons and per-use accounting.
+const {publishDamageCharges,applyDamageCharge}=await import('../module/abilities/damage-charges.mjs');
+const salvo=JSON.parse(readFileSync(new URL('../packs/_source/abilities/wizard-salvo--fnriwizard000003.json',import.meta.url),'utf8'));
+salvo.id=salvo._id;salvo.uuid=`${actor.uuid}.Item.${salvo.id}`;salvo.parent=actor;
+actor.items={contents:[salvo]};actor.hasPlayerOwner=true;actor.effects.contents=[];actor.system.hp={current:20,max:25,temp:0};
+actor.system.resources={class_wizard:{name:'Волшебная сила',kind:'class',current:7,max:7}};
+actor.flags[ID].damageDefenses={resistances:[{trait:'магический',value:10}]};lookups[salvo.uuid]=salvo;
+let rollCounter=0;
+globalThis.Roll=class{constructor(formula){this.formula=formula;const result=[4,2,3][rollCounter++];this.dice=[{faces:4,results:[{result,active:true}]}];this.total=result+1;}async evaluate(){return this;}toJSON(){return {formula:this.formula,total:this.total};}};
+game.user.targets=new Set();canvas.tokens.controlled=[];
+const chargeMessage=await publishDamageCharges({actor,item:salvo,execution:salvo.system.mechanics.executions[0],source});
+const charges=chargeMessage.getFlag(ID,'abilityResult').charges;
+assert.equal(rollCounter,3);assert.equal(charges.length,3);assert.deepEqual(charges.map(c=>c.parts.map(p=>p.value)),[[4,1],[2,1],[3,1]]);
+assert.equal(actor.system.resources.class_wizard.current,7);assert.equal(await applyDamageCharge(chargeMessage,0),null);
+canvas.tokens.controlled=[token];const chargeReport=await applyDamageCharge(chargeMessage,0);
+assert.equal(chargeReport.getFlag(ID,'hpReport').requested,5);assert.equal(actor.system.hp.current,15);assert.equal(actor.system.resources.class_wizard.current,6);
+const nextChargeReport=await applyDamageCharge(chargeMessage,2);assert.equal(nextChargeReport.getFlag(ID,'hpReport').requested,4);assert.equal(actor.system.resources.class_wizard.current,5);
+assert.equal(actor.system.hp.current,11);assert.equal(rollCounter,3);assert.deepEqual(charges.map(c=>c.parts.map(p=>p.value)),[[4,1],[2,1],[3,1]]);
+console.log('PASS Wizard salvo: three rolls, no targets, no launch cost, separate HP applications ignore resistance, two charges paid');

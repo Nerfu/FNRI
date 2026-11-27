@@ -1,0 +1,30 @@
+{
+  "name": "Мешающийся",
+  "type": "ability",
+  "_id": "fnricatobstruct1",
+  "system": {
+    "description": "> **Требуется:** свободное действие.  \n> **Условие:** ваш ход.  \n> **Частота:** `1 раз в день`.\n\nДо вашего первого перемещения, использования Вмешательства или начала следующего хода соседние с вами клетки являются пересечённой местностью для врагов.",
+    "category": "Свойство Котолюда",
+    "mechanics": {
+      "racialProperty": {
+        "races": [
+          "catfolk"
+        ]
+      },
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    },
+    "frequency": "1 раз в день"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.meshaiushchiisia",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Мешающийся"
+    }
+  },
+  "effects": [],
+  "img": "icons/creatures/mammals/cat-hunched-glowing-red.webp"
+}

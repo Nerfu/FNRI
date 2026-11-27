@@ -1,9 +1,10 @@
+import {settlePeriodicHealingStartTurn} from '../damage/periodic-healing.mjs';
 /** Native v14 Combat lifecycle, following the technical pattern used by PF2e
  * and dnd5e systems. Core invokes _onEndTurn on one designated active GM. */
 import {remindConditionsAtTurnStart,expireInformationalMarkers} from '../effects/condition-turn.mjs';
 import {settleGeneralEffectEndTurn} from '../effects/effect-ending-turn.mjs';
 import {settlePeriodicEndTurn} from '../damage/periodic-turn.mjs';
-import {settleTempHpTurnStart,settleTempHpTurnEnd} from '../damage/temporary-hp-layers.mjs';
+import {settleTempHpTurnStart} from '../damage/temporary-hp-layers.mjs';
 import {combatStartResourceUpdate} from '../data/classes.mjs';
 import {queueActorWrite} from '../data/ability-accounting.mjs';
 
@@ -41,6 +42,8 @@ export class FastNRICombat extends foundry.documents.Combat {
   }
   async _onStartTurn(combatant,context) {
     await super._onStartTurn(combatant,context);
+    try {await settlePeriodicHealingStartTurn(this,combatant,context);}
+    catch(error){console.error('Fast NRI | periodic healing start failed',error);}
     try {await settleTempHpTurnStart(this,combatant,context);}
     catch(error){console.error('Fast NRI | temporary HP start failed',error); }
     try {await remindConditionsAtTurnStart(this,combatant,context);}
@@ -53,7 +56,6 @@ export class FastNRICombat extends foundry.documents.Combat {
     for (const [label,settle] of [
       ['periodic damage',settlePeriodicEndTurn],
       ['general effect ending',settleGeneralEffectEndTurn],
-      ['temporary HP',settleTempHpTurnEnd],
       ['marker expiry',expireInformationalMarkers]
     ]) {
       try {await settle(this,combatant,context);}

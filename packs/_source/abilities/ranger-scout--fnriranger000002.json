@@ -1,0 +1,24 @@
+{
+  "name": "Разведчик",
+  "type": "ability",
+  "_id": "fnriranger000002",
+  "system": {
+    "description": "Вы получаете `+2` к инициативе.\n\nСоюзники, не являющиеся Егерями, получают `+1` к инициативе. Один персонаж получает этот бонус не более чем от одного Разведчика.",
+    "category": "Способность Егеря",
+    "mechanics": {
+      "passive": true,
+      "initiativeContribution": {
+        "self": 2,
+        "allies": 1
+      }
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.ranger.scout",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Егеря / Разведчик"
+    }
+  },
+  "effects": [],
+  "img": "icons/tools/navigation/spyglass-telescope-brass.webp"
+}

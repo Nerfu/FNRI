@@ -1,0 +1,20 @@
+{
+  "name": "Вдохновляющие действия",
+  "type": "ability",
+  "_id": "fnri7baab7f06b70",
+  "system": {
+    "description": "Действие со свойством **Вдохновление** действует на Барда и слышащих его союзников в пределах `40` клеток.\n\nПрименение Вдохновления прекращает предыдущий эффект Вдохновления.",
+    "category": "Способность Барда",
+    "mechanics": {
+      "passive": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.bard.inspiration",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Барда / Вдохновляющие действия"
+    }
+  },
+  "effects": [],
+  "img": "icons/tools/instruments/harp-gold-glowing.webp"
+}

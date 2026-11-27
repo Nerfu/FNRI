@@ -1,0 +1,35 @@
+{
+  "name": "Боевая медицина",
+  "type": "ability",
+  "_id": "fnriwarmed000001",
+  "system": {
+    "description": "> **Свойства:** Исцеление, Манипуляция.  \n> **Частота:** `1 раз в день`.  \n> **Цель:** вы или один соседний союзник.  \n> **Проверка:** Медицина против Сложности 5.\n\nПри Успехе цель восстанавливает `2d4+4 HP`.",
+    "category": "Способность Воина",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "medicine",
+          "type": "roll",
+          "label": "Боевая медицина",
+          "standardActionId": "firstAid",
+          "successHealingFormula": "2d4+4"
+        }
+      ],
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      }
+    },
+    "frequency": "1 раз в день",
+    "tags": "Исцеление, Манипуляция"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.warrior.battle-medicine",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Воина / Боевая медицина"
+    }
+  },
+  "effects": [],
+  "img": "icons/tools/medical/bandages-gauze-rough.webp"
+}

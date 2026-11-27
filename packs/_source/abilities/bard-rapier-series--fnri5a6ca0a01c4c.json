@@ -1,0 +1,68 @@
+{
+  "name": "Каждому своё!",
+  "type": "ability",
+  "_id": "fnri5a6ca0a01c4c",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие и 3 Ритма.  \n> **Свойства:** Атака, Ближняя атака.  \n> **Требование:** Рапира.  \n> **Цели:** до трёх разных врагов в пределах `3` клеток.\n\nСовершите по одной атаке Рапирой против каждой выбранной цели. Каждая атака наносит дополнительно `1d6` урона. Весь её урон становится магическим.",
+    "category": "Способность Барда",
+    "mechanics": {
+      "culmination": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "class",
+            "resourceKey": "class_rhythm",
+            "resourceName": "Ритм",
+            "amount": 3
+          }
+        ]
+      },
+      "attack": {
+        "kind": "physical",
+        "useWeapon": true,
+        "weaponContentIds": [
+          "fnri7.rulebook.weapon.006"
+        ],
+        "attackKind": "melee",
+        "properties": "Атака, Ближняя атака",
+        "damageType": "магический"
+      },
+      "rollContributions": [
+        {
+          "label": "Каждому своё!",
+          "kind": "modifier",
+          "value": "1d6",
+          "kinds": [
+            "damage"
+          ],
+          "damageType": "магический"
+        }
+      ],
+      "executions": [
+        {
+          "id": "prepare",
+          "type": "manual",
+          "label": "Объявить серию"
+        },
+        {
+          "id": "attack",
+          "type": "attack",
+          "label": "Атака серии (одна цель)",
+          "accounting": {
+            "resourceCosts": []
+          }
+        }
+      ]
+    },
+    "tags": "Атака, Ближняя атака",
+    "cost": "1 Воздействие и 3 Ритма"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.bard.rapier-series",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Барда / Каждому своё!"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/swords-triple-orange.webp"
+}

@@ -114,7 +114,7 @@ export function resolveAbilityWeapon(item,actor) {
 
 /** Sweeping affects base weapon dice; Catalyst affects magic damage dice belonging to a spell (including Blade). */
 export function weaponRerollEligible(part,rule,profileKind) {
-  if(part?.kind!=='die'||part.gameRerolled||part.pending||!Number.isInteger(part.faces)||
+  if(part?.kind!=='die'||part.noReroll||part.gameRerolled||part.pending||!Number.isInteger(part.faces)||
     part.faces<2||!Number.isFinite(part.value))return false;
   const id=part.profilePart??part.id;
   return rule==='sweeping' ? !part.added&&profileKind!=='magic'&&['A','B'].includes(id)&&[1,2].includes(part.value) :

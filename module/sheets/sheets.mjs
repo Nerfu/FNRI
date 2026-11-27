@@ -11,9 +11,9 @@ import { currentMessageMode } from '../data/chat-visibility.mjs';
 import {skillAllocationMode,skillNominalEditPatch,resolveSkillAllocation,skillDieEditPatch,skillAllocationPatch,planSkillUpgrade,skillFormulaOverridePatch,resetSkillAssignmentsPatch} from "../data/skill-allocation.mjs";
 import {skillPoolControl,skillDistributionView,skillUpgradeCandidates} from "./skill-editor.mjs";
 import {summaryOpenAfterRefresh} from "./skill-allocation-display.mjs";
-import {classAbilityCard,missingClassAbilityRows,useClassAbilityCard} from "./class-abilities.mjs";
+import {classAbilityCard,missingClassAbilityRows,useClassAbilityCard,editClassWeaponProficiency,classWeaponProficiencyName,editClassNature} from "./class-abilities.mjs";
 import {chooseCharacterOption} from "./character-choice.mjs";
-import {classSelectionUpdate,classNames,classDefinition,prepareClassBaseStats,DOUBLE_INVOCATION_ID} from "../data/classes.mjs";
+import {classSelectionUpdate,classNames,classDefinition,prepareClassBaseStats,DOUBLE_INVOCATION_ID,actorClassDefinition,CLASSES,classResourceEntry} from "../data/classes.mjs";
 import {permanentRacialStats} from "../data/character-contributions.mjs";
 import {chooseByButtons} from '../rolls/button-choice.mjs';
 import {isProjectionActor,projectionCaster,projectionArmorForActor,projectionLink,projectionActorsForAbility,
@@ -21,6 +21,7 @@ import {isProjectionActor,projectionCaster,projectionArmorForActor,projectionLin
 import {publishAbility} from '../abilities/ability-chat.mjs';
 import { actorJournalRows } from "../data/actor-journal.mjs";
 import { potionResource, potionText } from "../data/potion-resource.mjs";
+import {deleteShieldEffect,shieldEffectId} from "../damage/temporary-hp-layers.mjs";
 import { restActor, queueActorWrite } from "../data/ability-accounting.mjs";
 import { interventionWarnings } from "../data/intervention-availability.mjs";
 import { showAllInterventions } from "../damage/intervention-menu.mjs";
@@ -658,7 +659,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       const selected = await chooseSheetOption(sheetActionText(id, 'name'), attacks, sheetActionText(id, 'description'));
       if (!selected) return;
       const targetTokens = [...(game.user.targets ?? [])];
-      const options = {skipPreroll: !!event?.shiftKey, isIntervention: true, targetTokens};
+      const options = {skipPreroll: !!event?.shiftKey, isIntervention: true, targetTokens, quickAttack:true};
       if (targetTokens.length > 1) {
         const choice = await chooseSheetOption(localized('SheetActions.selectTarget'),
           targetTokens.map(token => ({name: token.name, token})));
@@ -896,7 +897,12 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       const equipped = Boolean(itemSlot(id, this.actor.system));
       const planned = planEquipmentChange(this.actor.system, item, !equipped);
       if (!planned.ok) throw new Error(`Equipment: ${planned.reason}`);
-      if (Object.keys(planned.updates).length) await this.actor.update(planned.updates);
+      const changes=planned.updates;
+      if(actorClassDefinition(this.actor)===CLASSES.bard && ['leftHand','rightHand'].some(hand=>Object.hasOwn(changes,`system.equipment.${hand}`)&&changes[`system.equipment.${hand}`]!==this.actor.system.equipment?.[hand])){
+        const rhythm=classResourceEntry(this.actor,CLASSES.bard);
+        if(rhythm&&Number.isFinite(rhythm[1].current)&&rhythm[1].current>0)changes[`system.resources.${rhythm[0]}.current`]=Math.max(0,rhythm[1].current-1);
+      }
+      if (Object.keys(changes).length) await this.actor.update(changes);
     });
   }
 
@@ -1029,7 +1035,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
       window: { title: localized("Actions.deleteEffect") },
       content: `<p>${localized("Hints.confirmDelete")}</p>`, rejectClose: false
     })) return;
-    await this._queueWrite(() => this.actor.deleteEmbeddedDocuments("ActiveEffect", [effect.id]));
+    await this._queueWrite(() => shieldEffectId(effect)?deleteShieldEffect(this.actor,effect):this.actor.deleteEmbeddedDocuments("ActiveEffect", [effect.id]));
   }
 
   /** System-granted ability. Display the normative text only; no Item or edit form. */
@@ -1483,7 +1489,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
         if (field !== "name" && !field.startsWith("system.")) return;
         if (field === "system.size") {
           const size=control.value;
-          void this._queueWrite(async()=>{if(!await setCreatureSize(this.actor,size))throw new Error("Size update unavailable");},field).catch(()=>{});
+          void this._queueWrite(async()=>{if(!await setCreatureSize(this.actor,size))throw new Error("Size update unavailable");control.value=creatureSize(this.actor.system.size);},field).catch(()=>{});
           return;
         }
         if (control.hasAttribute?.("data-fnri-hp-math") &&
@@ -1608,7 +1614,7 @@ class ActorBase extends HandlebarsApplicationMixin(ActorSheetV2) {
     return {
       ...context,
       actor, system: base, modifierGroups:modifierGroups(actor,localized), effectiveSystem: actor.system, effectiveDiffs, editable: this.isEditable,
-      creatureSizeOptions: CREATURE_SIZES.map(value=>({value,label:localized("CreatureSize."+value),selected:value===creatureSize(base.size)})),
+      creatureSizeOptions: ["default",...CREATURE_SIZES].map(value=>({value,label:localized("CreatureSize."+value),selected:value===creatureSize(base.size)})),
       projectionSheet: isProjectionActor(actor) && !this._showProjectionFull,
       projectionFullAvailable: isProjectionActor(actor),
       projectionOwner: projectionCaster(actor) ? {name: projectionCaster(actor).name} : null,
@@ -1736,7 +1742,7 @@ export class FastNRICharacterSheet extends ActorBase {
       return {...row,pool,displayFormula:pool?skillFormulaDisplay(row,this.actor.system.skills?.[row.id]??row,this.actor,{origin:pool.source,originalFace:die&&allocation.rows[skill.id].override===null?die.size:null}):row.displayFormula,formulaOpen:skill&&this._skillFormulaEditors.has(skill.id)};
     };
     return {...context, system:base, roleDetails: roleDetails(this.actor.system),
-      rawHp:{...raw.hp,current:this.actor.system.hp?.current}, basePotionMax:raw.potionsBaseMax??3,
+      rawHp:{...raw.hp,current:this.actor.system.hp?.current,temp:this.actor.system.hp?.temp}, basePotionMax:raw.potionsBaseMax??3,
       effectiveDiffs:{speed:base.speed!==this.actor.system.speed, ...Object.fromEntries(["hp","ac","defenses"].map(group=>[group,Object.fromEntries(Object.keys(base[group]??{}).map(key=>[key,base[group][key]!==this.actor.system[group]?.[key]]))]))},
       resourceRows:resourceRows(raw.resources,this.actor.system.resources),
       catalogGroups:context.catalogGroups.map(g=>({...g,rows:g.rows.map(playSkill),specializations:g.specializations.map(playSkill)})), skillRows:context.skillRows.map(playSkill),
@@ -1868,6 +1874,7 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
       itemRoll: FastNRIItemSheet.rollItem,
+      chooseClassWeapon: FastNRIItemSheet.chooseClassWeapon,
       openProjectionActor: FastNRIItemSheet.openProjectionActor,
       unlinkProjection: FastNRIItemSheet.unlinkProjection,
       weaponAttack: FastNRIItemSheet.weaponAttack,
@@ -2023,6 +2030,10 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       ui.notifications?.warn(localized("Hints.rollFailed"));
     }
   }
+  static async chooseClassWeapon(){
+    if(!this.isEditable)return;
+    try{if(this.item.system?.mechanics?.classNature)await editClassNature(this.item);else await editClassWeaponProficiency(this.item);}catch(error){console.warn("Fast NRI | weapon proficiency selection",error);ui.notifications?.warn(localized("Hints.saveFailed"));}
+  }
   static PARTS = { main: { root: true, template: "systems/fast-nri-v14/templates/item.hbs" } };
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
@@ -2042,6 +2053,8 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         Array.isArray(this.item.system?.mechanics?.executions) &&
         this.item.system.mechanics.executions.some(row => row.type === 'projection') &&
         this.item.parent?.documentName === 'Actor',
+      classWeaponChoice: (this.item.system?.mechanics?.weaponProficiency?.chooseAdditional===true||!!this.item.system?.mechanics?.classNature)&&this.item.parent?.documentName==='Actor',
+      classWeaponName: this.item.system?.mechanics?.classNature?({holy:'Святой',unholy:'Нечестивый'}[this.item.system.mechanics.classNature.selection]??''):this.item.system?.mechanics?.weaponProficiency?.chooseAdditional===true?await classWeaponProficiencyName(this.item):'',
       projectionActors: projectionActorsForAbility(this.item).map(actor => ({id: actor.id, name: actor.name, img: actor.img})),
       isLegacy: this.item.type === "item",
       gearHand: this.item.system?.mechanics?.equipment?.slot === 'hand',

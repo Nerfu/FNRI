@@ -1,0 +1,73 @@
+{
+  "name": "Восстановление",
+  "type": "ability",
+  "_id": "fnridruid0000006",
+  "system": {
+    "description": "> **Требуется:** 1 Воздействие и 1 Жизненная сила.  \n> **Свойства:** Заклинание, Исцеление.  \n> **Цель:** одно существо в дистанции заклинаний.  \n> **Длительность:** четыре срабатывания Периодического исцеления.\n\nЦель восстанавливает `1d4 HP` и получает **Периодическое исцеление 2**.\n\nВы не можете применить Восстановление, пока действует другое наложенное вами Восстановление.",
+    "category": "Способность Друида",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "heal",
+          "label": "Восстановление",
+          "type": "roll",
+          "formula": "1d4",
+          "rollKind": "heal",
+          "target": "selected",
+          "spell": {
+            "spellEnergy": "life",
+            "spellRange": "current",
+            "target": "selected"
+          },
+          "effectId": "fnridruidRest001"
+        }
+      ],
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "class",
+            "resourceKey": "class_life",
+            "resourceName": "Жизненная сила",
+            "amount": 1
+          }
+        ]
+      }
+    },
+    "tags": "Заклинание, Исцеление",
+    "cost": "1 Воздействие и 1 Жизненная сила"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.druid.restoration",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Друида / Восстановление"
+    }
+  },
+  "effects": [
+    {
+      "_id": "fnridruidRest001",
+      "name": "Восстановление",
+      "img": "icons/magic/nature/root-vine-caduceus-healing.webp",
+      "type": "base",
+      "showIcon": 2,
+      "statuses": [],
+      "description": "> **Требуется:** 1 Воздействие и 1 Жизненная сила.  \n> **Свойства:** Заклинание, Исцеление.  \n> **Цель:** одно существо в дистанции заклинаний.  \n> **Длительность:** четыре срабатывания Периодического исцеления.\n\nЦель восстанавливает `1d4 HP` и получает **Периодическое исцеление 2**.\n\nВы не можете применить Восстановление, пока действует другое наложенное вами Восстановление.",
+      "transfer": false,
+      "disabled": false,
+      "duration": {},
+      "system": {
+        "changes": []
+      },
+      "flags": {
+        "fast-nri-v14": {
+          "effectEnding": "particular",
+          "periodicHealing": {
+            "version": 1,
+            "value": 2,
+            "durationTicks": 4
+          }
+        }
+      }
+    }
+  ],
+  "img": "icons/magic/nature/root-vine-caduceus-healing.webp"
+}

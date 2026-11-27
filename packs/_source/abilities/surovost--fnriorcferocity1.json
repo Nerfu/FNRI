@@ -1,0 +1,34 @@
+{
+  "name": "Суровость",
+  "type": "ability",
+  "_id": "fnriorcferocity1",
+  "system": {
+    "description": "> **Частота:** `1 раз в день`.  \n> **Условие:** атака ближнего боя по одной цели.\n\nЗамените Куб боя этой атаки на `d12`. Частичный успех считается Провалом.\n\nПри Успехе или Большом успехе нанесите цели после Защит дополнительно `1d8` урона (`2d8` при Критическом ударе) того же типа и с теми же свойствами, что и основной урон атаки.",
+    "category": "Свойство Орка",
+    "mechanics": {
+      "racialProperty": {
+        "races": [
+          "orc"
+        ]
+      },
+      "passive": true,
+      "attackCombatDieOverride": 12,
+      "partialAttackFails": true,
+      "accounting": {
+        "frequency": {
+          "uses": 1
+        }
+      },
+      "ferocityAfterDefenses": true
+    },
+    "frequency": "1 раз в день"
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.racial.surovost",
+      "source": "Fast NRI 7.0 rulebook.md / Свойства рас / Суровость"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/strike-axe-blood-red.webp"
+}

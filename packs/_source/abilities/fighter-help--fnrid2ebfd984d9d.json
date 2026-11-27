@@ -1,0 +1,47 @@
+{
+  "name": "Щас помогу",
+  "type": "ability",
+  "_id": "fnrid2ebfd984d9d",
+  "system": {
+    "description": "> **Требуется:** `1 Вмешательство`.  \n> **Требование:** две свободные руки.  \n> **Условие:** союзник объявляет атаку по соседней с вами цели.\n\nДо атаки союзника совершите против этой цели **Захватить** или **Сбить с ног**.",
+    "category": "Способность Бойца",
+    "mechanics": {
+      "isIntervention": true,
+      "accounting": {
+        "resourceCosts": [
+          {
+            "kind": "intervention",
+            "amount": 1
+          }
+        ]
+      },
+      "executions": [
+        {
+          "id": "grapple",
+          "type": "roll",
+          "label": "Захватить",
+          "standardActionId": "grapple",
+          "isIntervention": true,
+          "requiresFreeHands": true
+        },
+        {
+          "id": "trip",
+          "type": "roll",
+          "label": "Сбить с ног",
+          "standardActionId": "trip",
+          "isIntervention": true,
+          "requiresFreeHands": true
+        }
+      ]
+    },
+    "cost": "1 Вмешательство."
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.fighter.help",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Бойца / Щас помогу"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/social/diplomacy-handshake.webp"
+}

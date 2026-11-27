@@ -1,0 +1,28 @@
+{
+  "name": "Ответный удар",
+  "type": "ability",
+  "_id": "fnri83cdd951c0ae",
+  "system": {
+    "description": "> **Требуется:** свободное действие.  \n> **Условие:** вы успешно применили Защитное действие, а после его завершения источник исходного действия соседствует с вами.\n\nБросьте Куб боя. Источник исходного действия получает физический урон, равный выпавшему результату.\n\n**Ограничение:** одно исходное действие может вызвать не более одного Ответного удара.",
+    "category": "Способность Защитника",
+    "mechanics": {
+      "executions": [
+        {
+          "id": "damage",
+          "type": "roll",
+          "label": "Ответный удар",
+          "combatDie": true,
+          "rollKind": "damage"
+        }
+      ]
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.defender.retaliation",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Защитника / Ответный удар"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/melee/strike-sword-steel-yellow.webp"
+}

@@ -1,6 +1,6 @@
 import {canReadChatContent,chatAudience} from '../data/chat-visibility.mjs';
 import {followUpSourceFor,publishWithAreaSource} from '../data/private-area-source.mjs';
-import {publishAreaUse} from '../data/ability-accounting.mjs';
+import {publishAreaUse,abilityAccountingStatus} from '../data/ability-accounting.mjs';
 import {redactActorSourceForAudience} from '../rolls/roll-context.mjs';
 
 const SCOPE='fast-nri-v14';
@@ -62,6 +62,8 @@ export async function applyAreaFollowUp(message,id) {
   const choice=availableAreaFollowUps(message).find(option=>option.messageId===id);
   if (!choice) return null;
   const {actor,item,rule}=choice;
+  if (rule.warnExhausted===true && abilityAccountingStatus(actor,item)?.remaining===0)
+    globalThis.ui?.notifications?.warn(game.i18n.localize('FASTNRI.AbilityChat.noDailyUses'));
   return publishAreaUse({actor,item,execution:{accounting:rule.accounting},isIntervention:false,
     messageId:id,publish:async()=>{
       // Staging the price can yield. Recheck the live parent, token, rights

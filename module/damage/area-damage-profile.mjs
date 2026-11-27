@@ -4,30 +4,18 @@
  * this never rolls new dice,
  * writes chat documents, mutates a target, or changes the attack degree.
  * Equivalent ties use stable source order. Unequal typed/propertied ties
- * are left unresolved: the defender, not the engine, chooses the removed die.
+ * are left unresolved for GM correction or manual HP application.
  */
 import {ATTACK_DEGREES} from '../rolls/attack-core.mjs';
 
 const STEPS=new Set(['lowest','highest','all']);
 const fail=reason=>({ok:false,reason});
 
-/** Dice with the same result are interchangeable ONLY if no declared
- * property distinguishing their gameplay consequences has been lost. The
- * per-part source and formula are included conservatively: a card may give
- * two otherwise identical dice source-specific effects. This is not a new
- * rule for choosing dice; it merely recognizes when either choice is equal.
- */
+/** Equal results require a choice only if their damage type or traits differ. */
 function sameRemovalConsequences(a,b){
-  const normalizedTraits=p=>Array.isArray(p.traits)?[...new Set(p.traits.map(t=>
-    String(t).trim().toLocaleLowerCase('ru')))].sort().join('\u0000'):'';
-  return String(a.damageType??'').trim().toLocaleLowerCase('ru')===
-      String(b.damageType??'').trim().toLocaleLowerCase('ru') &&
-    normalizedTraits(a)===normalizedTraits(b) &&
-    (a.source??null)===(b.source??null) &&
-    (a.kind??null)===(b.kind??null) &&
-    (a.formula??null)===(b.formula??null) &&
-    (a.faces??null)===(b.faces??null) &&
-    (a.profilePart??null)===(b.profilePart??null);
+  const normalize=v=>String(v??'').trim().toLocaleLowerCase('ru');
+  const traits=p=>JSON.stringify([...new Set((p.traits??[]).map(normalize))].sort());
+  return normalize(a.damageType)===normalize(b.damageType)&&traits(a)===traits(b);
 }
 
 
@@ -72,7 +60,7 @@ export function areaRemovalSteps(degree,count,custom=null){
 /** Choose removal steps from the full pool, then apply them only to parts
  * the recipient is not immune to. Keep the identity of each remaining die.
  */
-export function selectAreaDamageParts(parts,degree,custom=null,{immunePartIds=[]}={}){
+export function selectAreaDamageParts(parts,degree,custom=null,{immunePartIds=[],choices=[]}={}){
   if(!Array.isArray(parts)||parts.some(p=>!p||typeof p.id!=='string'||
     typeof p.value!=='number'||!Number.isFinite(p.value)||p.value<0))
     return fail('invalid-area-parts');
@@ -81,8 +69,8 @@ export function selectAreaDamageParts(parts,degree,custom=null,{immunePartIds=[]
   if(!removal.ok)return removal;
   const immune=new Set(immunePartIds);
   const remaining=parts.filter(part=>!immune.has(part.id));
-  const removed=[];
-  for(const step of removal.steps){
+  const removed=[],decisions=[];
+  for(const [stepIndex,step] of removal.steps.entries()){
     if(step==='all'){removed.push(...remaining.splice(0));break;}
     if(!remaining.length)break;
     let index=0;
@@ -91,15 +79,22 @@ export function selectAreaDamageParts(parts,degree,custom=null,{immunePartIds=[]
         remaining[i].value>remaining[index].value)index=i;
     }
     const tied=remaining.filter(p=>p.value===remaining[index].value);
-    // A mixed tie requires the defender's choice, which has no approved
-    // extra interface in the area chat. The single 'all' step is handled
-    // above and never creates such ambiguity.
-    if(tied.length>1 &&
-       tied.some(p=>!sameRemovalConsequences(tied[0],p)))
-      return {...fail('ambiguous-area-die-tie'),step,tiedPartIds:tied.map(p=>p.id)};
+    const chosen=choices[stepIndex];
+    const ambiguous=tied.length>1&&tied.some(p=>!sameRemovalConsequences(tied[0],p));
+    if(chosen!=null){
+      index=remaining.findIndex(p=>p.id===chosen);
+      if(index<0){
+        decisions.push({stepIndex,step,currentId:null,candidates:remaining.map(p=>p.id)});
+        return {...fail('invalid-area-choice'),decisions};
+      }
+    }
+    const unresolved=chosen==null&&ambiguous;
+    decisions.push({stepIndex,step,currentId:unresolved?null:remaining[index].id,
+      candidates:(unresolved?tied:remaining).map(p=>p.id)});
+    if(unresolved)return {...fail('ambiguous-area-die-tie'),step,tiedPartIds:tied.map(p=>p.id),decisions};
     removed.push(...remaining.splice(index,1));
   }
   const kept=new Set(remaining.map(p=>p.id));
   return {ok:true,includedPartIds:parts.filter(p=>kept.has(p.id)).map(p=>p.id),
-    excludedPartIds:removed.map(p=>p.id),custom:removal.custom};
+    excludedPartIds:removed.map(p=>p.id),custom:removal.custom,decisions};
 }

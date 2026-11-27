@@ -1,3 +1,4 @@
+import {activeConditionEffect} from '../effects/active-effect.mjs';
 import {actorClassDefinition} from './classes.mjs';
 /** Recipient-side shared potion counter. Publication or transfer is not receipt. */
 import {canReadChatContent} from './chat-visibility.mjs';
@@ -5,11 +6,14 @@ import {queueActorWrite} from './ability-accounting.mjs';
 const ID='fast-nri-v14';
 const flag=(doc,key)=>doc?.getFlag?.(ID,key)??doc?.flags?.[ID]?.[key];
 export const potionText=key=>game.i18n.localize(`FASTNRI.Potions.${key}`);
+export function potionBonusSources(actor){
+  return Array.from(actor?.allApplicableEffects?.()??actor?.effects?.contents??[]).filter(e=>activeConditionEffect(e)&&Number.isSafeInteger(flag(e,'potionMaxBonus'))).map(e=>({name:e.name,value:flag(e,'potionMaxBonus')}));
+}
 export function potionResource(actor){
   const items=actor?.items?.contents??[];
   const stable=items.some(i=>i.type==='ability'&&flag(i,'contentId')==='fnri7.rulebook.racial.ustoichivyi');
   const base=actor?.type==='character'&&Number.isSafeInteger(actor.system?.potionsBaseMax)?actor.system.potionsBaseMax:3;
-  const max=base+Number(stable)+(actorClassDefinition(actor)?.potionBonus??0);
+  const max=base+Number(stable)+(actorClassDefinition(actor)?.potionBonus??0)+potionBonusSources(actor).reduce((n,e)=>n+e.value,0);
   const used=Number.isSafeInteger(actor?.system?.potionsUsed)?actor.system.potionsUsed:0;
   return {used,max,over:used>max};
 }

@@ -1,0 +1,21 @@
+{
+  "name": "Строй защитника",
+  "type": "ability",
+  "_id": "fnrie10fb60ce981",
+  "system": {
+    "description": "При определении Окружения Строй для вас и соседних союзников считается на `1` больше.",
+    "category": "Способность Защитника",
+    "mechanics": {
+      "passive": true,
+      "formationBonus": 1
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.defender.formation",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Защитника / Строй защитника"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/social/diplomacy-peace-alliance.webp"
+}

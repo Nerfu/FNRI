@@ -1,0 +1,21 @@
+{
+  "name": "Чутьё на слабость",
+  "type": "ability",
+  "_id": "fnrirogue0000007",
+  "system": {
+    "description": "Если рядом с существом нет его стоящих союзников в сознании, оно считается застигнутым врасплох для вас.",
+    "category": "Способность Разбойника",
+    "mechanics": {
+      "passive": true,
+      "isolatedOffGuard": true
+    }
+  },
+  "flags": {
+    "fast-nri-v14": {
+      "contentId": "fnri7.rulebook.ability.rogue.weakness",
+      "source": "Fast NRI 7.0 rulebook.md / Способности Разбойника / Чутьё на слабость"
+    }
+  },
+  "effects": [],
+  "img": "icons/skills/targeting/target-strike-gray.webp"
+}
