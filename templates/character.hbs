@@ -78,7 +78,7 @@
 <label>{{localize "FASTNRI.Fields.level"}}<input class="fnri-number" type="text" data-dtype="Number" data-integer="true" inputmode="decimal" name="system.level" value="{{system.level}}" {{#unless editable}}disabled{{/unless}}></label>
 <label>{{localize "FASTNRI.Fields.race"}}<button type="button" data-action="chooseIdentity" data-identity="race" {{#unless editable}}disabled{{/unless}}>{{#if system.race}}{{system.race}}{{else}}{{localize "FASTNRI.CharacterChoice.choose"}}{{/if}}</button></label>
 <label>{{localize "FASTNRI.Fields.className"}}<button type="button" data-action="chooseIdentity" data-identity="className" {{#unless editable}}disabled{{/unless}}>{{#if system.className}}{{system.className}}{{else}}{{localize "FASTNRI.CharacterChoice.choose"}}{{/if}}</button></label>
-<label>{{localize "FASTNRI.Fields.role"}}<button type="button" data-action="chooseIdentity" data-identity="role" {{#unless editable}}disabled{{/unless}}>{{#if system.role}}{{system.role}}{{else}}{{localize "FASTNRI.CharacterChoice.choose"}}{{/if}}</button></label>
+<label>{{localize "FASTNRI.Fields.role"}}<button type="button" data-action="chooseIdentity" data-identity="role" {{#unless editable}}disabled{{/unless}}>{{#if roleDisplay}}{{roleDisplay}}{{else}}{{localize "FASTNRI.CharacterChoice.choose"}}{{/if}}</button></label>
 </div>
 <div class="fnri-racial-properties">
   <strong>{{localize "FASTNRI.RacialProperties.title"}}</strong>
@@ -210,7 +210,7 @@
 {{#if hasMissingEquipment}}<div class="fnri-row-head fnri-warning"><span>{{localize "FASTNRI.Hints.clearMissingEquipment"}}</span>
   {{#if editable}}<button type="button" data-action="cleanOrphanedEquipment">{{localize "FASTNRI.Equipment.cleanMissing"}}</button>{{/if}}</div>{{/if}}
 </section></div>
-<div class="fnri-tab-content" data-fnri-panel="role" {{#unless tabs.role}}hidden{{/unless}}><section class="fnri-panel"><h3>{{#if system.role}}{{system.role}}{{else}}{{localize "FASTNRI.RoleView.empty"}}{{/if}}</h3>
+<div class="fnri-tab-content" data-fnri-panel="role" {{#unless tabs.role}}hidden{{/unless}}><section class="fnri-panel"><h3>{{#if roleDisplay}}{{roleDisplay}}{{else}}{{localize "FASTNRI.RoleView.empty"}}{{/if}}</h3>
 {{#if roleDetails}}<ul class="fnri-role-benefits">{{#each roleDetails}}<li>{{this}}</li>{{/each}}</ul>{{else}}<p>{{localize "FASTNRI.RoleView.noRules"}}</p>{{/if}}</section></div>
 <div class="fnri-tab-content" data-fnri-panel="effects" {{#unless tabs.effects}}hidden{{/unless}}><section class="fnri-panel"><h3>{{localize "FASTNRI.ModifierView.title"}}</h3>
 {{#each modifierGroups}}<div class="fnri-modifier-group"><div class="fnri-modifier-heading"><strong>{{this.name}}</strong><span>{{this.total}}</span></div>{{#each this.sources}}<div class="fnri-modifier-row"><span>{{this.source}} <small>{{this.note}}</small></span><strong>{{this.value}}</strong></div>{{/each}}</div>{{else}}<p class="fnri-muted">{{localize "FASTNRI.ModifierView.empty"}}</p>{{/each}}</section>

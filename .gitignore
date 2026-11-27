@@ -6,3 +6,7 @@
 /packs/projections/
 /node_modules/
 /dist/
+
+# Private FNRI game archives (not system content).
+Fast_NRI_Game_*.zip
+*.fnri-game.zip

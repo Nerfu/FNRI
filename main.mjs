@@ -1,4 +1,6 @@
 import {registerCreatureSizes,setCreatureSize} from "./module/data/creature-size.mjs";
+import {registerGameArchive,importGameArchive} from "./module/data/game-archive.mjs";
+import {registerWorldRoles} from "./module/data/roles.mjs";
 import {conditionHudClass} from './module/effects/condition-hud.mjs';
 import {registerConditionStatuses} from './module/effects/condition-statuses.mjs';
 import {registerHpLimit} from "./module/damage/hp-limit.mjs";
@@ -59,6 +61,8 @@ import {
 const SYSTEM_ID = "fast-nri-v14";
 
 Hooks.once("init", () => {
+  registerGameArchive();
+  registerWorldRoles();
   registerConditionStatuses();
   CONFIG.Token.hudClass = conditionHudClass(CONFIG.Token.hudClass ?? foundry.applications.hud.TokenHUD);
   registerCheckLinks();
@@ -151,7 +155,8 @@ Hooks.once("init", () => {
     inspectDamageDefenseSources,previewDeclaredDamageDefenses,calculatePeriodicTick,planPeriodicHp,periodicEndPlan,retryPeriodicOutbox,
     reconcileDeathEffects,planDeathTransition,deathStateOf});
   // Game cards are shipped as Foundry-native system compendiums.
-  // Import and dragging use Foundry core APIs; there is no custom importer.
+  // Rulebook cards retain native compendiums. Separate game ZIPs use native Document/FilePicker APIs.
+  game.system.api.importGameArchive = importGameArchive;
   Object.assign(game.system.api,{findProjectionActor,findProjectionActors,projectionActorsForAbility,
     linkProjectionActor,unlinkProjectionActor,resolveSpellOrigin,
     isProjectionToken,projectionCaster,projectionSpatialPreview});

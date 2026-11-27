@@ -26,7 +26,7 @@ export function registerClassLifecycle(){
     return grantClassAbilities(actor).then(async()=>{
       if(enterClass && classDefinition(actor.system)?.name==='Клерик'){
         const item=actor.items.contents.find(i=>i.getFlag('fast-nri-v14','contentId')===CLERIC_WEAPON_PROFICIENCY_ID);
-        if(item)await editClassWeaponProficiency(item,{initial:true});
+        if(item&&!item.system?.mechanics?.weaponProficiency?.weaponContentIds?.length)await editClassWeaponProficiency(item,{initial:true});
         const nature=actor.items.contents.find(i=>i.system?.mechanics?.classNature);
         if(nature&&!nature.system.mechanics.classNature.selection)await editClassNature(nature);
       }

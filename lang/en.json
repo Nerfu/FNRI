@@ -1065,6 +1065,14 @@
       },
       "offGuard": "Off guard",
       "slowed": "Slowed"
+    },
+    "GameArchive": {
+      "title": "Game content",
+      "button": "Import game archive",
+      "hint": "Select a Fast NRI game archive v1 ZIP. Existing imported documents are not replaced.",
+      "running": "Importing…",
+      "done": "Created: {created}; skipped: {skipped}; files: {uploaded}.",
+      "failed": "Import interrupted: {error}. Created: {created}; skipped: {skipped}; files: {uploaded}. You can retry."
     }
   }
 }

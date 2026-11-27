@@ -38,6 +38,8 @@ for hbs in (root/'templates').glob('*.hbs'):
         assert 'name="' in src and 'fnri-body' in src
     elif hbs.name == 'effects-panel.hbs':
         assert 'data-effect-uuid' in src
+    elif hbs.name == 'game-archive.hbs':
+        assert 'type="file"' in src and 'data-import-status' in src and 'type="submit"' in src
     else:
         assert hbs.name in {'actor-actions.hbs','actor-standard-action.hbs','actor-core-skill.hbs','actor-custom-skill.hbs','actor-short-rest.hbs','actor-resource.hbs','actor-abilities.hbs','token-ruler-label.hbs'}, f'Unclassified template: {hbs.name}'
 for name in ('character','npc'):

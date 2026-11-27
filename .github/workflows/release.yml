@@ -112,7 +112,7 @@ jobs:
           gh release create "$tag" dist/fast-nri-v14.zip \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Fast NRI 7.0 — $tag (Foundry 14)" \
-            --notes 'Полноценный релиз 0.3.0 для Foundry VTT 14: первичное наполнение расовыми и классовыми способностями. Игровая проверка и дальнейшие исправления проводятся после публикации. Миграции промежуточных данных нет; рекомендуется чистый тестовый мир. Подробности в CHANGELOG.'
+            --notes-file CHANGELOG.md
           verify_dir="$(mktemp -d)"
           gh release download "$tag" --pattern fast-nri-v14.zip --dir "$verify_dir" --repo "$GITHUB_REPOSITORY"
           cmp dist/fast-nri-v14.zip "$verify_dir/fast-nri-v14.zip"

@@ -7,6 +7,17 @@
       {{#if deprecated}}<p class="fnri-deprecated">{{localize "FASTNRI.Hints.deprecated"}}</p>{{/if}}
     </div>
   </header>
+  {{#if system.mechanics.roleDefinition}}
+  <section class="fnri-panel">
+    <h3>{{localize "FASTNRI.Fields.role"}}</h3>
+    <div class="fnri-grid-3">
+      <label>{{localize "FASTNRI.Fields.awareness"}}<input type="number" step="1" data-dtype="Number" name="system.mechanics.roleDefinition.defenses.awareness" value="{{system.mechanics.roleDefinition.defenses.awareness}}" {{#unless editable}}disabled{{/unless}}></label>
+      <label>{{localize "FASTNRI.Fields.reflex"}}<input type="number" step="1" data-dtype="Number" name="system.mechanics.roleDefinition.defenses.reflex" value="{{system.mechanics.roleDefinition.defenses.reflex}}" {{#unless editable}}disabled{{/unless}}></label>
+      <label>{{localize "FASTNRI.Fields.fortitude"}}<input type="number" step="1" data-dtype="Number" name="system.mechanics.roleDefinition.defenses.fortitude" value="{{system.mechanics.roleDefinition.defenses.fortitude}}" {{#unless editable}}disabled{{/unless}}></label>
+      <label>{{localize "FASTNRI.Fields.will"}}<input type="number" step="1" data-dtype="Number" name="system.mechanics.roleDefinition.defenses.will" value="{{system.mechanics.roleDefinition.defenses.will}}" {{#unless editable}}disabled{{/unless}}></label>
+    </div>
+  </section>
+  {{/if}}
   {{#if classWeaponChoice}}
   <section class="fnri-panel">
     <div class="fnri-row-head"><strong>{{item.name}}</strong><span>{{classWeaponName}}</span></div>

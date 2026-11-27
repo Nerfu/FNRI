@@ -32,7 +32,7 @@ import { useItem } from "../equipment/item-use.mjs";
 import { declareAction, actionAudience, actionSpeaker } from "../rolls/action-declaration.mjs";
 import { standaloneIntervention } from "../damage/standalone-intervention.mjs";
 import { cardRollKind } from "../rolls/roll-contributions.mjs";
-import { roleNames, roleDefinition } from "../data/roles.mjs";
+import { roleNames, roleDefinition, roleOptions, roleLabel } from "../data/roles.mjs";
 import { initiateCounteraction } from "../damage/counteraction.mjs";
 import { openEffectParametersEditor } from "../effects/effect-parameters-editor.mjs";
 import { isPhysicalWeaponCard, isPhysicalOtherItemAttack, sendWeaponAttack, sendOtherItemAttack } from "../weapon/weapon-attack.mjs";
@@ -1741,7 +1741,7 @@ export class FastNRICharacterSheet extends ActorBase {
       const die=skill&&allocation.dice.find(d=>d.id===allocation.rows[skill.id]?.die);
       return {...row,pool,displayFormula:pool?skillFormulaDisplay(row,this.actor.system.skills?.[row.id]??row,this.actor,{origin:pool.source,originalFace:die&&allocation.rows[skill.id].override===null?die.size:null}):row.displayFormula,formulaOpen:skill&&this._skillFormulaEditors.has(skill.id)};
     };
-    return {...context, system:base, roleDetails: roleDetails(this.actor.system),
+    return {...context, system:base, roleDisplay:roleLabel(this.actor.system), roleDetails: roleDetails(this.actor.system),
       rawHp:{...raw.hp,current:this.actor.system.hp?.current,temp:this.actor.system.hp?.temp}, basePotionMax:raw.potionsBaseMax??3,
       effectiveDiffs:{speed:base.speed!==this.actor.system.speed, ...Object.fromEntries(["hp","ac","defenses"].map(group=>[group,Object.fromEntries(Object.keys(base[group]??{}).map(key=>[key,base[group][key]!==this.actor.system[group]?.[key]]))]))},
       resourceRows:resourceRows(raw.resources,this.actor.system.resources),
@@ -1765,12 +1765,14 @@ export class FastNRICharacterSheet extends ActorBase {
     const field=button.dataset.identity;
     const choices={race:racialRaceNames,className:classNames,role:roleNames};
     if (!Object.hasOwn(choices,field)) return;
-    const selection=await chooseCharacterOption({title:localized("Fields."+field),names:choices[field](),current:this.actor.system[field],
+    const options=field==="role"?roleOptions():null;
+    const current=options?.find(o=>o.value===this.actor.system.role)?.label??this.actor.system[field];
+    const selection=await chooseCharacterOption({title:localized("Fields."+field),names:choices[field](),current,
       searchLabel:localized("RacialProperties.search"),clearLabel:localized("CharacterChoice.clear"),cancelLabel:localized("RacialProperties.cancel")});
     if (selection===null) return;
     await this._queueWrite(()=>this.actor.update(field==="className"
       ? classSelectionUpdate(this.actor,selection,{hpBonus:permanentRacialStats(this.actor).hpMax})
-      : {[`system.${field}`]:selection}),`system.${field}`);
+      : {[`system.${field}`]:options?.find(o=>o.label===selection)?.value??selection}),`system.${field}`);
   }
 
   static async chooseTradition() {
@@ -2099,7 +2101,7 @@ export class FastNRIItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
 function roleDetails(system){
   const rule=roleDefinition(system)?.[1];if(!rule)return [];
-  const rows=Object.entries(rule.defenses??{}).map(([key,value])=>`+${value} · ${localized('Fields.'+key)}`);
+  const rows=Object.entries(rule.defenses??{}).filter(([,value])=>value!==0).map(([key,value])=>`${value>=0?'+':''}${value} · ${localized('Fields.'+key)}`);
   if(rule.startingWealth)rows.push(`+${rule.startingWealth} · ${localized('RoleView.wealth')}`);
   if(rule.racialChoices)rows.push(`+${rule.racialChoices} · ${localized('RoleView.racial')}`);
   for(const value of new Set(rule.rollContributions?.map(row=>row.value)??[])){
