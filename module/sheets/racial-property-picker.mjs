@@ -1,6 +1,6 @@
 import {
   RACIAL_SYSTEM_ID, racialLabel as label, racialContentId, racialPropertyRule,
-  racialPropertyChoices, selectedRacialPropertyChoice, racialState, racialAddWarnings, racialPermissions, racialAddBlock, racialRemoveBlock, racialChoicesForItem, selectedRacialChoiceForItem
+  racialPropertyChoices, selectedRacialPropertyChoice, racialState, racialAddWarnings, racialPermissions, racialAddBlock, racialRemoveBlock, racialChoicesForItem, selectedRacialChoiceForItem, racialChoiceSource
 } from "../data/racial-properties.mjs";
 
 const esc = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -229,7 +229,11 @@ export async function addRacialProperty(actor, card, selection, {automatic = fal
   delete data.folder;
   delete data._stats;
   data.system.mechanics.racialProperty = rule;
-  if (automatic) data.flags[RACIAL_SYSTEM_ID].automaticRacialProperty = true;
+  if (automatic || racialState(actor).innate.has(racialContentId(card))) data.flags[RACIAL_SYSTEM_ID].automaticRacialProperty = true;
+  else {
+    const source=racialChoiceSource(actor,card);
+    if(source)data.flags[RACIAL_SYSTEM_ID].racialChoiceSource=source;
+  }
   if (actor.items.has(data._id)) delete data._id;
   try {
     const [item] = await actor.createEmbeddedDocuments("Item", [data], {keepId: Boolean(data._id), fnriPicker: true});

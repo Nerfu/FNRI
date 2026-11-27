@@ -63,5 +63,31 @@ const spell=await sendOtherItemAttack(blast,human,{execution:blast.system.mechan
 await human.update({'system.hp.max':23,'system.defenses.fortitude':17,'system.hp.current':7,'system.hp.temp':3,'system.resources.class_magic.current':1,'system.potionsUsed':4});assert.equal(human.system.hp.max,23);assert.equal(human.system.defenses.fortitude,19);for(let i=0;i<3;i++){human.prepare();assert.equal(human.system.defenses.fortitude,19);assert.equal(human.system.ac.great,21);assert.equal(human.system.resources.class_magic.current,1);}
 await dragon.update({'system.resources.class_magic.current':2});const combat=new FastNRICombat([{actor:human},{actor:human}]);await combat.startCombat();assert.equal(human.system.resources.class_magic.current,4);assert.equal(dragon.system.resources.class_magic.current,2);assert.equal(human.system.hp.current,7);assert.equal(human.system.potionsUsed,4);await human.update({'system.resources.class_magic.current':1});await combat.startCombat();assert.equal(human.system.resources.class_magic.current,1);
 await restActor(human);assert.equal(human.system.hp.current,23);assert.equal(human.system.hp.temp,0);assert.equal(human.system.potionsUsed,0);assert.equal(human.system.resources.class_magic.current,4);assert.equal(dragon.system.resources.class_magic.current,2);
-await human.update({'system.role':''});assert.equal(human.system.defenses.fortitude,17);assert.equal(racialState(human).max,3);assert.equal(racialState(human).used,4);assert.ok(racialAddWarnings(human,card('racial.master-boia')).includes('limitReached'));await human.deleteEmbeddedDocuments('Item',[half.id]);await syncInnateProperties(human,false);human.prepare();assert.deepEqual(racialState(human).races,['human']);assert.equal(human.items.contents.length,5);assert.equal(human.system.ac.great,21,'manually owned wings are retained and remain functional');assert.equal(human.system.resources.class_magic.current,4);
+await human.update({'system.role':''});await syncInnateProperties(human);assert.equal(human.system.defenses.fortitude,17);assert.equal(racialState(human).max,3);assert.equal(racialState(human).used,3);assert.ok(!human.items.contents.some(i=>i.name==='Драконьи крылья'));assert.ok(racialAddWarnings(human,card('racial.master-boia')).includes('limitReached'));await human.deleteEmbeddedDocuments('Item',[half.id]);await syncInnateProperties(human,false);human.prepare();assert.deepEqual(racialState(human).races,['human']);assert.equal(human.items.contents.length,4);assert.equal(human.system.ac.great,19,'lost role and ancestry contributions removed');assert.equal(human.system.resources.class_magic.current,4);
 console.log('PASS combined Human-Halfblood/Dragonborn Warlock Heir: real innate grants and choice, race limits, class/role/wing stats, skills and reset, social preroll, claw warning and attack, combat/repeated start/rest, manual base and free correction');
+
+// 0.3.1: selected properties have distinct racial/role sources, not names.
+foundry.applications.api.DialogV2.wait=natureChoice;
+const transition=hero('transition','Эльф');await syncInnateProperties(transition);
+const half2=await addRacialProperty(transition,card('racial.polukrovka'),'draconic');await syncInnateProperties(transition);
+const advanced=await addRacialProperty(transition,card('racial.elfiiskii-erudit'),null);
+const wings=await addRacialProperty(transition,card('racial.drakoni-krylia'),null);
+assert.deepEqual(half2.getFlag(NS,'racialChoiceSource'),{kind:'race',slot:0});
+assert.deepEqual(advanced.getFlag(NS,'racialChoiceSource'),{kind:'race',slot:1});
+assert.deepEqual(wings.getFlag(NS,'racialChoiceSource'),{kind:'role',slot:0});
+// Independently embedded card has no acquisition source and is not purged.
+const [manual]=await transition.createEmbeddedDocuments('Item',[find('racial.krepkij-khvost')]);
+const roleChange={'system.role':''};await transition.update(roleChange);await syncInnateProperties(transition);
+assert.ok(!transition.items.has(wings.id));assert.ok(transition.items.has(advanced.id));assert.ok(transition.items.has(manual.id));
+const beforeTransition=resolveSkillAllocation(transition.raw,transition.items.contents);
+const die=beforeTransition.dice.find(d=>d.id.includes('elfiiskii-erudit'));
+assert.ok(die);transition.raw.skillAllocation.assignments[die.id]='arcana';
+await transition.deleteEmbeddedDocuments('Item',[advanced.id]);await syncInnateProperties(transition);
+assert.equal(transition.raw.skillAllocation.assignments[die.id],undefined);
+const lowLight=transition.items.contents.find(i=>i.getFlag(NS,'contentId')==='fnri7.rulebook.vision.low-light');
+await transition.update({'system.race':'Драконообразный'});await syncInnateProperties(transition);
+assert.equal(transition.items.get(lowLight.id),lowLight,'shared innate preserved by identity');
+assert.equal(half2.system.mechanics.racialProperty.selection,'');assert.ok(transition.items.has(manual.id));
+await transition.update({'system.race':''});await syncInnateProperties(transition);
+assert.ok(!transition.items.has(half2.id));assert.ok(!transition.items.has(lowLight.id));assert.ok(transition.items.has(manual.id));
+console.log('PASS 0.3.1: role slot, independent manual Item, lost die, shared innate, invalid Half-Blood choice, clear ancestry');

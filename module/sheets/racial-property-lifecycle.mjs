@@ -2,11 +2,16 @@ import {queueActorWrite} from "../data/ability-accounting.mjs";
 import {
   RACIAL_SYSTEM_ID, racialLabel, racialContentId, racialState, racialPropertyRule,
   racialPropertyChoices, selectedRacialPropertyChoice, racialAddWarnings, changesAncestry,
-  racialAddBlock, racialRemoveBlock, racialCreationPlan, racialChoicesForItem, selectedRacialChoiceForItem
+  racialAddBlock, racialRemoveBlock, racialCreationPlan, racialChoicesForItem, selectedRacialChoiceForItem, obsoleteRacialProperty
 } from "../data/racial-properties.mjs";
 import {racialCatalog, addRacialProperty, chooseRacialSubproperty} from "./racial-property-picker.mjs";
 
-const automatic = item => item.getFlag(RACIAL_SYSTEM_ID, "automaticRacialProperty") === true;
+import {obsoleteSkillAllocationPatch} from '../data/skill-allocation.mjs';
+async function cleanSkillReferences(actor){
+  const raw=actor.toObject?.(true)?.system??actor.system;
+  const patch=obsoleteSkillAllocationPatch(raw,actor.items.contents);
+  if(Object.keys(patch).length)await actor.update(patch);
+}
 const openChoices = new WeakSet();
 // An explicit permitted removal must survive unrelated ancestry syncs.
 // This is composition state, not a journal or accounting event.
@@ -65,9 +70,25 @@ export async function editRacialSubproperty(item) {
 export async function syncInnateProperties(actor, grant = true) {
   const prompts = await queueActorWrite(actor, async () => {
     let state = racialState(actor);
-    const obsolete = actor.items.contents.filter(item => automatic(item) && !state.innate.has(racialContentId(item)));
-    if (obsolete.length) await actor.deleteEmbeddedDocuments("Item", obsolete.map(item => item.id), {fnriAncestrySync: true});
-    state = racialState(actor);
+    // An obsolete Half-Blood or Nature can itself remove another ancestry.
+    // Recompute after each removal batch, then grant the final innate set.
+    while(true){
+      const obsolete=actor.items.contents.filter(item=>obsoleteRacialProperty(actor,item,state));
+      if(!obsolete.length)break;
+      const before=actor.items.contents.length;
+      await actor.deleteEmbeddedDocuments("Item",obsolete.map(item=>item.id),{fnriAncestrySync:true});
+      state=racialState(actor);
+      if(actor.items.contents.length>=before)break;
+    }
+    // If the new primary race equals the selected second race, clear only
+    // the invalid choice; the universal Half-Blood card remains editable.
+    for(const item of actor.items.contents){
+      const rule=racialPropertyRule(item);
+      if(changesAncestry(item)&&rule?.selection&&!selectedRacialChoiceForItem(item,actor))
+        await item.update({"system.mechanics.racialProperty.selection":""},{fnriPicker:true});
+    }
+    state=racialState(actor);
+    await cleanSkillReferences(actor);
     const existing = new Set(actor.items.contents.filter(racialPropertyRule).map(racialContentId));
     const previous=suppressedInnates(actor);
     const suppressed=new Set([...previous].filter(id=>state.innate.has(id)&&!existing.has(id)));
@@ -123,10 +144,11 @@ export function registerRacialPropertyLifecycle() {
     if (shouldSync(actor, userId) && actor.system.race) reconcile(actor);
   });
 
-  Hooks.on("updateActor", (actor, change, _options, userId) => {
-    if (shouldSync(actor, userId) && (Object.hasOwn(change, "system.race") ||
-        Object.hasOwn(change.system ?? {}, "race"))) reconcile(actor);
-  });
+  const afterUpdate=(actor,change,_options,userId)=>{
+    if(shouldSync(actor,userId)&&["race","role"].some(field=>Object.hasOwn(change,`system.${field}`)||Object.hasOwn(change.system??{},field)))reconcile(actor);
+  };
+  Hooks.on("updateActor",afterUpdate);
+  Hooks.on("updateActorDelta",(delta,change,options,userId)=>afterUpdate(delta?.parent?.actor,change,options,userId));
 
   Hooks.on("createItem", (item, options, userId) => {
     const actor = item.parent;
@@ -150,8 +172,10 @@ export function registerRacialPropertyLifecycle() {
     // reconciliation on the same client. No hook waits on its own queue.
     const recorded=rememberInnateRemoval(item.parent,item);
     void recorded.catch(reportError);
-    if (!options.fnriAncestrySync && changesAncestry(item))
-      void recorded.then(()=>reconcile(item.parent,false)).catch(reportError);
+    if (!options.fnriAncestrySync){
+      if(changesAncestry(item))void recorded.then(()=>reconcile(item.parent,false)).catch(reportError);
+      else void queueActorWrite(item.parent,()=>cleanSkillReferences(item.parent)).catch(reportError);
+    }
   });
 }
 

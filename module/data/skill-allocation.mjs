@@ -41,6 +41,21 @@ export function skillDiceSources(system,items=[]){
   return {dice,upgrades,needsTradition:!!rule?.traditions&&!mandatoryClassSkills(system).length,active:!!rule||dice.length>0||upgrades.length>0};
 }
 
+/** Remove persisted references to grants which no longer exist. Manual overrides
+ * and specialization rows are independent of the grant pool. */
+export function obsoleteSkillAllocationPatch(system,items=[]){
+  const {dice,upgrades}=skillDiceSources(system,items);
+  const byId=new Map(dice.map(d=>[d.id,d]));
+  const byUpgrade=new Map(upgrades.map(u=>[u.id,u]));
+  const state=copyState(system.skillAllocation),patch={};
+  for(const id of Object.keys(state.assignments))
+    if(!byId.has(id))patch[`system.skillAllocation.assignments.-=${id}`]=null;
+  for(const [id,target] of Object.entries(state.upgrades))
+    if(!byUpgrade.has(id)||target&&byId.get(target)?.size!==byUpgrade.get(id).size)
+      patch[`system.skillAllocation.upgrades.-=${id}`]=null;
+  return patch;
+}
+
 export function resolveSkillAllocation(system,items=[],sourceSkills=system?.skills??{}){
   const {dice,upgrades,needsTradition,active}=skillDiceSources(system,items);
   const state=copyState(system?.skillAllocation), warnings=[];

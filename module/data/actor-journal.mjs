@@ -46,7 +46,7 @@ export function registerActorJournal() {
     // Reuse the existing per-message ability-use event, including its class costs.
     const accounting = asObject(delta.flags?.[SCOPE]?.accountingEvents);
     const usage = Object.values(accounting).find(e => e?.type === 'use' || e?.type === 'reset');
-    const resourceEdits = Object.entries(asObject(delta.system?.resources));
+    const resourceEdits = Object.entries(asObject(delta.system?.resources)).map(([id,row])=>id.startsWith('-=')?[id.slice(2),null]:[id,row]);
     const previousResources = asObject(old.resources);
     const classIds = new Set();
     if (resourceEdits.length) {

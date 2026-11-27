@@ -1781,7 +1781,10 @@ export class FastNRICharacterSheet extends ActorBase {
     const selection=await chooseCharacterOption({title:localized('SkillAllocation.traditionLabel'),names:choices.map(s=>s.name),current:choices.find(s=>s.id===this.actor.system.classTradition)?.name,
       searchLabel:localized('RacialProperties.search'),clearLabel:localized('CharacterChoice.clear'),cancelLabel:localized('RacialProperties.cancel')});
     if(selection===null)return;
-    await this._queueWrite(()=>this.actor.update({'system.classTradition':choices.find(s=>s.name===selection)?.id??''}),'system.classTradition');
+    await this._queueWrite(()=>{
+      if(classDefinition(this.actor.system)!==rule)return;
+      return this.actor.update({'system.classTradition':choices.find(s=>s.name===selection)?.id??''});
+    },'system.classTradition');
   }
   static async resetSkillDice() {
     if(!this.isEditable||this.configurationLocked||!await this._flushWrites())return;

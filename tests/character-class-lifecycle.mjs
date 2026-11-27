@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {CLASSES,classInitializationUpdate,classSelectionUpdate} from '../module/data/classes.mjs';
 import {registerClassLifecycle} from '../module/data/class-lifecycle.mjs';
 const setProperty=(obj,path,value)=>{const keys=path.split('.');let ptr=obj;for(const k of keys.slice(0,-1))ptr=ptr[k]??={};ptr[keys.at(-1)]=structuredClone(value);};
-const merge=(target,source)=>{for(const [k,v] of Object.entries(source??{})){if(v&&typeof v==='object'&&!Array.isArray(v)){target[k]??={};merge(target[k],v);}else target[k]=v;}return target;};
+const merge=(target,source,applyDeletes=false)=>{for(const [k,v] of Object.entries(source??{})){if(applyDeletes&&k.startsWith('-=')){delete target[k.slice(2)];continue;}if(v&&typeof v==='object'&&!Array.isArray(v)){target[k]??={};merge(target[k],v,applyDeletes);}else target[k]=v;}return target;};
 const expandObject=obj=>{const result={};for(const [path,v] of Object.entries(obj)){if(path.includes('.'))setProperty(result,path,v);else if(v&&typeof v==='object'&&!Array.isArray(v))result[path]=merge(result[path]??{},expandObject(v));else result[path]=v;}return result;};
 const hooks=new Map();globalThis.Hooks={on:(name,callback)=>hooks.set(name,callback)};globalThis.game={user:{id:'owner'}};globalThis.foundry={utils:{expandObject,setProperty}};
 registerClassLifecycle();const create=hooks.get('preCreateActor'),update=hooks.get('preUpdateActor');
@@ -18,13 +18,28 @@ for(const [className,id,name,current,max] of initial){
 for(const className of ['Защитник','Воин','Егерь','Разбойник','Боец'])assert.equal(Object.keys(classInitializationUpdate({...blank(),className})).some(k=>k.includes('resources')),false);
 const actor=makeActor();let change={'system.className':'Колдун'};update(actor,change,{},'owner');let expanded=expandObject(change);assert.equal(expanded.system.resources.class_magic.current,4);assert.equal(expanded.system.hp.current,19);merge(actor.system,expanded.system);
 actor.system.resources.class_magic.current=1;actor.system.hp.current=3;
-change={system:{className:'Бард'}};update(actor,change,{},'owner');assert.deepEqual(change.system.resources.class_rhythm,{name:'Ритм',current:0,max:3,kind:'class'});assert.equal(change.system.hp,undefined);merge(actor.system,change.system);assert.equal(actor.system.resources.class_magic.current,1);assert.equal(actor.system.hp.current,3);
-change={'system.className':'Колдун'};update(actor,change,{},'owner');assert.deepEqual(change,{'system.className':'Колдун'});
+change={system:{className:'Бард'}};update(actor,change,{},'owner');assert.deepEqual(change.system.resources.class_rhythm,{name:'Ритм',current:0,max:3,kind:'class'});assert.equal(change.system.hp,undefined);merge(actor.system,change.system,true);assert.equal(actor.system.resources.class_magic,undefined);assert.equal(actor.system.hp.current,3);
+change={'system.className':'Колдун'};update(actor,change,{},'owner');assert.equal(expandObject(change).system.resources.class_magic.current,4);assert.equal(expandObject(change).system.resources['-=class_rhythm'],null);
 change={system:{className:'Друид',resources:{class_life:{name:'Жизненная сила',current:2,max:5,kind:'class'}},hp:{current:0}}};update(actor,change,{},'owner');assert.equal(change.system.resources.class_life.current,2);assert.equal(change.system.hp.current,0);
 // An ordinary HP/resource write never resets or resurrects the class resource.
 change={'system.hp.current':0};update(actor,change,{},'owner');assert.deepEqual(change,{'system.hp.current':0});
 change={'system.resources.-=class_magic':null};update(actor,change,{},'owner');assert.deepEqual(change,{'system.resources.-=class_magic':null});
-change={'system.className':''};update(actor,change,{},'owner');assert.deepEqual(change,{'system.className':''});
+change={'system.className':''};update(actor,change,{},'owner');assert.equal(expandObject(change).system.resources['-=class_rhythm'],null);
+// Grant assignments disappear, shared free dice and manual overrides survive.
+const changedSource=makeActor({...blank(),className:'Колдун',classTradition:'arcana',
+ resources:{class_magic:{kind:'class',current:1,max:4},custom:{kind:'class',name:'Custom',current:2,max:7},assigned:{kind:'class',resourceKey:'class_magic',current:2,max:4}},
+ skillAllocation:{assignments:{class_arcana:'arcana',free_0:'nature'},upgrades:{orphan:'class_arcana'},overrides:{religion:'1d8'}}});
+const changeSource={'system.className':'Бард'};
+const deltaActor={parent:{actor:changedSource}};
+hooks.get('preUpdateActorDelta')(deltaActor,changeSource,{},'owner');
+merge(changedSource.system,expandObject(changeSource).system,true);
+assert.equal(changedSource.system.classTradition,'');assert.equal(changedSource.system.resources.class_magic,undefined);
+assert.equal(changedSource.system.resources.assigned,undefined);assert.equal(changedSource.system.resources.custom.current,2);
+assert.deepEqual(changedSource.system.skillAllocation,{assignments:{free_0:'nature'},upgrades:{},overrides:{religion:'1d8'}});
+const tradition=makeActor({...blank(),className:'Колдун',classTradition:'mysticism',skillAllocation:{assignments:{class_mysticism:'mysticism',free_0:'nature'},upgrades:{},overrides:{}}});
+const chooseTradition={'system.classTradition':'religion'};update(tradition,chooseTradition,{},'owner');
+assert.equal(expandObject(chooseTradition).system.skillAllocation.assignments['-=class_mysticism'],null);
+assert.equal(expandObject(chooseTradition).system.skillAllocation.assignments['-=free_0'],undefined);
 // Sheet selection and native hook do not produce a duplicate patch.
 const fresh=makeActor();change=classSelectionUpdate(fresh,'Колдун');const snapshot=structuredClone(change);update(fresh,change,{},'owner');assert.deepEqual(expandObject(change),{...expandObject(snapshot),system:{...expandObject(snapshot).system,resources:{...expandObject(snapshot).system.resources,intervention:{name:'Вмешательства',kind:'intervention',current:1,max:1}}}});
 // No player-world synchronization on another client, NPC/Projection untouched.

@@ -120,6 +120,40 @@ export function racialState(actor, items = actor?.items?.contents ?? []) {
   return {races, innate, nature, max: primary ? RACES[primary][1] + roleRacialChoices(actor) : null, used: chosen.size};
 }
 
+/** Slots are explicit acquisition sources, not restrictions on manual cards. */
+export function racialChoiceSource(actor,item){
+  const state=racialState(actor), id=racialContentId(item);
+  if(!state.races.length||state.innate.has(id)||!racialChoiceEligible(item,state))return null;
+  const occupied=new Set(actor.items.contents.filter(i=>!state.innate.has(racialContentId(i)))
+    .map(i=>i.getFlag?.(RACIAL_SYSTEM_ID,'racialChoiceSource')).filter(Boolean).map(s=>`${s.kind}:${s.slot}`));
+  const base=RACES[state.races[0]][1];
+  // Unattributed manual choices count toward the existing quota but are not
+  // retroactively assigned an origin.
+  let unassigned=Math.max(0,state.used-occupied.size);
+  for(const [kind,count] of [['race',base],['role',roleRacialChoices(actor)]]){
+    for(let slot=0;slot<count;slot++){
+      if(occupied.has(`${kind}:${slot}`))continue;
+      if(unassigned){unassigned--;continue;}
+      return {kind,slot};
+    }
+  }
+  return null;
+}
+function racialChoiceEligible(item,state){
+  const rule=racialPropertyRule(item),id=racialContentId(item);
+  return !!rule&&!rule.innateOnly&&(id===HALF_BLOOD||rule.universal===true||rule.races?.some(r=>state.races.includes(r)))&&
+    (!rule.nature||rule.nature===state.nature);
+}
+export function obsoleteRacialProperty(actor,item,state){
+  const id=racialContentId(item);
+  if(state.innate.has(id))return false;
+  if(item.getFlag?.(RACIAL_SYSTEM_ID,'automaticRacialProperty')===true)return true;
+  const source=item.getFlag?.(RACIAL_SYSTEM_ID,'racialChoiceSource');
+  if(!source)return false;
+  const count=source.kind==='role'?roleRacialChoices(actor):RACES[state.races[0]]?.[1]??0;
+  return !state.races.length||source.slot>=count||!racialChoiceEligible(item,state);
+}
+
 export function racialAddWarnings(actor, item, state = null) {
   const rule = racialPropertyRule(item);
   if (actor?.type !== "character" || !rule) return [];
