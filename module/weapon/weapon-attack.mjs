@@ -1,3 +1,5 @@
+import {captureSourceTurnExpiry} from '../effects/source-turn-expiry.mjs';
+import {attackOutcomePreview} from '../equipment/attack-outcomes.mjs';
 import {hasCondition,minimumCellGap,sameScene} from '../spatial/geometry.mjs';
 import {passiveRule,relativeOffGuard,targetOffGuard,appendCombatDice,combatDamageReferences,combatDamageEntries} from '../rolls/combat-dice-damage.mjs';
 import {currentAttackDegree} from '../abilities/degree-reduction.mjs';
@@ -18,8 +20,8 @@ import {spatialAttackContext,invisibleAttackSource} from '../spatial/spatial-con
  * Weapon fields and damage formulas are owned by the Item; rule core is shared.
  */
 import {
-  bestiaryAttackExpression, resolveAttackDegree, resolveCheckDegree, naturalAttackingD20, parseStandardPhysicalProfile,
-  standardPhysicalPartsForDegree, ferocityAttackDegree, ferocityDamageApplies
+  bestiaryAttackExpression, resolveAttackDegree, resolveCheckDegree, naturalAttackingD20, parsePhysicalAttackProfile,
+  physicalAttackPartsForDegree, ferocityAttackDegree, ferocityDamageApplies
 } from '../rolls/attack-core.mjs';
 import {snapshotDamageParts} from '../damage/damage-core.mjs';
 import {parseMagicAttackProfile,magicAttackPartsForDegree,magicCombatAttackExpression} from '../rolls/magic-attack-profile.mjs';
@@ -74,7 +76,7 @@ async function warnGmHiddenAreaTargets(tokens) {
 
 export function isPhysicalWeaponCard(item) {
   return item?.type === 'weapon' && item.system?.attackKind !== 'focus' &&
-    parseStandardPhysicalProfile(item.system?.damageProfile).ok;
+    parsePhysicalAttackProfile(item.system?.damageProfile).ok;
 }
 
 /** The printed class list suggests *ordinary* proficiency, but explicit card
@@ -167,7 +169,7 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
   defenseCheckModifier=0,defenseRemovalOrder='highest',
   greatSelfDefenseModifier=0,rerollWeaponLowOnce=false,catalystDeclared=false,spellRange=null,declaredSpellWeapon=false,chargedWeaponUuid=null,quickAttack=false} = {}) {
   const validProfile=profileKind==='magic' ? parseMagicAttackProfile(profile).ok :
-    profileKind==='physical' && parseStandardPhysicalProfile(profile).ok;
+    profileKind==='physical' && parsePhysicalAttackProfile(profile).ok;
   if (!validProfile) throw new Error('Invalid typed attack profile');
   const usedWeapon=weaponItem??(sourceItem?.type==='weapon'?sourceItem:null);
   const traitOptions=weaponTraitOptions(usedWeapon);
@@ -312,10 +314,18 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
       status:target.status,uuid:target.uuid??null,
       initialDegree:initial?.ok?initial.degree:null,...(target.attackOffGuard?{attackOffGuard:true}:{})};
   }):null;
+  const sourceTurnDegrees = !isArea && sourceItem ? ['partial','success','great'].filter(effectDegree =>
+    attackOutcomePreview(sourceItem,{effectDegree,executionId:execution?.id}).applicable
+      .some(rule => rule.untilSourceTurnStart)) : [];
+  const casterOrigin = sourceTurnDegrees.length && spatialOrigin?.kind === 'projection'
+    ? resolveSpellOrigin(actor,{allowProjection:false}) : spatialOrigin;
+  const sourceTurnExpiry = sourceTurnDegrees.length
+    ? captureSourceTurnExpiry(actor,game.combat,{uuid:casterOrigin?.tokenUuid}) : null;
   const data = {
     ...(isArea?{areaAttack:{version:1,targets:areaTargets,selectionManual:true,
       ...(parsedAreaDamageProfile?.ok?{damageProfile:parsedAreaDamageProfile.profile}:{}),
       ...(parsedAreaDamageProfile?.ok===false?{damageProfileInvalid:true}:{})}}:{}),
+    ...(sourceTurnDegrees.length ? {sourceTurnDegrees,sourceTurnExpiry} : {}),
     version:1, name, sourceUuid:privateAreaSource?null:sourceUuid, sourceKind,
     ...(finishing?{finishingAttack:true}:{}),
     ...(sneaky&&!isArea&&usesCombatDie?{combatDamageReferences:combatDamageReferences(roll,context.base,context)}:{}),
@@ -336,7 +346,8 @@ export async function sendAttackSnapshot({actor = null, name, profile, damageTyp
     ...(postDefenseDamage.length?{postDefenseDamage}:{}),
     ...(sourceItem?.system?.mechanics?.culmination===true?{culmination:true}:{}),
     profile:profileKind==='magic' ? {failure:profile.failure,partial:profile.partial,
-      success:profile.success,great:profile.great} : {A:profile.A,B:profile.B,C:profile.C},
+      success:profile.success,great:profile.great} : profile.degrees ?
+      {degrees:structuredClone(profile.degrees)} : {A:profile.A,B:profile.B,C:profile.C},
     ...(profileKind==='magic'?{profileKind:'magic'}:{}), damageType, properties,
     ...(execution?.attack?.damageRules && typeof execution.attack.damageRules==='object' ?
       {damageRules:{ignoreResistance:execution.attack.damageRules.ignoreResistance===true,
@@ -499,7 +510,7 @@ export function isPhysicalOtherItemAttack(item,actor=item?.parent?.documentName=
   const profile=rule?.damageProfile??(weapon?.system?.damageProfile);
   const expression=rule?.rollFormula??item?.system?.rollFormula??'';
   return item?.type !== 'weapon' && rule?.kind === 'physical' &&
-    parseStandardPhysicalProfile(profile).ok &&
+    parsePhysicalAttackProfile(profile).ok &&
     (!!String(expression).trim() || !!weapon);
 }
 
@@ -513,7 +524,7 @@ export async function sendOtherItemAttack(item, actor, {skipPreroll=false,action
   const unarmed=!magical && rule.unarmed===true;
   const weapon=magical||unarmed?null:(chosenPhysicalWeapon??resolveAbilityWeapon(item,actor));
   const profile=rule.damageProfile??weapon?.system?.damageProfile;
-  const valid=magical?parseMagicAttackProfile(profile).ok:parseStandardPhysicalProfile(profile).ok;
+  const valid=magical?parseMagicAttackProfile(profile).ok:parsePhysicalAttackProfile(profile).ok;
   if(!valid)throw new Error('Invalid attack execution profile');
   const explicitFormula=String(execution?.formula??rule.rollFormula??item.system.rollFormula??'').trim();
   // Explicit card-defined unarmed attack uses the same combat-die check, not a held weapon.
@@ -562,7 +573,7 @@ export async function sendOtherItemAttack(item, actor, {skipPreroll=false,action
 export function damageFormulaForDegree(profile, degree, {profileKind='physical'}={}) {
   if (!DEGREES.includes(degree)) return {ok:false,reason:'invalid-damage-degree'};
   const parts = profileKind==='magic' ? magicAttackPartsForDegree(profile,degree) :
-    standardPhysicalPartsForDegree(profile, degree);
+    physicalAttackPartsForDegree(profile, degree);
   if (!parts.ok) return parts;
   return {ok:true, parts:parts.parts, formula:parts.parts.map(p=>p.formula).join(' + ')};
 }
@@ -636,6 +647,7 @@ export async function sendWeaponDamage(message, degree, {rerollLowWeaponDice=fal
       attackTotal:Number.isFinite(correctedTotal)?correctedTotal:data.attackTotal,
       naturalD20:data.naturalD20,profileKind:data.profileKind??'physical'}}:{}),
     name:data.name,degree,effectDegree:degree,profile:data.profile,
+    ...(data.sourceTurnDegrees?{sourceTurnDegrees:data.sourceTurnDegrees,sourceTurnExpiry:data.sourceTurnExpiry}:{}),
     ...(data.ferocity?{ferocity:true}:{}),
     ...(data.healLargestDamageDie?{healLargestDamageDie:true}:{}),
     ...(data.postDefenseDamage?{postDefenseDamage:data.postDefenseDamage}:{}),
@@ -703,7 +715,7 @@ export function registerWeaponChatControls() {
     const data = message.getFlag?.(SYSTEM_ID,'weaponAttack') ?? message.flags?.[SYSTEM_ID]?.weaponAttack;
     if (!data || data.version !== 1 || message.getFlag?.(SYSTEM_ID,'weaponDamage')?.areaAttack ||
       !(data.profileKind==='magic'?parseMagicAttackProfile(data.profile).ok:
-        parseStandardPhysicalProfile(data.profile).ok)) return;
+        parsePhysicalAttackProfile(data.profile).ok)) return;
     if (!html?.querySelector) return;
     if (html.querySelector('[data-fnri-weapon-damage]')) return;
     const container = document.createElement('div');

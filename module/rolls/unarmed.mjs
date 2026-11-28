@@ -1,7 +1,7 @@
 /** Always-available unarmed action with selectable card-provided alternatives. */
 import { actorClassDefinition, CLASSES } from '../data/classes.mjs';
 import { BASE_UNARMED_ATTACK, FIGHTER_UNARMED_ATTACK } from '../data/core-actions.mjs';
-import { bestiaryAttackExpression, parseStandardPhysicalProfile } from './attack-core.mjs';
+import { bestiaryAttackExpression, parsePhysicalAttackProfile } from './attack-core.mjs';
 import { sendAttackSnapshot } from '../weapon/weapon-attack.mjs';
 import { itemSlot, HANDS } from '../equipment/equipment.mjs';
 import { itemAttackRules } from '../equipment/item-properties.mjs';
@@ -52,13 +52,13 @@ export function availableUnarmedActions(actor) {
     const rule = unarmedRule(item);
     if (!['replace', 'option'].includes(rule?.mode) || rule.active === false ||
         !ITEM_ID.test(String(item.id ?? '')) ||
-        !parseStandardPhysicalProfile(rule.damageProfile).ok) return false;
+        !parsePhysicalAttackProfile(rule.damageProfile).ok) return false;
     return item.type === 'ability' || Boolean(itemSlot(item.id, actor.system));
   }).map(item => {
     const rule = unarmedRule(item);
     return {
       key: `item:${item.id}`, name: String(rule.name || item.name || base.name),
-      damageProfile: {A: rule.damageProfile.A, B: rule.damageProfile.B, C: rule.damageProfile.C},
+      damageProfile: structuredClone(rule.damageProfile),
       damageType: String(rule.damageType || base.damageType),
       properties: String(rule.properties || base.properties),
       rollFormula: String(rule.rollFormula ?? ''), sourceUuid: item.uuid ?? null,

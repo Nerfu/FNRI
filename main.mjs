@@ -1,3 +1,4 @@
+import {registerSourceTurnExpiry} from './module/effects/source-turn-expiry.mjs';
 import {registerCreatureSizes,setCreatureSize} from "./module/data/creature-size.mjs";
 import {registerGameArchive,importGameArchive} from "./module/data/game-archive.mjs";
 import {registerWorldRoles} from "./module/data/roles.mjs";
@@ -64,6 +65,7 @@ Hooks.once("init", () => {
   registerGameArchive();
   registerWorldRoles();
   registerConditionStatuses();
+  registerSourceTurnExpiry();
   CONFIG.Token.hudClass = conditionHudClass(CONFIG.Token.hudClass ?? foundry.applications.hud.TokenHUD);
   registerCheckLinks();
   registerRacialSettings();

@@ -1,3 +1,4 @@
+import {expireSourceTurnEffects} from '../effects/source-turn-expiry.mjs';
 import {settlePeriodicHealingStartTurn} from '../damage/periodic-healing.mjs';
 /** Native v14 Combat lifecycle, following the technical pattern used by PF2e
  * and dnd5e systems. Core invokes _onEndTurn on one designated active GM. */
@@ -46,6 +47,8 @@ export class FastNRICombat extends foundry.documents.Combat {
     catch(error){console.error('Fast NRI | periodic healing start failed',error);}
     try {await settleTempHpTurnStart(this,combatant,context);}
     catch(error){console.error('Fast NRI | temporary HP start failed',error); }
+    try {await expireSourceTurnEffects(this,combatant,context);}
+    catch(error){console.error('Fast NRI | source-turn effect expiry failed',error);}
     try {await remindConditionsAtTurnStart(this,combatant,context);}
     catch(error){console.warn('Fast NRI | condition reminder failed',error);}
   }

@@ -1,7 +1,7 @@
 /** Fast NRI 7.0 — isolated, serializable damage calculations. Never mutates a Roll.
  * No implicit immunities/resistances: resolved values are supplied by cards/GM.
  */
-import {resolveDirectedEffectDegree,standardPhysicalPartsForDegree,ferocityDamageApplies} from '../rolls/attack-core.mjs';
+import {resolveDirectedEffectDegree,physicalAttackPartsForDegree,ferocityDamageApplies} from '../rolls/attack-core.mjs';
 import {magicAttackPartsForDegree} from '../rolls/magic-attack-profile.mjs';
 import {CHECK_DEFENSES} from '../rolls/attack-properties.mjs';
 import {tempHpMax,planTempHpLayers} from './temporary-hp-layers.mjs';
@@ -259,13 +259,21 @@ export function damageAtReducedDegree(card,degree) {
   const next=copy(card);
   if(card.ferocity&&card.postDefenseDamage?.some(o=>o.ferocity)&&degree==='partial')degree='failure';
   const retained = card.profileKind==='magic' ? magicAttackPartsForDegree(card.profile,degree) :
-    standardPhysicalPartsForDegree(card.profile,degree);
+    physicalAttackPartsForDegree(card.profile,degree);
   if (degree !== 'failure' && !retained.ok) throw Error('Missing damage profile for counteraction');
   const slots = new Set(retained.ok ? retained.parts.map(part => part.id) : []);
   for (const part of next.parts ?? []) {
     const slot = part.profilePart ?? (['A','B','C'].includes(part.id) ||
       (card.profileKind==='magic' && /^M[1-9]\d*$/.test(part.id)) ? part.id : null);
     if ((slot && !slots.has(slot)) || (part.ferocityDamage&&!ferocityDamageApplies(degree))) part.excluded = true;
+  }
+  // An explicitly authored lower degree can replace components. A fixed
+  // component needs no roll. A newly required die needs manual resolution.
+  if ((card.profile?.degrees || card.profileKind === 'magic') && retained.ok) {
+    const missing = retained.parts.filter(def => !next.parts?.some(part => (part.profilePart ?? part.id) === def.id));
+    if (missing.some(def => def.kind === 'die')) throw Error('Reduced degree requires an unevaluated damage die');
+    const added = snapshotDamageParts(null, missing.map(def => ({...def,profilePart:def.id})), card);
+    if (added.length) (next.parts ??= []).push(...added);
   }
   next.originalDegree = card.originalDegree ?? card.degree;
   next.degree = degree;
@@ -280,10 +288,10 @@ export function damageDegreeIncreaseParts(card,amount=1) {
   const from=['failure','partial','success','great'].indexOf(card?.degree);
   if(from<0||from===3||!Number.isInteger(amount)||amount<1||!Number.isInteger(card.naturalD20)||card.naturalD20<=1||card.naturalD20>20||card.areaAttack||card.postDefenseOrigin||card.intervention||card.ferocity||card.cancelled||card.effectDegree!==card.degree||card.parts?.some(p=>p.pending||p.excluded||p.immune))return null;
   const after=['failure','partial','success','great'][Math.min(3,from+amount)];
-  const profile=card.profileKind==='magic'?magicAttackPartsForDegree:standardPhysicalPartsForDegree;
+  const profile=card.profileKind==='magic'?magicAttackPartsForDegree:physicalAttackPartsForDegree;
   const previous=profile(card.profile,card.degree),next=profile(card.profile,after);
   if(!previous.ok||!next.ok||!Array.isArray(card.parts))return null;
-  const match=(part,definition)=>part?.kind===definition.kind&&(part.kind==='die'?part.faces===definition.faces:part.original===definition.value);
+  const match=(part,definition)=>definition&&part?.kind===definition.kind&&(part.kind==='die'?part.faces===definition.faces:part.original===definition.value);
   const bySlot=new Map();
   for(const part of card.parts){if(!part.profilePart)continue;if(bySlot.has(part.profilePart))return null;bySlot.set(part.profilePart,part);}
   if(bySlot.size!==previous.parts.length||previous.parts.some(d=>!match(bySlot.get(d.id),d)))return null;

@@ -122,3 +122,49 @@ export function standardPhysicalPartsForDegree(profile, degree) {
   if (!parsed.ok) return parsed;
   return pass({ degree, parts: parsed.parts.slice(0, index).map(part => ({ ...part })) });
 }
+
+/** Expand a card's explicit degree expressions into independently rolled parts.
+ * A part keeps its identity across degrees only while its die/value is the same.
+ */
+export function parseDamageByDegree(profile, prefix) {
+  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) return fail('missing-profile');
+  if (String(profile.failure ?? '').trim() !== '0') return fail('invalid-degree-profile', 'failure');
+  const partsByDegree = {failure: []};
+  const slots = new Map();
+  let nextId = 1;
+  for (const degree of ATTACK_DEGREES.slice(1)) {
+    const terms = String(profile[degree] ?? '').split('+').map(term => term.trim());
+    const parts = [];
+    const used = new Map();
+    for (const term of terms) {
+      const die = /^([1-9][0-9]*)d([1-9][0-9]*)$/i.exec(term);
+      const count = die ? Number(die[1]) : 1;
+      const faces = die ? Number(die[2]) : null;
+      const value = !die && /^[1-9][0-9]*$/.test(term) ? Number(term) : null;
+      if (count > 64 - parts.length || (die ? faces > 1000 : !Number.isSafeInteger(value)))
+        return fail('invalid-degree-profile', degree);
+      const formula = die ? `1d${faces}` : String(value);
+      if (!slots.has(formula)) slots.set(formula, []);
+      const ids = slots.get(formula);
+      const start = used.get(formula) ?? 0;
+      for (let index = start; index < start + count; index++) {
+        ids[index] ??= `${prefix}${nextId++}`;
+        parts.push({id:ids[index],formula,...(die ? {kind:'die',faces} : {kind:'fixed',value})});
+      }
+      used.set(formula,start + count);
+    }
+    partsByDegree[degree] = parts;
+  }
+  return pass({partsByDegree});
+}
+
+export function parsePhysicalAttackProfile(profile) {
+  return profile?.degrees ? parseDamageByDegree(profile.degrees, 'P') : parseStandardPhysicalProfile(profile);
+}
+
+export function physicalAttackPartsForDegree(profile, degree) {
+  if (!profile?.degrees) return standardPhysicalPartsForDegree(profile, degree);
+  if (!ATTACK_DEGREES.includes(degree)) return fail('invalid-attack-degree');
+  const parsed = parsePhysicalAttackProfile(profile);
+  return parsed.ok ? pass({degree,parts:parsed.partsByDegree[degree]}) : parsed;
+}

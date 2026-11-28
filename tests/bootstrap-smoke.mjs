@@ -26,7 +26,7 @@ class SheetMock {
 const deletes=Symbol('Foundry v14 _del');
 globalThis._del=deletes;
 globalThis.Hooks={once(name,fn){hooks.set(name,fn)},on(name,fn){hooks.set(name,fn)}};
-globalThis.CONFIG={statusEffects:{dead:{id:'dead',name:'Dead'}},Combat:{initiative:{}},Combatant:{},Token:{hudClass:class {static DEFAULT_OPTIONS={actions:{effect:{buttons:[0,2],handler(){}}}};}},TextEditor:{enrichers:[]},Actor:{dataModels:{thirdPartyActor:class{}}},Item:{dataModels:{thirdPartyItem:class{}}}};
+globalThis.CONFIG={statusEffects:{dead:{id:'dead',name:'Dead'}},Combat:{initiative:{}},Combatant:{},ActiveEffect:{expiryEvents:{},documentClass:class{}},Token:{hudClass:class {static DEFAULT_OPTIONS={actions:{effect:{buttons:[0,2],handler(){}}}};}},TextEditor:{enrichers:[]},Actor:{dataModels:{thirdPartyActor:class{}}},Item:{dataModels:{thirdPartyItem:class{}}}};
 globalThis.game={settings:{get:(_scope,key)=>key==='skillAllocationMode'?'free':'public',register(){},registerMenu(scope,key,data){registrations.push({scope,key,data})}},system:{id:'fast-nri-v14'},user:{isGM:false},i18n:{localize(key){return key;}}};
 let warnings=0,errors=0;
 globalThis.ui={notifications:{warn(){warnings++;},error(){errors++;}}};

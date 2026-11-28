@@ -71,6 +71,7 @@ export function attackOutcomePreview(item,{effectDegree=null,inflictedDamage=nul
       distance:Number.isFinite(rule.distance)?rule.distance:null,
       oncePerTurn:rule.oncePerTurn===true,requiresDamage:rule.requiresDamage===true,
       afterDamage:rule.afterDamage===true,
+      ...(rule.untilSourceTurnStart===true?{untilSourceTurnStart:true}:{}),
       requiresTarget:true,automaticallyApplied:false,
       // Require an explicit local or catalog reference.
       effectIds:Array.isArray(rule.effectIds)?rule.effectIds.filter(x=>typeof x==='string'&&x.trim()):[],

@@ -815,9 +815,7 @@ export function damageComponentDefinitions(context) {
  * groups keeps the snapshot aligned with the evaluated Roll without guessing
  * individual results from its aggregate total.
  *
- * This is specifically for the standard physical damage profile whose base
- * expression consists of one term per definition. Other profile adapters must
- * supply their own component mapping instead of silently changing this one.
+ * Every profile adapter supplies one base expression term per definition.
  */
 export function preparedDamageDefinitions(baseParts, context) {
   if (!Array.isArray(baseParts) || !baseParts.length) throw Error('Missing damage definitions');

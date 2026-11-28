@@ -5,6 +5,7 @@
 import {canReadChatContent} from '../data/chat-visibility.mjs';
 import {stableDocumentId} from '../data/document-id.mjs';
 import {attackOutcomeForDamageCard, confirmedAttackDamage, resolveOutcomeItem} from './attack-outcomes.mjs';
+import {setSourceTurnExpiry,sourceTurnIsPending} from '../effects/source-turn-expiry.mjs';
 import {newEndingInstance} from '../effects/effect-ending.mjs';
 import {createCardEffectData} from '../effects/apply-card-effect.mjs';
 import {createPeriodicDamageEffect,preparePeriodicDamage} from '../effects/periodic-effect.mjs';
@@ -133,6 +134,10 @@ export async function applyAttackOutcomeEffects(message, options={}) {
       appliedEffectUuids:[],appliedCount:0};
   }
 
+  const expiry = decision.instruction.untilSourceTurnStart ? latest.sourceTurnExpiry : null;
+  if (decision.instruction.untilSourceTurnStart && !sourceTurnIsPending(expiry,game.combat))
+    return {...decision,canApplyEffects:false,manual:true,reason:'source-turn-unavailable',
+      appliedEffectUuids:[],appliedCount:0};
   const datas = entries.filter(entry => !existing(entry)).map(({item, effect, id}) => {
     const data = createCardEffectData(item,effect,actor);
     if (card.areaOutcomeRedacted) delete data.origin;
@@ -140,6 +145,7 @@ export async function applyAttackOutcomeEffects(message, options={}) {
     data.flags ??= {};
     data.flags[SCOPE] ??= {};
     data.flags[SCOPE].attackOutcomeApplication = true;
+    if (expiry) setSourceTurnExpiry(data,expiry);
     if(data.flags[SCOPE].effectEnding==='general')data.flags[SCOPE].effectEndingInstance=newEndingInstance();
     if (decision.instruction.afterDamage) {
       data.flags[SCOPE].attackOutcomeReportKey = stableDocumentId('hpr', options.damageReportId);

@@ -1,3 +1,5 @@
+import {attackOutcomeForDamageCard} from '../equipment/attack-outcomes.mjs';
+import {applyAttackOutcomeEffects} from '../equipment/attack-outcome-application.mjs';
 import {canReadChatContent} from '../data/chat-visibility.mjs';
 import {renderAreaChat} from './area-attack.mjs';
 import {directedPostDefenseChoices,publishPostDefenseDamage} from './post-defense-damage.mjs';
@@ -103,6 +105,31 @@ export function renderDamageCard(message,html) {
       const current=game.messages?.get(message.id);if(!canReadChatContent(current))return;
       const amount=largestDamageDieHealing(current.getFlag(ID,'weaponDamage'));
       if(amount!==null)await applyHp({kind:'heal',amount,sourceMessage:current,...recipient,independent:true});
+    }));
+  }
+  if (game.user?.isGM && card.sourceTurnDegrees?.includes(card.effectDegree) && !card.cancelled) {
+    container.append(actionButton(l('applyEffect'),async()=>{
+      const current = game.messages?.get(message.id);
+      if (!isCurrentDirectedCoverSource(current)) {
+        ui.notifications?.info(l('latestEffectResult'));
+        return;
+      }
+      const currentCard = current.getFlag(ID,'weaponDamage');
+      const recipient = currentCard.originalTargetUuid ? await fromUuid(currentCard.originalTargetUuid) : await chooseHpRecipient();
+      if (!recipient?.actor) {
+        if (currentCard.originalTargetUuid) ui.notifications?.info(l('noTargetPermission'));
+        return;
+      }
+      const {actor:target} = recipient;
+      if (!isCurrentDirectedCoverSource(game.messages?.get(message.id))) return;
+      const preview = await attackOutcomeForDamageCard(current,{target});
+      for (const rule of preview.applicable.filter(rule=>rule.untilSourceTurnStart)) {
+        const result = await applyAttackOutcomeEffects(current,{target,index:rule.index,sourceUuid:rule.sourceUuid});
+        if (result.reason === 'source-turn-unavailable') {
+          ui.notifications?.info(l('sourceTurnUnavailable'));
+          break;
+        }
+      }
     }));
   }
   for(const choice of directedPostDefenseChoices(message))
