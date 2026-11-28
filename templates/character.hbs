@@ -1,7 +1,7 @@
 {{#if projectionSheet}}
 <section class="fnri-body fnri-projection-sheet">
   <header class="fnri-projection-heading">
-    <img class="fnri-portrait" src="{{actor.img}}" alt="">
+    <img class="fnri-portrait" src="{{actor.img}}" alt="" {{#if editable}}data-action="editImage" data-edit="img"{{/if}}>
     <div class="fnri-heading-fields">
       <label>{{localize "FASTNRI.Fields.name"}}<input type="text" name="name" value="{{actor.name}}" {{#unless editable}}disabled{{/unless}}></label>
       <small>{{localize "FASTNRI.Projection.actorKind"}}</small>
@@ -39,7 +39,7 @@
 <section class="fnri-body fnri-actor-body">
 <div class="fnri-persistent">
   <header class="fnri-summary-heading">
-    <img class="fnri-portrait" src="{{actor.img}}" alt="">
+    <img class="fnri-portrait" src="{{actor.img}}" alt="" {{#if editable}}data-action="editImage" data-edit="img"{{/if}}>
     <div class="fnri-summary-identity">
       <strong class="fnri-summary-name">{{actor.name}}</strong>
       <small>{{#if system.className}}{{system.className}}{{/if}}{{#if system.level}} · {{localize "FASTNRI.Fields.level"}} {{system.level}}{{/if}}</small>

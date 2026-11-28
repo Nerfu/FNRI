@@ -10,6 +10,7 @@
 .fast-nri-v14.fast-nri-sheet .fnri-heading { display: flex; gap: 14px; align-items: flex-start; }
 .fast-nri-v14.fast-nri-sheet .fnri-heading-fields { display: flex; flex: 1; flex-direction: column; gap: 8px; min-width: 0; }
 .fast-nri-v14.fast-nri-sheet .fnri-portrait { width: 84px; height: 84px; flex: none; object-fit: cover; border-radius: 6px; }
+.fast-nri-v14.fast-nri-sheet .fnri-portrait[data-action="editImage"] { cursor: pointer; }
 .fast-nri-v14.fast-nri-sheet .fnri-panel { padding: 11px 12px; border: 1px solid var(--color-border-light-tertiary, #8886); border-radius: 6px; margin-bottom: 10px; }
 .fast-nri-v14.fast-nri-sheet .fnri-panel h3 { margin: 0 0 8px; font-size: 1rem; font-weight: 600; border: 0; }
 .fast-nri-v14.fast-nri-sheet .fnri-racial-properties {
