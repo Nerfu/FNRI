@@ -13,6 +13,10 @@
     }
   },
   "FASTNRI": {
+    "PartyFolders": {
+      "party": "Партия",
+      "archive": "Архив персонажей"
+    },
     "CreatureSize": {
       "default": "Размер по умолчанию",
       "label": "Размер",

@@ -1,3 +1,4 @@
+import {ensurePartyFolders} from './module/data/party-folders.mjs';
 import {registerTokenPresentation} from "./module/token/token-visuals.mjs";
 import {registerHpFeedback} from "./module/token/hp-feedback.mjs";
 import {registerSourceTurnExpiry} from './module/effects/source-turn-expiry.mjs';
@@ -51,7 +52,7 @@ import {registerRacialPropertyLifecycle,racialItemDocumentClass} from "./module/
  * Fast NRI 7.0 — Foundry VTT v14 system initialization.
  * The subtype data models and sheets are registered during the init hook.
  * Roll and damage cards provide explicit, auditable interactions.
- * No migration or automatic world edits are performed during startup.
+ * No migrations or automatic Actor edits are performed during startup.
  */
 import {
   CharacterModel, NPCModel, WeaponModel, ArmorModel,
@@ -188,11 +189,16 @@ Hooks.once("init", () => {
 });
 
 /**
- * Read-only post-startup diagnostics. Sheet registrations are applied by
+ * Initialize organizational folders and run read-only post-startup diagnostics. Sheet registrations are applied by
  * Foundry after init; we inspect the public API only after ready.
  */
-Hooks.once("ready", () => {
+Hooks.once("ready", async () => {
   if (!game.user?.isGM) return;
+  try {
+    await ensurePartyFolders();
+  } catch (error) {
+    console.error("Fast NRI 7.0 | party folders creation failed", error);
+  }
   try {
     const api = foundry.applications.apps.DocumentSheetConfig;
     const types = [

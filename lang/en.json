@@ -13,6 +13,10 @@
     }
   },
   "FASTNRI": {
+    "PartyFolders": {
+      "party": "Party",
+      "archive": "Character Archive"
+    },
     "CreatureSize": {
       "default": "Default size",
       "label": "Size",

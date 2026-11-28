@@ -42,6 +42,7 @@ globalThis.foundry={
 installTemplateMock();
 await import(pathToFileURL(file('main.mjs')).href);
 assert.ok(hooks.has('init'));
+const mainReady=hooks.get('ready'); // This lightweight mock stores only one callback per hook.
 hooks.get('init')();
 assert.equal(Object.keys(CONFIG.statusEffects).filter(k=>k.startsWith('fnri7-')).length,16);
 assert.equal(CONFIG.statusEffects.dead.name,'Dead');
@@ -51,6 +52,20 @@ assert.deepEqual(Object.keys(CONFIG.Item.dataModels).sort(),['ability','armor','
 assert.equal(registrations.filter(x=>Array.isArray(x)).length,3);
 assert.equal(registrations.filter(x=>x.key==='importContent').length,0,'no importer registered during stage 4');
 assert.ok(hooks.has('renderChatMessageHTML'));
+// Startup wiring: only the active GM creates the system folders via Foundry.
+const folderCreates=[];
+game.folders={contents:[],documentClass:{async createDocuments(rows){folderCreates.push(rows);this.last=rows;return rows;}}};
+await mainReady();
+assert.equal(folderCreates.length,0);
+game.user.isGM=true;game.user.isActiveGM=true;
+const originalSheetReport=foundry.applications.apps.DocumentSheetConfig.getSheetClassesForSubType;
+foundry.applications.apps.DocumentSheetConfig.getSheetClassesForSubType=(doc,type)=>({sheetClasses:{[doc==='Item'?'FastNRIItemSheet':type==='npc'?'FastNRINPCSheet':'FastNRICharacterSheet']:{}},defaultClass:null});
+await mainReady();
+assert.equal(folderCreates.length,1);
+assert.deepEqual(folderCreates[0].map(row=>row.flags['fast-nri-v14'].partyFolder),['party','archive']);
+foundry.applications.apps.DocumentSheetConfig.getSheetClassesForSubType=originalSheetReport;
+game.user.isGM=false;delete game.user.isActiveGM;delete game.folders;
+
 for(const model of [CONFIG.Actor.dataModels.character.defineSchema(),CONFIG.Actor.dataModels.npc.defineSchema()]){
   for(const field of ['hp','ac','defenses','skills','resources','equipment','equipmentSlots','wealth'])assert.ok(model[field],field);
   assert.equal(model.skills.constructor,Field);
