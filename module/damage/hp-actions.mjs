@@ -412,6 +412,7 @@ export async function revertHpReport(message) {
         await current().update({[`${flag}.reverted`]:true,[`${flag}.pendingUndo`]:null,
           [`${flag}.revertedAt`]:Date.now(),[`${flag}.revertedBy`]:game.user.id,
           [`${flag}.undoId`]:undoId,
+          [`${flag}.reverseBefore`]:hpBeforeUndo,
           [`${flag}.reverseAfter`]:{current:reverse.current,temp:reverseTemp}});
       } catch(error) {
         const persisted=readReport();

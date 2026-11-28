@@ -133,7 +133,7 @@ export function grantTempHpPlan(actor,value,{id=randomId(),source={},expiry={}}=
 }
 export async function grantTempHp(actor,value,options={}) {
   const plan=grantTempHpPlan(actor,value,options);
-  await actor.update(plan.patch,{fnriJournal:{kind:'temp',reason:'Temporary HP layer'},fnriTempHp:'managed'});
+  await actor.update(plan.patch,{fnriJournal:{kind:'temp',reason:'Temporary HP layer'},fnriTempHp:'managed',fnriHpFeedbackLocal:true});
   if(plan.after.layers[plan.id]?.expiry?.marker==='shadowShield')await reconcileTempHpEffects(actor);
   return plan;
 }

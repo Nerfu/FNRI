@@ -29,7 +29,7 @@ async function flush(actor,combatant){
     const audience=hidden||!canReadChatContent(source)||original.whisper.length&&!narrower.whisper.length?gmChatAudience(source):narrower;
     if(!game.messages?.get?.(id)){
       const content=`<div class="fnri-hp-report"><strong>${esc(actor.name)} · Периодическое исцеление</strong><div>HP ${r.before} → ${r.after} (+${r.after-r.before})</div><small>${r.count}/${r.durationTicks}</small></div>`;
-      try{await ChatMessage.create({_id:id,speaker:ChatMessage.getSpeaker({actor}),...audience,content,flags:{[S]:{periodicHealingReport:true}}},{keepId:true});}
+      try{await ChatMessage.create({_id:id,speaker:ChatMessage.getSpeaker({actor}),...audience,content,flags:{[S]:{periodicHealingReport:{actorUuid:actor.uuid,tokenUuid:combatant.token?.uuid??null,hpDelta:r.after-r.before}}}},{keepId:true});}
       catch(error){if(!game.messages?.get?.(id))throw error;}
     }
     if(r.count>=r.durationTicks&&actor.effects?.get?.(r.effectId))await actor.deleteEmbeddedDocuments('ActiveEffect',[r.effectId]);

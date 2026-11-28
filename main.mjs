@@ -1,3 +1,5 @@
+import {registerTokenPresentation} from "./module/token/token-visuals.mjs";
+import {registerHpFeedback} from "./module/token/hp-feedback.mjs";
 import {registerSourceTurnExpiry} from './module/effects/source-turn-expiry.mjs';
 import {registerCreatureSizes,setCreatureSize} from "./module/data/creature-size.mjs";
 import {registerGameArchive,importGameArchive} from "./module/data/game-archive.mjs";
@@ -124,6 +126,8 @@ Hooks.once("init", () => {
   registerEffectsPanel();
   registerChatEffectDrag();
   registerHpLimit();
+  registerTokenPresentation();
+  registerHpFeedback();
   registerActorJournal();
   registerPrivateAreaSourceCleanup();
   registerAreaFollowUpButtons();

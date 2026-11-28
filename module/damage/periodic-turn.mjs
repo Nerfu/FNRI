@@ -31,7 +31,7 @@ function turnIdentity(combat,combatant,context) {
   const round=context?.round;
   if (!combat?.id || !combatant?.id || !Number.isSafeInteger(round)||round<1) return null;
   return {combatId:combat.id,combatantId:combatant.id,round,
-    key:`${combat.id}:${combatant.id}:${round}`};
+    key:`${combat.id}:${combatant.id}:${round}`,tokenUuid:combatant.token?.uuid??null};
 }
 function settledInTurn(previous, identity) {
   return previous?.combatId===identity.combatId &&
@@ -139,6 +139,8 @@ export async function retryPeriodicOutbox(actor) {
           content,
           flags:{[SCOPE]:{periodicReceipt:{version:1,id,turn:receipt.turnKey,
             targetActorUuid:actor.uuid,
+            ...(details?.tokenUuid?{tokenUuid:details.tokenUuid}:{}),
+            ...(Number.isFinite(details?.hpBefore)&&Number.isFinite(details?.hpAfter)?{hpDelta:details.hpAfter-details.hpBefore}:{}),
             ...(Number.isFinite(details?.calculation?.total)?{damage:details.calculation.total}:{})}}},
           ...reportAudience(details,receipt.privateResult===true)};
         try {await ChatMessage.create(output,{keepId:true});}
@@ -209,7 +211,7 @@ async function settleOne(actor,effectId,identity) {
     const receipt={version:1,id,messageId:stableMessageId(id),turnKey:identity.key,effectId,finish};
     const details={...receipt,sourceMessageId:data.sourceMessageId??null,
       ...(data.privateToGm?{privateToGm:true}:{}),
-      actorName:actor.name,effectName:effect.name,
+      actorName:actor.name,effectName:effect.name,tokenUuid:identity.tokenUuid??null,
       hpBefore:hp.before.current,hpAfter:hp.after.current,
       calculation,ending,check,...(markerItem?{zeroHpPrevented:true}:{}),checkRoll:checkRoll?.toJSON?.()??null,
       deathInitial:death.roll ? Number(death.roll.total) : null};
